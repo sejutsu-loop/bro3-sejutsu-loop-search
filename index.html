@@ -2385,6 +2385,58 @@ document.getElementById('copyOrderBtn').addEventListener('click',async()=>{
   }
 });
 
+// はてなブログ等の別ドメインiframe埋め込み用: 現在の実コンテンツ高を親へ通知する。
+// 高さ以外の入力内容・カード情報は送信しない。
+(function initEmbedAutoHeight(){
+  if(window.parent===window)return;
+  const MESSAGE_TYPE='bro3-sejutsu-loop-height';
+  let lastHeight=0;
+  let rafId=0;
+
+  function contentHeight(){
+    const main=document.querySelector('main');
+    if(main){
+      const rect=main.getBoundingClientRect();
+      const mb=parseFloat(getComputedStyle(main).marginBottom)||0;
+      return Math.ceil(window.scrollY+rect.bottom+mb);
+    }
+    const body=document.body;
+    return Math.ceil(body?body.getBoundingClientRect().bottom+window.scrollY:document.documentElement.scrollHeight);
+  }
+
+  function sendHeight(){
+    rafId=0;
+    const h=Math.max(1,contentHeight());
+    if(Math.abs(h-lastHeight)<2)return;
+    lastHeight=h;
+    window.parent.postMessage({type:MESSAGE_TYPE,height:h},'*');
+  }
+
+  function scheduleHeight(){
+    if(!rafId)rafId=requestAnimationFrame(sendHeight);
+  }
+
+  window.addEventListener('load',scheduleHeight);
+  window.addEventListener('resize',scheduleHeight);
+  document.addEventListener('DOMContentLoaded',scheduleHeight,{once:true});
+
+  if('ResizeObserver' in window){
+    const ro=new ResizeObserver(scheduleHeight);
+    const main=document.querySelector('main');
+    if(main)ro.observe(main);
+    else if(document.body)ro.observe(document.body);
+  }
+  if('MutationObserver' in window){
+    const mo=new MutationObserver(scheduleHeight);
+    mo.observe(document.documentElement,{subtree:true,childList:true,attributes:true,characterData:true});
+  }
+
+  // iframeロード直後のフォント・レイアウト確定にも追従。
+  setTimeout(scheduleHeight,0);
+  setTimeout(scheduleHeight,200);
+  setTimeout(scheduleHeight,800);
+})();
+
 </script>
 </body>
 </html>
