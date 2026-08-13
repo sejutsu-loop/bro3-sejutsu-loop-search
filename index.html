@@ -73,7 +73,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <h2>1. カードファイルからコピーした内容を貼り付け</h2>
     <div class="notice">
       <b>カードファイル画面で「小15枚表示」または「小60枚表示」にして、対象カードをまとめてコピーし、そのまま貼り付けてください。</b><br>
-      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡を自動解析します。副将鏡が回復スキルに影響するカードは、解析後に副将レアリティを指定してください。スキル回復以外のスキルも貼り付けたままで構いません。
+      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡を自動解析します。カードファイルでスキル名末尾に付く「(T)」にも対応しています。副将鏡が回復スキルに影響するカードは、解析後に副将レアリティを指定してください。スキル回復以外のスキルも貼り付けたままで構いません。
     </div>
     <div style="margin-top:10px">
       <h3>カードファイル</h3>
@@ -144,7 +144,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 </main>
 
 <script>
-// 施術ループ探索（仮） v7.0.12
+// 施術ループ探索（仮） v7.0.13
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -160,7 +160,13 @@ const CT_FAMILIES = {
   '娘々聖水':   {prefix:'sd033', ct:[2880,2808,2712,2640,2544,2448,2328,2148,2016,1800], repeat:true, holy:true},
   '龍肝の湯薬': {prefix:'sd063', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990], selfExcluded:true}
 };
-function normText(s){return String(s||'').replace(/\r/g,'').replace(/```/g,'').replace(/\u00a0/g,' ');}
+function normText(s){
+  return String(s||'')
+    .replace(/\r/g,'')
+    .replace(/```/g,'')
+    .replace(/\u00a0/g,' ')
+    .replace(/(?:&#x0*9;|&#0*9;|&Tab;)/gi,'\t');
+}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function familyFor(rawName){
@@ -397,25 +403,37 @@ function refreshCardFromDeputyRarity(card,warnings){
 function cardFileIgnoreNameLine(s){
   return !s || /^(?:ステータス強化|副将スロット|未解放|変更|ラベル名|合成|カードの保護を解除|副将を設定中|ポイント.*|充足予定|exp|スコア)$/.test(s);
 }
+function normalizeCardFileLine(src){
+  return String(src||'')
+    .replace(/(?:&#x0*9;|&#0*9;|&Tab;)/gi,'\t')
+    .replace(/\u00a0/g,' ')
+    .trim();
+}
+function stripCardFileTradeSuffix(s){
+  return String(s||'').replace(/\s*[（(]T[）)]\s*$/i,'').trim();
+}
 function parseCardFileSkillEntries(blockLines){
   const raw=[];
   let nextSlot=1, subIndex=0;
   for(const src of blockLines){
-    const line=String(src||'').trim();
-    let m=line.match(/^\[使用\]\s*(.+?)LV\s*(\d+)$/);
+    const line=normalizeCardFileLine(src);
+    let m=line.match(/^\[使用\]\s*(.+?)\s*LV\s*(\d+)\s*(?:[（(]T[）)])?\s*$/i);
     if(m){
-      raw.push({slot:nextSlot++,prefix:'',rawName:m[1].trim(),level:Number(m[2]),label:m[1].trim()+'LV'+m[2],effect:''});
+      const rawName=stripCardFileTradeSuffix(m[1]);
+      raw.push({slot:nextSlot++,prefix:'',rawName,level:Number(m[2]),label:rawName+'LV'+m[2],effect:''});
       continue;
     }
-    m=line.match(/^スキル\s*(\d+)\s+(.+?)LV\s*(\d+)$/);
+    m=line.match(/^スキル\s*(\d+)\s+(.+?)\s*LV\s*(\d+)\s*(?:[（(]T[）)])?\s*$/i);
     if(m){
       const slot=Number(m[1]); nextSlot=Math.max(nextSlot,slot+1);
-      raw.push({slot,prefix:'',rawName:m[2].trim(),level:Number(m[3]),label:m[2].trim()+'LV'+m[3],effect:''});
+      const rawName=stripCardFileTradeSuffix(m[2]);
+      raw.push({slot,prefix:'',rawName,level:Number(m[3]),label:rawName+'LV'+m[3],effect:''});
       continue;
     }
-    m=line.match(/^副将スキル\s+(.+?)LV\s*(\d+)$/);
+    m=line.match(/^副将スキル\s+(.+?)\s*LV\s*(\d+)\s*(?:[（(]T[）)])?\s*$/i);
     if(m){
-      raw.push({slot:100+(subIndex++),prefix:'副将',rawName:m[1].trim(),level:Number(m[2]),label:m[1].trim()+'LV'+m[2],effect:''});
+      const rawName=stripCardFileTradeSuffix(m[1]);
+      raw.push({slot:100+(subIndex++),prefix:'副将',rawName,level:Number(m[2]),label:rawName+'LV'+m[2],effect:''});
     }
   }
   return raw;
@@ -450,6 +468,9 @@ function parseCardFile(text){
     const ownerKey='file-'+(cards.length+1);
     const card={ownerKey,deckKey:'file',index:cards.length,name,cardNo:no,cost,frontRaw:block.join('\n'),backRaw:'',skills:[],candidates:[],bonusPct,deputyRarity:''};
     card.skillEntries=parseCardFileSkillEntries(block);
+    if(!card.skillEntries.length && block.some(line=>/^(?:\[使用\]|スキル\s*\d+|副将スキル)/.test(normalizeCardFileLine(line)))){
+      warnings.push('スキル行を解析できません: '+name+' / No'+no+'。コピー形式に未対応の可能性があります。');
+    }
     refreshCardFromDeputyRarity(card,warnings);
     cards.push(card);
   }
