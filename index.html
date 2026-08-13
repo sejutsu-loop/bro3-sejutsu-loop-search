@@ -29,6 +29,11 @@ button{appearance:none;border:1px solid #49311e;border-radius:3px;padding:7px 12
 button.secondary{background:linear-gradient(#fff9df,#d9c28c);color:#3a2716;border-color:#7e6548;text-shadow:none}
 button:hover{filter:brightness(.97)}button:disabled{opacity:.55;cursor:wait}
 .actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.select-col{width:42px;text-align:center!important;vertical-align:middle!important}
+.card-select{width:16px;height:16px;cursor:pointer;accent-color:#6d4b2c}
+tr.card-excluded td{background:#f3f0e9;color:#8a8175}
+.selection-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.selection-summary{font-size:12px;font-weight:bold;color:#5b2c12}
 .badge{display:inline-block;border:1px solid #c7b796;border-radius:3px;padding:3px 7px;font-size:11px;font-weight:bold;background:#fffaf0;margin:1px}
 .badge.ok{background:#f3fff4;border-color:#7aa27f;color:var(--ok)} .badge.warn{background:#fff8e8;border-color:#c49b6c;color:var(--warn)} .badge.bad{background:#fff1f0;border-color:#c97970;color:var(--bad)}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:7px;margin:10px 0}
@@ -67,20 +72,28 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     </div>
     <div class="actions" style="margin-top:12px">
       <button id="parseBtn" class="secondary">カードを解析</button>
-      <button id="solveBtn">施術ループを探索</button>
       <button id="clearBtn" class="secondary">入力をクリア</button>
       <span id="parseSummary" class="small"></span>
     </div>
   </section>
 
   <section id="parsedPanel" class="panel hidden">
-    <h2>2. 解析カード</h2>
-    <p class="small">カードファイルからカード情報と施術ループ候補を抽出します。同一カードNoが複数ある場合は、各Noにつき最大1枚として排他探索します。</p>
+    <h2>2. 探索対象カードを選択</h2>
+    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。</p>
+    <div class="selection-tools">
+      <button id="selectAllBtn" class="secondary" type="button">すべて選択</button>
+      <button id="selectNoneBtn" class="secondary" type="button">すべて解除</button>
+      <span id="selectionSummary" class="selection-summary"></span>
+    </div>
     <div class="tablewrap"><table>
-      <thead><tr><th>カード名</th><th>カードNo</th><th class="num">コスト</th><th>検出スキル</th></tr></thead>
+      <thead><tr><th class="select-col">対象</th><th>カード名</th><th>カードNo</th><th class="num">コスト</th><th>検出スキル</th></tr></thead>
       <tbody id="parsedBody"></tbody>
     </table></div>
     <div id="parseWarnings"></div>
+    <div class="actions" style="margin-top:12px">
+      <button id="solveBtn">3. 施術ループを探索</button>
+      <span class="small">チェック済みカードだけを使って探索します。</span>
+    </div>
   </section>
 
   <section id="progressPanel" class="panel hidden">
@@ -104,7 +117,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
       <button id="copyOrderBtn" class="secondary">実行順序をコピー</button>
     </div>
     <div class="tablewrap"><table>
-      <thead><tr><th class="num">手</th><th>カード名</th><th>カードNo</th><th>使用スキル</th><th class="num">同スキル回数</th></tr></thead>
+      <thead><tr><th class="num"></th><th>カード名</th><th>カードNo</th><th class="num">コスト</th><th>使用スキル</th><th class="num">同スキル回数</th></tr></thead>
       <tbody id="orderBody"></tbody>
     </table></div>
     <div id="totalsLine" style="margin-top:10px;font-weight:700"></div>
@@ -114,13 +127,14 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <h2>データの扱い・免責</h2>
     <p>貼り付けたカード情報・数値・カード名・カードNo・スキル情報などの入力データは、このページ内での解析と施術ループ探索のためだけに使用します。入力データを保存・収集・外部送信する機能は実装していません。</p>
     <p>Web上でこのページを開く際にはHTMLファイル自体を取得するための通信が発生しますが、入力欄の内容を外部へ自動送信する処理はありません。外部API・アクセス解析・外部JavaScriptも使用していません。</p>
-    <p>本ツールは非公式のファンツールです。計算結果の正確性・完全性を保証するものではありません。ゲーム仕様の変更、未対応スキル、入力内容などにより結果が実際の挙動と異なる可能性があります。実際の編成・スキル使用前にゲーム画面でも確認してください。</p>
-    <div class="fan-note">本ツールはゲーム運営会社とは無関係です。</div>
+    <p>個人的な習作・検証用の試作ツールです。結果は参考としてご利用ください。</p>
+    <p>ゲーム内での再現を保証するものではありません。本計算機の利用によって生じた不利益、損失、誤操作その他の問題について、作者は責任を負いかねます。</p>
+    <p><strong>ゲームの利用規約を順守し、利用者ご自身の判断と責任の範囲でご利用ください。</strong></p>
   </section>
 </main>
 
 <script>
-// 施術ループ探索（仮）
+// 施術ループ探索（仮） v7.0.9
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -327,7 +341,7 @@ function parseCardFile(text){
   return {cards,warnings,frontCount:cards.length,backCount:cards.length};
 }
 
-let app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:''};
+let app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:'',parsed:false};
 
 function parseAll(){
   const fileText=document.getElementById('fileInput').value;
@@ -335,6 +349,7 @@ function parseAll(){
   app.cards=f.cards;
   app.warnings=[...f.warnings];
   app.candidates=app.cards.flatMap(c=>c.candidates);
+  app.parsed=true;
   {
     const byNo=Object.create(null);
     app.cards.forEach(c=>{
@@ -348,22 +363,56 @@ function parseAll(){
     }
   }
   renderParsed();
-  document.getElementById('parseSummary').textContent=`カード ${app.cards.length}枚 / 回復候補 ${app.candidates.length}件`;
+  document.getElementById('parseSummary').textContent=`解析: ${app.cards.length}枚 / 回復候補 ${app.candidates.length}件`;
+  document.getElementById('resultPanel').classList.add('hidden');
+  document.getElementById('progressPanel').classList.add('hidden');
   return app.candidates.length>0;
 }
 
+function selectedOwnerKeys(){
+  return new Set([...document.querySelectorAll('.card-select:checked')].map(cb=>cb.dataset.ownerKey));
+}
+function selectedCards(){
+  const owners=selectedOwnerKeys();
+  return app.cards.filter(c=>owners.has(c.ownerKey));
+}
+function selectedCandidates(){
+  const owners=selectedOwnerKeys();
+  return app.candidates.filter(c=>owners.has(c.ownerKey));
+}
+function updateSelectionSummary(){
+  const total=app.cards.length;
+  const selected=selectedCards().length;
+  const cand=selectedCandidates().length;
+  const el=document.getElementById('selectionSummary');
+  if(el)el.textContent=`探索対象 ${selected}/${total}枚 / 回復候補 ${cand}件`;
+  document.querySelectorAll('#parsedBody tr').forEach(tr=>{
+    const cb=tr.querySelector('.card-select');
+    tr.classList.toggle('card-excluded',!!cb&&!cb.checked);
+  });
+}
+function setAllCardSelections(checked){
+  document.querySelectorAll('.card-select').forEach(cb=>{cb.checked=checked;});
+  updateSelectionSummary();
+  document.getElementById('resultPanel').classList.add('hidden');
+}
 function renderParsed(){
   const body=document.getElementById('parsedBody');body.innerHTML='';
   app.cards.forEach((c)=>{
     const tr=document.createElement('tr');
     const skillText=c.skills.map(s=>s.label).join(' / ')||'—';
-    tr.innerHTML=`<td>${esc(c.name)}</td><td>${esc(c.cardNo)}</td><td class="num">${c.cost?c.cost.toFixed(1):'不明'}</td><td>${esc(skillText)}</td>`;
+    tr.innerHTML=`<td class="select-col"><input type="checkbox" class="card-select" data-owner-key="${esc(c.ownerKey)}" checked aria-label="${esc(c.name)} No${esc(c.cardNo)}を探索対象にする"></td><td>${esc(c.name)}</td><td>${esc(c.cardNo)}</td><td class="num">${c.cost?c.cost.toFixed(1):'不明'}</td><td>${esc(skillText)}</td>`;
     body.appendChild(tr);
   });
+  body.querySelectorAll('.card-select').forEach(cb=>cb.addEventListener('change',()=>{
+    updateSelectionSummary();
+    document.getElementById('resultPanel').classList.add('hidden');
+  }));
   const w=document.getElementById('parseWarnings');
   if(app.warnings.length) w.innerHTML='<div class="notice warnbox" style="margin-top:10px">'+app.warnings.map(esc).join('<br>')+'</div>';
   else w.innerHTML='';
   document.getElementById('parsedPanel').classList.remove('hidden');
+  updateSelectionSummary();
 }
 
 function minSearchWorkerMainV6236() {
@@ -2137,8 +2186,11 @@ function metricBetter(a,b){
 }
 
 async function solveV7(){
-  if(!parseAll()) throw new Error('施術ループ候補を取得できませんでした。カードファイル画面からコピーした内容を確認してください。');
-  const baseInfos=app.candidates.map(x=>({...x}));
+  if(!app.parsed) throw new Error('先に「カードを解析」を押してください。');
+  const chosenCards=selectedCards();
+  if(!chosenCards.length) throw new Error('探索対象カードが選択されていません。カード一覧のチェックを確認してください。');
+  const baseInfos=selectedCandidates().map(x=>({...x}));
+  if(!baseInfos.length) throw new Error('チェック済みカードの中に施術ループ候補となる回復スキルがありません。');
   if(baseInfos.some(x=>!(x.cost>0))) throw new Error('コストを取得できない回復候補カードがあります。入力文字列を確認してください。');
 
   document.getElementById('resultPanel').classList.add('hidden');
@@ -2295,7 +2347,7 @@ function renderResult(r){
     seen[ev.baseUid]=(seen[ev.baseUid]||0)+1;
     const c=currentCardForCandidate(x);
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td class="num">${i+1}</td><td>${esc(c?.name||x.cardName)}</td><td>${esc(c?.cardNo||x.cardNo||'')}</td><td>${esc(x.skillName)}</td><td class="num">${seen[ev.baseUid]}</td>`;
+    tr.innerHTML=`<td class="num">${i+1}</td><td>${esc(c?.name||x.cardName)}</td><td>${esc(c?.cardNo||x.cardNo||'')}</td><td class="num">${c?.cost!=null?Number(c.cost).toFixed(1):(x.cost!=null?Number(x.cost).toFixed(1):'不明')}</td><td>${esc(x.skillName)}</td><td class="num">${seen[ev.baseUid]}</td>`;
     ob.appendChild(tr);
     txt.push(`${i+1}\t${c?.name||x.cardName}\tNo${c?.cardNo||x.cardNo||''}\tC${Number(c?.cost||x.cost||0).toFixed(1)}\t${x.skillName}`);
   });
@@ -2304,6 +2356,8 @@ function renderResult(r){
 }
 
 document.getElementById('parseBtn').addEventListener('click',()=>{try{parseAll();}catch(e){alert(e.message);}});
+document.getElementById('selectAllBtn').addEventListener('click',()=>setAllCardSelections(true));
+document.getElementById('selectNoneBtn').addEventListener('click',()=>setAllCardSelections(false));
 document.getElementById('solveBtn').addEventListener('click',async()=>{
   const b=document.getElementById('solveBtn');b.disabled=true;
   try{await solveV7();}catch(e){
@@ -2312,10 +2366,16 @@ document.getElementById('solveBtn').addEventListener('click',async()=>{
     console.error(e);
   }finally{b.disabled=false;}
 });
+document.getElementById('fileInput').addEventListener('input',()=>{
+  if(!app.parsed)return;
+  app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:'',parsed:false};
+  ['parsedPanel','progressPanel','resultPanel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('parseSummary').textContent='入力内容が変更されました。再解析してください。';
+});
 document.getElementById('clearBtn').addEventListener('click',()=>{
   if(!confirm('入力と結果をクリアしますか？'))return;
   document.getElementById('fileInput').value='';
-  app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:''};
+  app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:'',parsed:false};
   ['parsedPanel','progressPanel','resultPanel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   document.getElementById('parseSummary').textContent='';
 });
