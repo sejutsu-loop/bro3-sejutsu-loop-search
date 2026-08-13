@@ -34,6 +34,15 @@ button:hover{filter:brightness(.97)}button:disabled{opacity:.55;cursor:wait}
 tr.card-excluded td{background:#f3f0e9;color:#8a8175}
 .selection-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}
 .selection-summary{font-size:12px;font-weight:bold;color:#5b2c12}
+.selection-summary.has-missing-rarity{color:var(--bad)}
+.rarity-col{min-width:170px}
+.deputy-rarity-select{min-width:78px;border:1px solid #9b8b70;border-radius:3px;padding:4px 5px;background:#fff;color:var(--text);font-family:inherit;font-size:11px}
+.deputy-rarity-select.input-required{border:2px solid var(--bad);background:#fff1f0;box-shadow:0 0 0 2px rgba(183,23,23,.12)}
+.rarity-status{display:block;margin-top:4px;font-size:10px;line-height:1.4;color:var(--muted)}
+.rarity-status.ok{color:var(--ok);font-weight:bold}.rarity-status.warn{color:var(--warn);font-weight:bold}.rarity-status.bad{color:var(--bad);font-weight:bold}
+tr.rarity-missing td{background:#fff1f0!important}
+tr.rarity-mismatch td.rarity-cell{background:#fff8e8!important}
+.skill-summary{line-height:1.55}
 .badge{display:inline-block;border:1px solid #c7b796;border-radius:3px;padding:3px 7px;font-size:11px;font-weight:bold;background:#fffaf0;margin:1px}
 .badge.ok{background:#f3fff4;border-color:#7aa27f;color:var(--ok)} .badge.warn{background:#fff8e8;border-color:#c49b6c;color:var(--warn)} .badge.bad{background:#fff1f0;border-color:#c97970;color:var(--bad)}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:7px;margin:10px 0}
@@ -64,7 +73,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <h2>1. カードファイルからコピーした内容を貼り付け</h2>
     <div class="notice">
       <b>カードファイル画面で「小15枚表示」または「小60枚表示」にして、対象カードをまとめてコピーし、そのまま貼り付けてください。</b><br>
-      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑を自動解析します。スキル回復以外のスキルも貼り付けたままで構いません。
+      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡を自動解析します。副将鏡が回復スキルに影響するカードは、解析後に副将レアリティを指定してください。スキル回復以外のスキルも貼り付けたままで構いません。
     </div>
     <div style="margin-top:10px">
       <h3>カードファイル</h3>
@@ -79,17 +88,18 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 
   <section id="parsedPanel" class="panel hidden">
     <h2>2. 探索対象カードを選択</h2>
-    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。</p>
+    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。副将鏡/錬鏡が主将1枠目の回復スキルに影響するカードは「副将レアリティ（主将と同一）」を指定してください。副将効果率は R40% / SR50% / UR60% / L70% / SL80% として計算し、鏡の対象主将レアリティと不一致なら鏡効果は0として扱います。</p>
     <div class="selection-tools">
       <button id="selectAllBtn" class="secondary" type="button">すべて選択</button>
       <button id="selectNoneBtn" class="secondary" type="button">すべて解除</button>
       <span id="selectionSummary" class="selection-summary"></span>
     </div>
     <div class="tablewrap"><table>
-      <thead><tr><th class="select-col">対象</th><th>カード名</th><th>カードNo</th><th class="num">コスト</th><th>検出スキル</th></tr></thead>
+      <thead><tr><th class="select-col">対象</th><th>カード名</th><th>カードNo</th><th class="num">コスト</th><th class="rarity-col">副将レアリティ<br><span class="small">（主将と同一）</span></th><th>検出スキル / 判定</th></tr></thead>
       <tbody id="parsedBody"></tbody>
     </table></div>
     <div id="parseWarnings"></div>
+    <div id="rarityPrompt" class="notice badbox hidden" style="margin-top:10px"></div>
     <div class="actions" style="margin-top:12px">
       <button id="solveBtn">3. 施術ループを探索</button>
       <span class="small">チェック済みカードだけを使って探索します。</span>
@@ -134,7 +144,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 </main>
 
 <script>
-// 施術ループ探索（仮） v7.0.9
+// 施術ループ探索（仮） v7.0.12
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -171,15 +181,15 @@ function buildCandidatesForCard(card){
   const entries=card.skillEntries||[];
   card.skills=entries;
   const warnings=[];
-  const mirrors=entries.filter(e=>(e.rawName.includes('明鏡')||e.rawName.includes('明鑑')) && /スキル回復時間/.test(e.effect));
-  const mainMirrors=mirrors.filter(e=>!/^副/.test(e.prefix)).reduce((s,e)=>s+shortenFrom(e.effect),0);
-  const subMirrors=mirrors.filter(e=>/^副/.test(e.prefix)).reduce((s,e)=>s+shortenFrom(e.effect),0);
+  const mirrors=entries.filter(e=>isMirrorLikeEntry(e) && /スキル回復時間/.test(e.effect));
+  const mainMirrors=mirrors.filter(e=>!isDeputyEntry(e)).reduce((s,e)=>s+shortenFrom(e.effect),0);
+  const subMirrors=mirrors.filter(e=>isDeputyEntry(e)).reduce((s,e)=>s+shortenFrom(e.effect),0);
 
   const candidates=[];
   for(const e of entries){
     const fam=familyFor(e.rawName);
     if(!fam){
-      if(/スキル回復時間/.test(e.effect) && !(e.rawName.includes('明鏡')||e.rawName.includes('明鑑'))){
+      if(/スキル回復時間/.test(e.effect) && !isMirrorLikeEntry(e)){
         warnings.push('未対応の回復スキル候補: '+card.name+' / '+e.label+' / '+e.effect);
       }
       continue;
@@ -190,7 +200,7 @@ function buildCandidatesForCard(card){
     const baseShorten=shortenFrom(e.effect);
     if(!scope||baseShorten<=0){warnings.push('効果解析不能: '+card.name+' / '+e.label);continue;}
 
-    // V7 deck.php版と同じく明鏡・明鑑補正はSKILL1にだけ反映。
+    // V7 deck.php版と同じく鏡系補正はSKILL1にだけ反映。
     const mm=e.slot===1?mainMirrors:0;
     const sm=e.slot===1?subMirrors:0;
     const ctCost=fd.ct[e.level-1];
@@ -220,19 +230,32 @@ function buildCandidatesForCard(card){
 }
 
 // カードファイル画面の通常コピーには効果説明が含まれないため、
-// 既知のLV10回復量とカード自身の超覇補正、明鏡/明鑑の複製率から
+// 既知のLV1～10回復量、カード自身の超覇補正、鏡系スキルLV、副将レアリティから
 // deck.php裏面と同じ「実効短縮量」を復元する。
-const CARD_FILE_LV10_BASE = {
-  '優雅な調べ':80,
-  '神医の施術':80,
-  '桃色吐息':20,
-  '酔吟吐息':20,
-  '娘々聖水':80,
-  '龍肝の湯薬':600
+// 副将鏡/錬鏡は「鏡が要求する主将レアリティ」と手入力した副将レアリティが一致するときだけ有効。
+// 回復スキルはコスト非依存のため、明鏡=副将コスト / 錬鏡=主将コストの差は本計算では考慮不要。
+const CARD_FILE_BASE_TABLE = {
+  '優雅な調べ':[20,25,30,35,40,45,50,60,70,80],
+  '神医の施術':[20,25,30,35,40,45,50,60,70,80],
+  '桃色吐息':  [7,8,9,10,11,12,14,16,17,20],
+  '勇姫督励':  [20,25,30,35,40,45,50,60,70,80],
+  '酔吟吐息':  [7,8,9,10,11,12,14,16,17,20],
+  '娘々聖水':  [20,25,30,35,40,45,50,60,70,80],
+  '龍肝の湯薬':[90,135,180,225,270,315,360,420,510,600]
 };
+const DEPUTY_RARITY_RATE = {R:0.40,SR:0.50,UR:0.60,L:0.70,SL:0.80};
+const DEPUTY_RARITIES = ['R','SR','UR','L','SL'];
+
+function cardFileBaseForFamily(familyName,level){
+  const xs=CARD_FILE_BASE_TABLE[familyName];
+  const idx=Math.floor(Number(level)||0)-1;
+  if(!xs||idx<0||idx>=xs.length)return null;
+  const v=Number(xs[idx]);
+  return Number.isFinite(v)?v:null;
+}
 function cardFileScopeForFamily(rawName){
   if(rawName.includes('龍肝の湯薬')) return 'file';
-  if(rawName.includes('優雅な調べ')) return 'wait';
+  if(rawName.includes('優雅な調べ')||rawName.includes('勇姫督励')) return 'wait';
   return 'deck';
 }
 function cardFileScopeText(scope){
@@ -240,18 +263,141 @@ function cardFileScopeText(scope){
   if(scope==='wait') return 'デッキ内で待機中の全武将の';
   return 'デッキ内の全武将の';
 }
-function cardFileMirrorRatio(rawName,isSub){
-  if(!/(?:明鏡|明鑑)/.test(rawName||'')) return null;
-  if(!isSub) return 1;
-  if(/副将の神明(?:鏡|鑑)/.test(rawName)) return 0.60;
-  if(/副将の大明(?:鏡|鑑)/.test(rawName)) return 0.50;
-  if(/副将の天明(?:鏡|鑑)/.test(rawName)) return 0.35;
+function isDeputyEntry(e){
+  return !!(e && /^副/.test(String(e.prefix||'')));
+}
+function isMirrorLikeName(rawName){
+  return /(?:明鏡|明鑑|錬鏡|帝仙鏡)/.test(String(rawName||''));
+}
+function isMirrorLikeEntry(e){
+  return !!(e && isMirrorLikeName(e.rawName));
+}
+function isMainMirrorEntry(e){
+  return !!(e && !isDeputyEntry(e) && /(?:明鏡|明鑑)/.test(String(e.rawName||'')));
+}
+function deputyMirrorTargetRarity(rawName){
+  const s=String(rawName||'');
+  // 標準の副将鏡/明鑑
+  if(/副将の帝(?:明(?:鏡|鑑)|仙鏡)/.test(s)) return 'SL';
+  if(/副将の天明(?:鏡|鑑)/.test(s)) return 'L';
+  if(/副将の神明(?:鏡|鑑)/.test(s)) return 'UR';
+  if(/副将の大明(?:鏡|鑑)/.test(s)) return 'SR';
+  if(/副将の明(?:鏡|鑑)/.test(s)) return 'R';
+  // 魏将/呉将/蜀将/群将...の〇錬鏡。先頭の勢力名は問わない。
+  if(/将の帝錬鏡/.test(s)) return 'SL';
+  if(/将の天錬鏡/.test(s)) return 'L';
+  if(/将の神錬鏡/.test(s)) return 'UR';
+  if(/将の大錬鏡/.test(s)) return 'SR';
+  if(/将の錬鏡/.test(s)) return 'R';
   return null;
+}
+function isDeputyMirrorEntry(e){
+  return !!(e && isDeputyEntry(e) && deputyMirrorTargetRarity(e.rawName));
+}
+function deputyMirrorLevelRate(level){
+  const lv=Math.max(1,Math.min(10,Math.floor(Number(level)||0)));
+  return lv/10;
+}
+function cardNeedsDeputyRarity(card){
+  return !!(card && card.hasRelevantDeputyMirror);
+}
+function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnings){
+  const raw=entries||[];
+  const warn=warnings&&typeof warnings.push==='function'?warnings:null;
+  const slot1=raw.find(e=>e.slot===1);
+  let primaryBase=0, primaryScope='deck', primaryFamily='';
+  if(slot1){
+    const fam=familyFor(slot1.rawName);
+    if(fam){
+      const base=cardFileBaseForFamily(fam[0],slot1.level);
+      if(base!=null){
+        primaryBase=Math.round(base*(1+(Number(bonusPct)||0)/100));
+        primaryScope=cardFileScopeForFamily(slot1.rawName);
+        primaryFamily=fam[0];
+      }
+    }
+  }
+
+  const requiredRarities=new Set();
+  let relevantDeputyMirrorCount=0;
+  for(const e of raw){
+    e.effect='';
+    e.mirrorRequiredRarity='';
+    e.mirrorLevelRate=0;
+    e.mirrorRarityRate=0;
+    e.mirrorActive=false;
+    e.mirrorShorten=0;
+
+    const fam=familyFor(e.rawName);
+    if(fam){
+      const base=cardFileBaseForFamily(fam[0],e.level);
+      if(base!=null){
+        const v=Math.round(base*(1+(Number(bonusPct)||0)/100));
+        const scope=cardFileScopeForFamily(e.rawName);
+        e.effect=cardFileScopeText(scope)+'スキル回復時間を'+v+'分0秒短縮する';
+      }else if(warn){
+        warn.push('カードファイル形式でLV別回復量が未登録: '+cardName+' / '+e.label);
+      }
+      continue;
+    }
+
+    // 主将側の明鏡/明鑑は従来どおりSKILL1の実効短縮量を100%複製する。
+    if(isMainMirrorEntry(e)){
+      if(primaryBase>0){
+        e.effect=cardFileScopeText(primaryScope)+'スキル回復時間を'+primaryBase+'分0秒短縮する';
+        e.mirrorActive=true;
+        e.mirrorLevelRate=1;
+        e.mirrorRarityRate=1;
+        e.mirrorShorten=primaryBase;
+      }
+      continue;
+    }
+
+    if(isDeputyEntry(e) && isMirrorLikeName(e.rawName)){
+      const required=deputyMirrorTargetRarity(e.rawName);
+      if(!required){
+        if(warn)warn.push('副将鏡の対象レアリティ判定未登録: '+cardName+' / '+e.label);
+        continue;
+      }
+      e.mirrorRequiredRarity=required;
+      e.mirrorLevelRate=deputyMirrorLevelRate(e.level);
+      e.mirrorRarityRate=DEPUTY_RARITY_RATE[deputyRarity]||0;
+
+      // SKILL1が本ツール対象の回復スキルなら、副将レアリティ入力が計算に必要。
+      if(primaryBase>0){
+        relevantDeputyMirrorCount++;
+        requiredRarities.add(required);
+      }
+      if(primaryBase>0 && deputyRarity && deputyRarity===required){
+        const ratio=e.mirrorLevelRate*(DEPUTY_RARITY_RATE[deputyRarity]||0);
+        const v=Math.round(primaryBase*ratio);
+        e.mirrorActive=v>0;
+        e.mirrorShorten=v;
+        if(v>0)e.effect=cardFileScopeText(primaryScope)+'スキル回復時間を'+v+'分0秒短縮する';
+      }
+    }
+  }
+  return {
+    primaryBase,primaryScope,primaryFamily,
+    hasRelevantDeputyMirror:relevantDeputyMirrorCount>0,
+    relevantDeputyMirrorCount,
+    requiredRarities:Array.from(requiredRarities)
+  };
+}
+function refreshCardFromDeputyRarity(card,warnings){
+  if(!card)return;
+  const meta=applyCardFileSkillEffects(card.skillEntries||[],card.bonusPct||0,card.deputyRarity||'',card.name||'',warnings||null);
+  card.primaryBaseShorten=meta.primaryBase||0;
+  card.primaryRecoveryFamily=meta.primaryFamily||'';
+  card.hasRelevantDeputyMirror=!!meta.hasRelevantDeputyMirror;
+  card.requiredDeputyRarities=meta.requiredRarities||[];
+  const ws=buildCandidatesForCard(card);
+  if(warnings&&ws&&ws.length)warnings.push(...ws);
 }
 function cardFileIgnoreNameLine(s){
   return !s || /^(?:ステータス強化|副将スロット|未解放|変更|ラベル名|合成|カードの保護を解除|副将を設定中|ポイント.*|充足予定|exp|スコア)$/.test(s);
 }
-function parseCardFileSkillEntries(blockLines,bonusPct,cardName,warnings){
+function parseCardFileSkillEntries(blockLines){
   const raw=[];
   let nextSlot=1, subIndex=0;
   for(const src of blockLines){
@@ -272,39 +418,9 @@ function parseCardFileSkillEntries(blockLines,bonusPct,cardName,warnings){
       raw.push({slot:100+(subIndex++),prefix:'副将',rawName:m[1].trim(),level:Number(m[2]),label:m[1].trim()+'LV'+m[2],effect:''});
     }
   }
-  const slot1=raw.find(e=>e.slot===1);
-  let primaryBase=0, primaryScope='deck';
-  if(slot1){
-    const fam=familyFor(slot1.rawName);
-    if(fam && slot1.level===10 && CARD_FILE_LV10_BASE[fam[0]]!=null){
-      primaryBase=Math.round(CARD_FILE_LV10_BASE[fam[0]]*(1+(bonusPct||0)/100));
-      primaryScope=cardFileScopeForFamily(slot1.rawName);
-    }
-  }
-  for(const e of raw){
-    const fam=familyFor(e.rawName);
-    if(fam){
-      if(e.level===10 && CARD_FILE_LV10_BASE[fam[0]]!=null){
-        const v=Math.round(CARD_FILE_LV10_BASE[fam[0]]*(1+(bonusPct||0)/100));
-        const scope=cardFileScopeForFamily(e.rawName);
-        e.effect=cardFileScopeText(scope)+'スキル回復時間を'+v+'分0秒短縮する';
-      }else if(e.level!==10){
-        warnings.push('カードファイル形式では効果量を復元できないLV: '+cardName+' / '+e.label+'（デッキ裏面コピーなら解析可能）');
-      }
-      continue;
-    }
-    if(/(?:明鏡|明鑑)/.test(e.rawName) && primaryBase>0){
-      const ratio=cardFileMirrorRatio(e.rawName,/^副/.test(e.prefix));
-      if(ratio==null){
-        warnings.push('カードファイル形式で倍率未登録の明鏡・明鑑: '+cardName+' / '+e.label+'（デッキ裏面コピーなら効果値を直接解析可能）');
-      }else{
-        const v=Math.round(primaryBase*ratio);
-        e.effect=cardFileScopeText(primaryScope)+'スキル回復時間を'+v+'分0秒短縮する';
-      }
-    }
-  }
   return raw;
 }
+
 function parseCardFile(text){
   const lines=normText(text).split('\n').map(x=>x.trim());
   const setIdx=[];
@@ -332,9 +448,9 @@ function parseCardFile(text){
     let bonusPct=0;
     for(const line of block){const m=line.match(/^(\d+(?:\.\d+)?)%$/);if(m) bonusPct=Math.max(bonusPct,Number(m[1])||0);}
     const ownerKey='file-'+(cards.length+1);
-    const card={ownerKey,deckKey:'file',index:cards.length,name,cardNo:no,cost,frontRaw:block.join('\n'),backRaw:'',skills:[],candidates:[],bonusPct};
-    card.skillEntries=parseCardFileSkillEntries(block,bonusPct,name,warnings);
-    warnings.push(...buildCandidatesForCard(card));
+    const card={ownerKey,deckKey:'file',index:cards.length,name,cardNo:no,cost,frontRaw:block.join('\n'),backRaw:'',skills:[],candidates:[],bonusPct,deputyRarity:''};
+    card.skillEntries=parseCardFileSkillEntries(block);
+    refreshCardFromDeputyRarity(card,warnings);
     cards.push(card);
   }
   if(!cards.length && normText(text).trim()) warnings.push('カードファイル形式のカードを検出できませんでした。');
@@ -380,16 +496,110 @@ function selectedCandidates(){
   const owners=selectedOwnerKeys();
   return app.candidates.filter(c=>owners.has(c.ownerKey));
 }
+function selectedCardsMissingDeputyRarity(){
+  return selectedCards().filter(c=>cardNeedsDeputyRarity(c) && !c.deputyRarity);
+}
+function rarityOptionsHtml(selected){
+  const opts=['<option value="">未指定</option>'];
+  for(const r of DEPUTY_RARITIES)opts.push('<option value="'+r+'"'+(selected===r?' selected':'')+'>'+r+'</option>');
+  return opts.join('');
+}
+function deputyMirrorStatusForCard(card){
+  if(!cardNeedsDeputyRarity(card))return {kind:'none',text:'—'};
+  const entries=(card.skillEntries||[]).filter(e=>isDeputyMirrorEntry(e) && card.primaryBaseShorten>0);
+  const req=[...new Set(entries.map(e=>e.mirrorRequiredRarity||deputyMirrorTargetRarity(e.rawName)).filter(Boolean))];
+  if(!card.deputyRarity)return {kind:'bad',text:'入力必須 / 対象主将: '+(req.join('/')||'要確認')};
+  const active=entries.filter(e=>e.mirrorActive);
+  if(active.length){
+    const mins=active.map(e=>e.mirrorShorten||shortenFrom(e.effect)||0);
+    return {kind:'ok',text:'有効: '+active.map(e=>e.label+' +'+(e.mirrorShorten||0)+'分').join(' / ')};
+  }
+  return {kind:'warn',text:'指定 '+card.deputyRarity+' / 鏡対象 '+(req.join('/')||'要確認')+' → 鏡効果0'};
+}
+function skillSummaryForCard(card){
+  const parts=[];
+  if((card.bonusPct||0)>0)parts.push('超覇 +'+card.bonusPct+'%');
+  for(const s of (card.skills||[])){
+    let t=s.label;
+    const fam=familyFor(s.rawName);
+    if(fam && /スキル回復時間/.test(s.effect)){
+      t+=' → '+shortenFrom(s.effect)+'分';
+    }else if(isMainMirrorEntry(s) && /スキル回復時間/.test(s.effect)){
+      t+=' → 鏡 '+shortenFrom(s.effect)+'分';
+    }else if(isDeputyMirrorEntry(s)){
+      const req=s.mirrorRequiredRarity||deputyMirrorTargetRarity(s.rawName)||'?';
+      if(!card.deputyRarity)t+=' → 要副将'+req;
+      else if(s.mirrorActive)t+=' → '+(s.mirrorShorten||shortenFrom(s.effect))+'分';
+      else t+=' → 対象'+req+' / 効果0';
+    }
+    parts.push(t);
+  }
+  return parts.join(' / ')||'—';
+}
+function rowForOwnerKey(ownerKey){
+  return [...document.querySelectorAll('#parsedBody tr')].find(tr=>tr.dataset.ownerKey===ownerKey)||null;
+}
+function updateCardRarityRow(card){
+  const tr=rowForOwnerKey(card.ownerKey);if(!tr)return;
+  const cb=tr.querySelector('.card-select');
+  const selected=!!(cb&&cb.checked);
+  const sel=tr.querySelector('.deputy-rarity-select');
+  const st=deputyMirrorStatusForCard(card);
+  tr.classList.toggle('rarity-missing',selected&&cardNeedsDeputyRarity(card)&&!card.deputyRarity);
+  tr.classList.toggle('rarity-mismatch',selected&&cardNeedsDeputyRarity(card)&&!!card.deputyRarity&&st.kind==='warn');
+  if(sel)sel.classList.toggle('input-required',selected&&cardNeedsDeputyRarity(card)&&!card.deputyRarity);
+  const status=tr.querySelector('.rarity-status');
+  if(status){
+    status.className='rarity-status '+(st.kind==='none'?'':st.kind);
+    status.textContent=st.text;
+  }
+  const ss=tr.querySelector('.skill-summary');
+  if(ss)ss.textContent=skillSummaryForCard(card);
+}
+function updateAllRarityRows(){
+  app.cards.forEach(updateCardRarityRow);
+}
+function rebuildAllCandidatesAfterRarityChange(){
+  app.cards.forEach(c=>refreshCardFromDeputyRarity(c,null));
+  app.candidates=app.cards.flatMap(c=>c.candidates);
+}
+function ensureDeputyRarityInputs(){
+  const missing=selectedCardsMissingDeputyRarity();
+  updateAllRarityRows();
+  const box=document.getElementById('rarityPrompt');
+  if(!missing.length){
+    if(box){box.classList.add('hidden');box.innerHTML='';}
+    return true;
+  }
+  const names=missing.slice(0,8).map(c=>esc(c.name)+' No'+esc(c.cardNo)).join(' / ')+(missing.length>8?' ほか'+(missing.length-8)+'枚':'');
+  if(box){
+    box.innerHTML='<b>副将レアリティの入力が必要です。</b><br>赤く強調された探索対象カードで「副将レアリティ（主将と同一）」を指定してください。未指定のままでは副将鏡/錬鏡の回復量を確定できないため探索を開始しません。<br><span class="small">'+names+'</span>';
+    box.classList.remove('hidden');
+  }
+  const first=rowForOwnerKey(missing[0].ownerKey);
+  if(first){
+    first.scrollIntoView({behavior:'smooth',block:'center'});
+    const sel=first.querySelector('.deputy-rarity-select');
+    if(sel)setTimeout(()=>sel.focus(),0);
+  }
+  return false;
+}
+
 function updateSelectionSummary(){
   const total=app.cards.length;
   const selected=selectedCards().length;
   const cand=selectedCandidates().length;
+  const missing=selectedCardsMissingDeputyRarity().length;
   const el=document.getElementById('selectionSummary');
-  if(el)el.textContent=`探索対象 ${selected}/${total}枚 / 回復候補 ${cand}件`;
+  if(el){
+    el.textContent=`探索対象 ${selected}/${total}枚 / 回復候補 ${cand}件`+(missing?` / 副将レアリティ未入力 ${missing}枚`:'');
+    el.classList.toggle('has-missing-rarity',missing>0);
+  }
   document.querySelectorAll('#parsedBody tr').forEach(tr=>{
     const cb=tr.querySelector('.card-select');
     tr.classList.toggle('card-excluded',!!cb&&!cb.checked);
   });
+  updateAllRarityRows();
 }
 function setAllCardSelections(checked){
   document.querySelectorAll('.card-select').forEach(cb=>{cb.checked=checked;});
@@ -400,17 +610,32 @@ function renderParsed(){
   const body=document.getElementById('parsedBody');body.innerHTML='';
   app.cards.forEach((c)=>{
     const tr=document.createElement('tr');
-    const skillText=c.skills.map(s=>s.label).join(' / ')||'—';
-    tr.innerHTML=`<td class="select-col"><input type="checkbox" class="card-select" data-owner-key="${esc(c.ownerKey)}" checked aria-label="${esc(c.name)} No${esc(c.cardNo)}を探索対象にする"></td><td>${esc(c.name)}</td><td>${esc(c.cardNo)}</td><td class="num">${c.cost?c.cost.toFixed(1):'不明'}</td><td>${esc(skillText)}</td>`;
+    tr.dataset.ownerKey=c.ownerKey;
+    const rarityCell=cardNeedsDeputyRarity(c)
+      ? `<select class="deputy-rarity-select" data-owner-key="${esc(c.ownerKey)}" aria-label="${esc(c.name)} No${esc(c.cardNo)}の副将レアリティ">${rarityOptionsHtml(c.deputyRarity||'')}</select><span class="rarity-status"></span>`
+      : '<span class="rarity-status">—</span>';
+    tr.innerHTML=`<td class="select-col"><input type="checkbox" class="card-select" data-owner-key="${esc(c.ownerKey)}" checked aria-label="${esc(c.name)} No${esc(c.cardNo)}を探索対象にする"></td><td>${esc(c.name)}</td><td>${esc(c.cardNo)}</td><td class="num">${c.cost?c.cost.toFixed(1):'不明'}</td><td class="rarity-cell">${rarityCell}</td><td class="skill-summary">${esc(skillSummaryForCard(c))}</td>`;
     body.appendChild(tr);
   });
   body.querySelectorAll('.card-select').forEach(cb=>cb.addEventListener('change',()=>{
     updateSelectionSummary();
     document.getElementById('resultPanel').classList.add('hidden');
+    const box=document.getElementById('rarityPrompt');if(box&&selectedCardsMissingDeputyRarity().length===0)box.classList.add('hidden');
+  }));
+  body.querySelectorAll('.deputy-rarity-select').forEach(sel=>sel.addEventListener('change',()=>{
+    const card=app.cards.find(c=>c.ownerKey===sel.dataset.ownerKey);
+    if(!card)return;
+    card.deputyRarity=String(sel.value||'');
+    rebuildAllCandidatesAfterRarityChange();
+    updateSelectionSummary();
+    document.getElementById('resultPanel').classList.add('hidden');
+    document.getElementById('progressPanel').classList.add('hidden');
+    const box=document.getElementById('rarityPrompt');if(box&&selectedCardsMissingDeputyRarity().length===0)box.classList.add('hidden');
   }));
   const w=document.getElementById('parseWarnings');
   if(app.warnings.length) w.innerHTML='<div class="notice warnbox" style="margin-top:10px">'+app.warnings.map(esc).join('<br>')+'</div>';
   else w.innerHTML='';
+  const rp=document.getElementById('rarityPrompt');if(rp){rp.classList.add('hidden');rp.innerHTML='';}
   document.getElementById('parsedPanel').classList.remove('hidden');
   updateSelectionSummary();
 }
@@ -1083,7 +1308,7 @@ function minSearchWorkerMainV6236() {
                     }
                     return null;
                 }
-                // V7: 8種類以下の再使用骨格は非同順も完全列挙する。
+                // V7: 8種類以下では再使用ブロックの順列候補を広く列挙するが、任意循環順序そのものの完全列挙ではない。
                 // 9種類以上は factorial 爆発を避けて anytime 探索へ移るが、
                 // その場合は approximate=true を残し、未完走を「不可能証明」には使わない。
                 function factorialSmall(n){let r=1;for(let k=2;k<=n;k++)r*=k;return r;}
@@ -1928,7 +2153,7 @@ function minSearchWorkerMainV6236() {
                     '採用評価軸: 手数最小 → デッキコスト最小 → 実カード枚数最小 → CT総量余裕最大',
                     '相互短縮規則: 通常回復は同一カードの別スキルへ有効 / 同一物理スキル自身の基礎短縮は無効 / 自己除外型は同owner全体除外',
                     'V7 Effect Matrix: '+effectN+'×'+effectN+'（数理探索用。最終物理CTシミュレータとは独立実装）',
-                    'V7 Repeated Skeleton: 同順+Gap DPを最優先 / 8種以下の非同順は完全列挙 / 9種以上は未完走を証明扱いしない',
+                    'V7 Repeated Skeleton: 同順+Gap DPを最優先 / 非同順候補も追加探索 / 任意循環順序の完全列挙ではない / 9種以上は未完走を証明扱いしない',
                     '現在の探索目的: '+(cfg.objectiveLabel||cfg.phase)+(cfg.targetHands?(' / '+cfg.targetHands+'手固定'):'')+(cfg.maxUniqueCards>0?(' / '+cfg.maxUniqueCards+'枚以下'):'' )+(cfg.maxTotalCost>=0?(' / '+fmtNum(cfg.maxTotalCost,1)+'C以下'):''),
                     '機能等価グループ: '+baseInfos.length+'候補 → '+allGroups.length+'群（安全に圧縮できる単一候補ownerのみ / owner構成 '+ownerProfileKinds+'種）',
                     '理論下限: '+modes.map(m=>m.label+'='+(Number.isFinite(lbs[m.id])?lbs[m.id]+'手':'不可')+' / 最大'+modeMax[m.id]+'手').join(' | '),
@@ -2187,6 +2412,7 @@ function metricBetter(a,b){
 
 async function solveV7(){
   if(!app.parsed) throw new Error('先に「カードを解析」を押してください。');
+  if(!ensureDeputyRarityInputs()) throw new Error('副将鏡/錬鏡を計算するための副将レアリティが未入力です。赤く強調されたカードでレアリティを指定してください。');
   const chosenCards=selectedCards();
   if(!chosenCards.length) throw new Error('探索対象カードが選択されていません。カード一覧のチェックを確認してください。');
   const baseInfos=selectedCandidates().map(x=>({...x}));
@@ -2370,6 +2596,7 @@ document.getElementById('fileInput').addEventListener('input',()=>{
   if(!app.parsed)return;
   app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:'',parsed:false};
   ['parsedPanel','progressPanel','resultPanel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  const rp=document.getElementById('rarityPrompt');if(rp){rp.classList.add('hidden');rp.innerHTML='';}
   document.getElementById('parseSummary').textContent='入力内容が変更されました。再解析してください。';
 });
 document.getElementById('clearBtn').addEventListener('click',()=>{
@@ -2377,6 +2604,7 @@ document.getElementById('clearBtn').addEventListener('click',()=>{
   document.getElementById('fileInput').value='';
   app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:'',parsed:false};
   ['parsedPanel','progressPanel','resultPanel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  const rp=document.getElementById('rarityPrompt');if(rp){rp.classList.add('hidden');rp.innerHTML='';}
   document.getElementById('parseSummary').textContent='';
 });
 document.getElementById('copyOrderBtn').addEventListener('click',async()=>{
