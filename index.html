@@ -1,0 +1,2330 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ブラウザ三国志 施術ループ探索（仮）</title>
+<style>
+:root{
+  color-scheme:light;
+  --page:#d8d0bd;--paper:#fffdf4;--paper-soft:#fff8dc;--line:#b59d73;--line-soft:#d5c4a5;
+  --title1:#7c5b38;--title2:#3f2b1a;--brown:#5b2c12;--text:#2b241b;--muted:#6d6254;
+  --accent:#8a5a2b;--accent-dark:#5a3b22;--ok:#137a2d;--warn:#9a5700;--bad:#b71717;
+  --soft:#fff8e8;--panel:#fffdf8;--shadow:0 4px 14px rgba(68,44,20,.09);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:linear-gradient(#d9d2c1,#eee9dd 420px);color:var(--text);font-family:Meiryo,"Hiragino Kaku Gothic ProN",system-ui,sans-serif;font-size:13px}
+main{width:1180px;max-width:calc(100vw - 24px);margin:12px auto 28px;background:#fff;border:1px solid #a89977;box-shadow:0 2px 8px #0003;padding:14px;border-radius:8px}
+h1{margin:0;height:38px;line-height:36px;color:#fff;font-size:19px;padding:0 14px;border:1px solid #3b2a1b;background:linear-gradient(var(--title1),var(--title2));text-shadow:1px 1px 0 #000;border-radius:3px}
+h2{font-size:14px;color:#fff;background:linear-gradient(#826344,#4c3421);border:1px solid #3f2b1a;padding:6px 9px;margin:-15px -15px 10px;text-shadow:1px 1px 0 #000}
+h3{font-size:13px;color:var(--brown);margin:12px 0 6px}
+p{line-height:1.65}
+.small{font-size:12px;color:var(--muted)} .muted{color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:15px;margin:12px 0;box-shadow:var(--shadow)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+textarea{width:100%;min-height:260px;resize:vertical;border:1px solid #9b8b70;border-radius:3px;padding:8px;font:12px/1.55 ui-monospace,Consolas,monospace;background:#fff;color:var(--text)}
+textarea:focus{outline:2px solid #c9a972;outline-offset:1px}
+button{appearance:none;border:1px solid #49311e;border-radius:3px;padding:7px 12px;font-weight:bold;cursor:pointer;background:linear-gradient(#8d6b45,#5a3b22);color:#fff;text-shadow:1px 1px #000;font-family:inherit;font-size:12px}
+button.secondary{background:linear-gradient(#fff9df,#d9c28c);color:#3a2716;border-color:#7e6548;text-shadow:none}
+button:hover{filter:brightness(.97)}button:disabled{opacity:.55;cursor:wait}
+.actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.badge{display:inline-block;border:1px solid #c7b796;border-radius:3px;padding:3px 7px;font-size:11px;font-weight:bold;background:#fffaf0;margin:1px}
+.badge.ok{background:#f3fff4;border-color:#7aa27f;color:var(--ok)} .badge.warn{background:#fff8e8;border-color:#c49b6c;color:var(--warn)} .badge.bad{background:#fff1f0;border-color:#c97970;color:var(--bad)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:7px;margin:10px 0}
+.stat{border:1px solid var(--line-soft);border-radius:6px;padding:9px;background:#fffaf0}
+.stat .v{font-size:24px;font-weight:bold;margin-top:2px;color:#6a210d;font-variant-numeric:tabular-nums}.stat .k{font-size:11px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:11px;background:#fff}
+th,td{border:1px solid #c7b99e;padding:6px;text-align:left;vertical-align:top}
+th{background:linear-gradient(#eee5d3,#d8c7a7);color:#3c2b1c;position:sticky;top:0;z-index:1;white-space:nowrap}
+td.num,th.num{text-align:right;white-space:nowrap}
+.tablewrap{overflow:auto;max-height:520px;border:1px solid var(--line);background:#fff}
+.notice{border:1px solid #b9a372;border-left:4px solid #8e6c43;background:#fffef4;padding:8px 10px;line-height:1.6}
+.warnbox{border-left-color:#c8831d;background:#fff8e8}.badbox{border-left-color:var(--bad);background:#fff1f0}
+pre{white-space:pre-wrap;word-break:break-word;background:#2f261e;color:#fff5de;border:1px solid #1e1711;border-radius:4px;padding:10px;max-height:420px;overflow:auto;font-size:12px}
+.progress{height:9px;background:#e0d5bd;border:1px solid #baa98b;overflow:hidden}.progress>div{height:100%;background:linear-gradient(#8d6b45,#5a3b22);width:0%;transition:width .15s}
+.hidden{display:none!important}
+details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border-radius:5px}summary{cursor:pointer;font-weight:bold;color:#5c3a20;padding:8px 10px}
+.data-disclaimer{margin:18px 0 0;padding:12px 14px;border:1px solid #b9a98b;border-top:3px solid #8e6c43;background:#fffaf0;color:#514536;line-height:1.7}
+.data-disclaimer h2{margin:0 0 8px;padding:0;border:0;background:none;color:var(--brown);text-shadow:none;font-size:14px}
+.data-disclaimer p{margin:5px 0;font-size:12px}.data-disclaimer .fan-note{margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);color:var(--muted);font-size:11px}
+@media(max-width:850px){main{max-width:calc(100vw - 8px);margin:4px auto;padding:10px}.grid2{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}h1{height:auto;line-height:1.35;padding:8px 10px}.panel{padding:12px}h2{margin:-12px -12px 9px}}
+</style>
+</head>
+<body>
+<main>
+  <h1>施術ループ探索（仮）</h1>
+
+  <section class="panel">
+    <h2>1. カードファイルからコピーした内容を貼り付け</h2>
+    <div class="notice">
+      <b>カードファイル画面で「小15枚表示」または「小60枚表示」にして、対象カードをまとめてコピーし、そのまま貼り付けてください。</b><br>
+      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑を自動解析します。スキル回復以外のスキルも貼り付けたままで構いません。
+    </div>
+    <div style="margin-top:10px">
+      <h3>カードファイル</h3>
+      <textarea id="fileInput" placeholder="カードファイル画面で小15枚表示または小60枚表示にして、対象カードをまとめてコピーし、そのまま貼り付け"></textarea>
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <button id="parseBtn" class="secondary">カードを解析</button>
+      <button id="solveBtn">施術ループを探索</button>
+      <button id="clearBtn" class="secondary">入力をクリア</button>
+      <span id="parseSummary" class="small"></span>
+    </div>
+  </section>
+
+  <section id="parsedPanel" class="panel hidden">
+    <h2>2. 解析カード</h2>
+    <p class="small">カードファイルからカード情報と施術ループ候補を抽出します。同一カードNoが複数ある場合は、各Noにつき最大1枚として排他探索します。</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>カード名</th><th>カードNo</th><th class="num">コスト</th><th>検出スキル</th></tr></thead>
+      <tbody id="parsedBody"></tbody>
+    </table></div>
+    <div id="parseWarnings"></div>
+  </section>
+
+  <section id="progressPanel" class="panel hidden">
+    <h2>探索中</h2>
+    <div id="progressLabel">準備中</div>
+    <div class="progress" style="margin:10px 0"><div id="progressBar"></div></div>
+    <div id="progressDetail" class="small"></div>
+  </section>
+
+  <section id="resultPanel" class="panel hidden">
+    <h2>3. 施術ループ</h2>
+    <div id="proofLine"></div>
+    <div class="stats">
+      <div class="stat"><div class="k">最小手数</div><div class="v" id="handsOut">—</div></div>
+      <div class="stat"><div class="k">最低使用コスト</div><div class="v" id="costOut">—</div></div>
+      <div class="stat"><div class="k">使用カード枚数</div><div class="v" id="cardsOut">—</div></div>
+    </div>
+
+    <h3>実行順序</h3>
+    <div class="actions" style="margin-bottom:8px">
+      <button id="copyOrderBtn" class="secondary">実行順序をコピー</button>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th class="num">手</th><th>カード名</th><th>カードNo</th><th>使用スキル</th><th class="num">同スキル回数</th></tr></thead>
+      <tbody id="orderBody"></tbody>
+    </table></div>
+    <div id="totalsLine" style="margin-top:10px;font-weight:700"></div>
+  </section>
+
+  <section class="data-disclaimer" aria-label="データの扱い・免責">
+    <h2>データの扱い・免責</h2>
+    <p>貼り付けたカード情報・数値・カード名・カードNo・スキル情報などの入力データは、このページ内での解析と施術ループ探索のためだけに使用します。入力データを保存・収集・外部送信する機能は実装していません。</p>
+    <p>Web上でこのページを開く際にはHTMLファイル自体を取得するための通信が発生しますが、入力欄の内容を外部へ自動送信する処理はありません。外部API・アクセス解析・外部JavaScriptも使用していません。</p>
+    <p>本ツールは非公式のファンツールです。計算結果の正確性・完全性を保証するものではありません。ゲーム仕様の変更、未対応スキル、入力内容などにより結果が実際の挙動と異なる可能性があります。実際の編成・スキル使用前にゲーム画面でも確認してください。</p>
+    <div class="fan-note">本ツールはゲーム運営会社とは無関係です。</div>
+  </section>
+</main>
+
+<script>
+// 施術ループ探索（仮）
+// 入力・解析・探索はブラウザ内で完結します。
+// fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
+// navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
+
+'use strict';
+
+const CT_FAMILIES = {
+  '優雅な調べ': {prefix:'sd011', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990], selfExcluded:true},
+  '神医の施術': {prefix:'sd013', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990]},
+  '桃色吐息':   {prefix:'sd017', ct:[2880,2820,2760,2700,2640,2580,2520,2400,2280,2160], repeat:true, toki:true},
+  '勇姫督励':   {prefix:'sd018', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990], selfExcluded:true},
+  '酔吟吐息':   {prefix:'sd026', ct:[2880,2820,2760,2700,2640,2580,2520,2400,2280,2160], repeat:true, toki:true},
+  '娘々聖水':   {prefix:'sd033', ct:[2880,2808,2712,2640,2544,2448,2328,2148,2016,1800], repeat:true, holy:true},
+  '龍肝の湯薬': {prefix:'sd063', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990], selfExcluded:true}
+};
+function normText(s){return String(s||'').replace(/\r/g,'').replace(/```/g,'').replace(/\u00a0/g,' ');}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function familyFor(rawName){
+  for(const k of Object.keys(CT_FAMILIES)) if(rawName.includes(k)) return [k,CT_FAMILIES[k]];
+  return null;
+}
+function effectScope(effect){
+  if(effect.includes('所持している全武将')) return 'file';
+  if(effect.includes('デッキ内で待機中の全武将')) return 'wait';
+  if(effect.includes('デッキ内の全武将')) return 'deck';
+  return null;
+}
+function shortenFrom(effect){
+  const m=effect.match(/スキル回復時間を\s*(\d+)\s*分/);
+  return m?Number(m[1]):0;
+}
+function buildCandidatesForCard(card){
+  const entries=card.skillEntries||[];
+  card.skills=entries;
+  const warnings=[];
+  const mirrors=entries.filter(e=>(e.rawName.includes('明鏡')||e.rawName.includes('明鑑')) && /スキル回復時間/.test(e.effect));
+  const mainMirrors=mirrors.filter(e=>!/^副/.test(e.prefix)).reduce((s,e)=>s+shortenFrom(e.effect),0);
+  const subMirrors=mirrors.filter(e=>/^副/.test(e.prefix)).reduce((s,e)=>s+shortenFrom(e.effect),0);
+
+  const candidates=[];
+  for(const e of entries){
+    const fam=familyFor(e.rawName);
+    if(!fam){
+      if(/スキル回復時間/.test(e.effect) && !(e.rawName.includes('明鏡')||e.rawName.includes('明鑑'))){
+        warnings.push('未対応の回復スキル候補: '+card.name+' / '+e.label+' / '+e.effect);
+      }
+      continue;
+    }
+    const [familyName,fd]=fam;
+    if(!(e.level>=1&&e.level<=10)){warnings.push('LV範囲外: '+e.label);continue;}
+    const scope=effectScope(e.effect);
+    const baseShorten=shortenFrom(e.effect);
+    if(!scope||baseShorten<=0){warnings.push('効果解析不能: '+card.name+' / '+e.label);continue;}
+
+    // V7 deck.php版と同じく明鏡・明鑑補正はSKILL1にだけ反映。
+    const mm=e.slot===1?mainMirrors:0;
+    const sm=e.slot===1?subMirrors:0;
+    const ctCost=fd.ct[e.level-1];
+    const skillId=fd.prefix+String(e.level-1);
+    const selfShorten=(fd.selfExcluded||scope==='wait')?0:(mm+sm);
+    const othersShorten=baseShorten+mm+sm;
+    const normFactor=3990/ctCost;
+    const isYuga=fd.prefix==='sd011';
+    const isToki=!!fd.toki;
+    const isHolyWater=!!fd.holy;
+    const allowMultiUse=!!fd.repeat;
+    const ownerKey=card.ownerKey;
+    const baseUid=ownerKey+':'+e.slot+':'+skillId;
+    candidates.push({
+      uid:baseUid+'@S0#1',baseUid,instanceId:'S0',useIndex:1,allowMultiInstance:true,
+      ownerKey,cardId:ownerKey,cardNo:card.cardNo,cardName:card.name,cost:card.cost,
+      deckKey:card.deckKey,skillId,skillName:familyName+'LV'+e.level,skillSlot:e.slot,ctCost,scope,
+      selfShorten,othersShorten,isSupport:isYuga,isYuga,strongYuga:isYuga&&(othersShorten*normFactor>=160),
+      normSelf:selfShorten*normFactor,normOthers:othersShorten*normFactor,
+      rNeed:ctCost+baseShorten-(mm+sm),isToki,allowMultiUse,isHolyWater,
+      mainMirrorShorten:mm,subMirrorShorten:sm,baseShorten,
+      isStrong1800:(ctCost<=2400 && othersShorten*normFactor>=160)
+    });
+  }
+  card.candidates=candidates;
+  return warnings;
+}
+
+// カードファイル画面の通常コピーには効果説明が含まれないため、
+// 既知のLV10回復量とカード自身の超覇補正、明鏡/明鑑の複製率から
+// deck.php裏面と同じ「実効短縮量」を復元する。
+const CARD_FILE_LV10_BASE = {
+  '優雅な調べ':80,
+  '神医の施術':80,
+  '桃色吐息':20,
+  '酔吟吐息':20,
+  '娘々聖水':80,
+  '龍肝の湯薬':600
+};
+function cardFileScopeForFamily(rawName){
+  if(rawName.includes('龍肝の湯薬')) return 'file';
+  if(rawName.includes('優雅な調べ')) return 'wait';
+  return 'deck';
+}
+function cardFileScopeText(scope){
+  if(scope==='file') return '所持している全武将の';
+  if(scope==='wait') return 'デッキ内で待機中の全武将の';
+  return 'デッキ内の全武将の';
+}
+function cardFileMirrorRatio(rawName,isSub){
+  if(!/(?:明鏡|明鑑)/.test(rawName||'')) return null;
+  if(!isSub) return 1;
+  if(/副将の神明(?:鏡|鑑)/.test(rawName)) return 0.60;
+  if(/副将の大明(?:鏡|鑑)/.test(rawName)) return 0.50;
+  if(/副将の天明(?:鏡|鑑)/.test(rawName)) return 0.35;
+  return null;
+}
+function cardFileIgnoreNameLine(s){
+  return !s || /^(?:ステータス強化|副将スロット|未解放|変更|ラベル名|合成|カードの保護を解除|副将を設定中|ポイント.*|充足予定|exp|スコア)$/.test(s);
+}
+function parseCardFileSkillEntries(blockLines,bonusPct,cardName,warnings){
+  const raw=[];
+  let nextSlot=1, subIndex=0;
+  for(const src of blockLines){
+    const line=String(src||'').trim();
+    let m=line.match(/^\[使用\]\s*(.+?)LV\s*(\d+)$/);
+    if(m){
+      raw.push({slot:nextSlot++,prefix:'',rawName:m[1].trim(),level:Number(m[2]),label:m[1].trim()+'LV'+m[2],effect:''});
+      continue;
+    }
+    m=line.match(/^スキル\s*(\d+)\s+(.+?)LV\s*(\d+)$/);
+    if(m){
+      const slot=Number(m[1]); nextSlot=Math.max(nextSlot,slot+1);
+      raw.push({slot,prefix:'',rawName:m[2].trim(),level:Number(m[3]),label:m[2].trim()+'LV'+m[3],effect:''});
+      continue;
+    }
+    m=line.match(/^副将スキル\s+(.+?)LV\s*(\d+)$/);
+    if(m){
+      raw.push({slot:100+(subIndex++),prefix:'副将',rawName:m[1].trim(),level:Number(m[2]),label:m[1].trim()+'LV'+m[2],effect:''});
+    }
+  }
+  const slot1=raw.find(e=>e.slot===1);
+  let primaryBase=0, primaryScope='deck';
+  if(slot1){
+    const fam=familyFor(slot1.rawName);
+    if(fam && slot1.level===10 && CARD_FILE_LV10_BASE[fam[0]]!=null){
+      primaryBase=Math.round(CARD_FILE_LV10_BASE[fam[0]]*(1+(bonusPct||0)/100));
+      primaryScope=cardFileScopeForFamily(slot1.rawName);
+    }
+  }
+  for(const e of raw){
+    const fam=familyFor(e.rawName);
+    if(fam){
+      if(e.level===10 && CARD_FILE_LV10_BASE[fam[0]]!=null){
+        const v=Math.round(CARD_FILE_LV10_BASE[fam[0]]*(1+(bonusPct||0)/100));
+        const scope=cardFileScopeForFamily(e.rawName);
+        e.effect=cardFileScopeText(scope)+'スキル回復時間を'+v+'分0秒短縮する';
+      }else if(e.level!==10){
+        warnings.push('カードファイル形式では効果量を復元できないLV: '+cardName+' / '+e.label+'（デッキ裏面コピーなら解析可能）');
+      }
+      continue;
+    }
+    if(/(?:明鏡|明鑑)/.test(e.rawName) && primaryBase>0){
+      const ratio=cardFileMirrorRatio(e.rawName,/^副/.test(e.prefix));
+      if(ratio==null){
+        warnings.push('カードファイル形式で倍率未登録の明鏡・明鑑: '+cardName+' / '+e.label+'（デッキ裏面コピーなら効果値を直接解析可能）');
+      }else{
+        const v=Math.round(primaryBase*ratio);
+        e.effect=cardFileScopeText(primaryScope)+'スキル回復時間を'+v+'分0秒短縮する';
+      }
+    }
+  }
+  return raw;
+}
+function parseCardFile(text){
+  const lines=normText(text).split('\n').map(x=>x.trim());
+  const setIdx=[];
+  for(let i=0;i<lines.length;i++) if(lines[i]==='このカードをデッキにセットします') setIdx.push(i);
+  const cards=[], warnings=[];
+  for(let ci=0;ci<setIdx.length;ci++){
+    const si=setIdx[ci], end=(ci+1<setIdx.length?setIdx[ci+1]:lines.length);
+    let ni=-1,no='';
+    for(let j=si+1;j<Math.min(end,si+10);j++){
+      const m=lines[j].match(/^No\s+(\d+)/); if(m){ni=j;no=m[1];break;}
+    }
+    if(ni<0) continue;
+    let name='';
+    for(let j=si-1;j>=Math.max(0,si-10);j--){
+      const v=lines[j].trim();
+      if(cardFileIgnoreNameLine(v)) continue;
+      if(/^\d+(?:\.\d+)?%$/.test(v)||/^\d+\/\d+$/.test(v)||/^\d+(?:\.\d+)?cost$/i.test(v)) continue;
+      name=v; break;
+    }
+    if(!name){warnings.push('カード名を取得できません: No'+no);name='No'+no;}
+    const block=lines.slice(ni,end);
+    let cost=0;
+    for(const line of block){const m=line.match(/^コスト\s+(\d+(?:\.\d+)?)/);if(m){cost=Number(m[1]);break;}}
+    if(!cost) warnings.push('コストを取得できません: '+name+' / No'+no);
+    let bonusPct=0;
+    for(const line of block){const m=line.match(/^(\d+(?:\.\d+)?)%$/);if(m) bonusPct=Math.max(bonusPct,Number(m[1])||0);}
+    const ownerKey='file-'+(cards.length+1);
+    const card={ownerKey,deckKey:'file',index:cards.length,name,cardNo:no,cost,frontRaw:block.join('\n'),backRaw:'',skills:[],candidates:[],bonusPct};
+    card.skillEntries=parseCardFileSkillEntries(block,bonusPct,name,warnings);
+    warnings.push(...buildCandidatesForCard(card));
+    cards.push(card);
+  }
+  if(!cards.length && normText(text).trim()) warnings.push('カードファイル形式のカードを検出できませんでした。');
+  return {cards,warnings,frontCount:cards.length,backCount:cards.length};
+}
+
+let app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:''};
+
+function parseAll(){
+  const fileText=document.getElementById('fileInput').value;
+  const f=parseCardFile(fileText);
+  app.cards=f.cards;
+  app.warnings=[...f.warnings];
+  app.candidates=app.cards.flatMap(c=>c.candidates);
+  {
+    const byNo=Object.create(null);
+    app.cards.forEach(c=>{
+      const no=String(c.cardNo||'').trim();
+      if(!no)return;
+      (byNo[no]||(byNo[no]=[])).push(c);
+    });
+    const dups=Object.keys(byNo).filter(no=>byNo[no].length>1);
+    if(dups.length){
+      app.warnings.unshift('同一カードNoの複数個体を検出: '+dups.map(no=>'No'+no+'×'+byNo[no].length).join(' / ')+'。ゲーム仕様に合わせ、施術ループへの採用は各Noにつき最大1枚として排他探索します。');
+    }
+  }
+  renderParsed();
+  document.getElementById('parseSummary').textContent=`カード ${app.cards.length}枚 / 回復候補 ${app.candidates.length}件`;
+  return app.candidates.length>0;
+}
+
+function renderParsed(){
+  const body=document.getElementById('parsedBody');body.innerHTML='';
+  app.cards.forEach((c)=>{
+    const tr=document.createElement('tr');
+    const skillText=c.skills.map(s=>s.label).join(' / ')||'—';
+    tr.innerHTML=`<td>${esc(c.name)}</td><td>${esc(c.cardNo)}</td><td class="num">${c.cost?c.cost.toFixed(1):'不明'}</td><td>${esc(skillText)}</td>`;
+    body.appendChild(tr);
+  });
+  const w=document.getElementById('parseWarnings');
+  if(app.warnings.length) w.innerHTML='<div class="notice warnbox" style="margin-top:10px">'+app.warnings.map(esc).join('<br>')+'</div>';
+  else w.innerHTML='';
+  document.getElementById('parsedPanel').classList.remove('hidden');
+}
+
+function minSearchWorkerMainV6236() {
+            'use strict';
+            let cancelled = false;
+            let lastProgressAt = 0;
+            let ownerCounts = Object.create(null);
+            let ownerProfiles = Object.create(null);
+            let cardNoOwnerCounts = Object.create(null);
+            let duplicateCardNos = new Set();
+            // V7 mathematical effect model. The proof/search side uses this matrix only.
+            // The main-thread physical CT simulator intentionally keeps an independent implementation
+            // so a modeling bug cannot validate itself.
+            let effectIndex = Object.create(null);
+            let effectMatrix = null;
+            let effectN = 0;
+
+            function progress(state, label, force) {
+                const now = Date.now();
+                if (!force && now - lastProgressAt < 120) return;
+                lastProgressAt = now;
+                const cfg = state._cfg || {};
+                const ratios = [];
+                if (cfg.selectionNodeBudget > 0) ratios.push((state.selectionNodes || 0) / cfg.selectionNodeBudget);
+                if (cfg.repeatNodeBudget > 0) ratios.push((state.repeatNodes || 0) / cfg.repeatNodeBudget);
+                if (cfg.orderTestBudget > 0) ratios.push((state.orderEnumerated || 0) / cfg.orderTestBudget);
+                if (cfg.maxGroupedPartitions > 0) ratios.push((state.partitionVisited || 0) / cfg.maxGroupedPartitions);
+                const passBudgetPct = ratios.length ? Math.max.apply(null, ratios) * 100 : 0;
+                let candidatePct = null;
+                if ((state.candidateTotal || 0) > 0) candidatePct = Math.max(0, Math.min(100, (state.candidateVisited || 0) * 100 / state.candidateTotal));
+                self.postMessage({
+                    type: 'progress',
+                    label: label || '',
+                    phase: cfg.phase || 'minHands',
+                    objectiveLabel: cfg.objectiveLabel || '',
+                    selectionNodes: state.selectionNodes || 0,
+                    orderTests: state.orderTests || 0,
+                    orderEnumerated: state.orderEnumerated || 0,
+                    resumeOrderOffset: cfg.resumeOrderOffset || 0,
+                    repeatNodes: state.repeatNodes || 0,
+                    leaves: state.leaves || 0,
+                    partitionVisited: state.partitionVisited || 0,
+                    partitionTotal: state.partitionTotal || 0,
+                    candidateVisited: state.candidateVisited || 0,
+                    candidateTotal: state.candidateTotal || 0,
+                    candidatePct: candidatePct,
+                    candidateExact: !!state.candidateExact,
+                    passBudgetPct: Math.max(0, Math.min(100, passBudgetPct)),
+                    planStage: state.planStage || cfg.planStage || '',
+                    planOwnerChecked: state.planOwnerChecked || 0,
+                    planOwnerTotal: state.planOwnerTotal || 0,
+                    planRawPrefilter: state.planRawPrefilter || 0,
+                    planResourcePass: state.planResourcePass || 0,
+                    planAggregatePass: state.planAggregatePass || 0,
+                    planCyclicPass: state.planCyclicPass || 0,
+                    planShapeCount: state.planShapeCount || 0,
+                    shapeIndex: state.shapeIndex || 0,
+                    shapeTotal: state.shapeTotal || 0,
+                    shapeRound: state.shapeRound || 0,
+                    shapeBudget: state.shapeBudget || 0,
+                    sameOrderFastPathTried: state.sameOrderFastPathTried || 0,
+                    sameOrderFastPathHit: state.sameOrderFastPathHit || 0,
+                    sameOrderFastPathFallback: state.sameOrderFastPathFallback || 0
+                });
+            }
+            function combNum(n,k){
+                n=Math.floor(Number(n)||0);k=Math.floor(Number(k)||0);
+                if(k<0||k>n)return 0;if(k===0||k===n)return 1;k=Math.min(k,n-k);
+                let r=1;for(let i=1;i<=k;i++){r=r*(n-k+i)/i;if(!Number.isFinite(r)||r>1e300)return 1e300;}return r;
+            }
+            function rawUsagePatternCount(baseInfos,m,hands,ryu){
+                const fixed=ryu?1:0;
+                const xs=(baseInfos||[]).filter(i=>!ryu||i.baseUid!==ryu.baseUid);
+                const n=xs.length, h=xs.filter(i=>i.isHolyWater).length, t=xs.filter(i=>i.isToki).length;
+                let total=0;
+                if(m.id==='normal') return combNum(n,hands-fixed);
+                if(m.id==='holy2'){
+                    for(let rh=1;rh<=h;rh++){const s=hands-fixed-2*rh;if(s>=0&&s<=n-rh)total+=combNum(h,rh)*combNum(n-rh,s);}
+                    return Math.min(total,1e300);
+                }
+                if(m.id==='toki2'){
+                    for(let rt=1;rt<=t;rt++){const s=hands-fixed-2*rt;if(s>=0&&s<=n-rt)total+=combNum(t,rt)*combNum(n-rt,s);}
+                    return Math.min(total,1e300);
+                }
+                for(let rh=1;rh<=h;rh++)for(let rt=1;rt<=t;rt++){
+                    const r=rh+rt,s=hands-fixed-2*r;
+                    if(s>=0&&s<=n-r)total+=combNum(h,rh)*combNum(t,rt)*combNum(n-r,s);
+                    if(total>1e300)return 1e300;
+                }
+                return total;
+            }
+            function isRyukan(info) { return !!(info && info.skillId && info.skillId.indexOf('sd063') === 0); }
+            function isSelfExcluded(info) {
+                if (!info || !info.skillId) return false;
+                if (info.skillId.indexOf('sd063') === 0) return true;
+                if (info.skillId.indexOf('sd011') === 0) return true;
+                if (info.skillId.indexOf('sd018') === 0) return true;
+                return info.scope === 'wait';
+            }
+            function rawExternalContributionV7(source,target) {
+                if(!source||!target)return 0;
+                if(source.baseUid===target.baseUid)return 0;
+                if(isSelfExcluded(source) && source.ownerKey===target.ownerKey)return 0;
+                return source.othersShorten||0;
+            }
+            function initEffectMatrixV7(baseInfos) {
+                effectIndex = Object.create(null);
+                effectN = (baseInfos||[]).length;
+                for(let i=0;i<effectN;i++) effectIndex[String(baseInfos[i].baseUid||'')] = i;
+                effectMatrix = new Int32Array(effectN*effectN);
+                for(let si=0;si<effectN;si++){
+                    for(let ti=0;ti<effectN;ti++){
+                        effectMatrix[si*effectN+ti] = Math.max(0,Math.floor(rawExternalContributionV7(baseInfos[si],baseInfos[ti])||0));
+                    }
+                }
+            }
+            function externalContribution(source,target) {
+                if(!source||!target)return 0;
+                if(effectMatrix && effectN>0){
+                    const si=effectIndex[String(source.baseUid||'')], ti=effectIndex[String(target.baseUid||'')];
+                    if(si!==undefined && ti!==undefined) return effectMatrix[si*effectN+ti]||0;
+                }
+                return rawExternalContributionV7(source,target);
+            }
+            function buildOwnerCounts(baseInfos) {
+                const m = Object.create(null);
+                (baseInfos || []).forEach(i => { if (i && i.ownerKey) m[i.ownerKey] = (m[i.ownerKey] || 0) + 1; });
+                return m;
+            }
+            function buildCardNoOwnerCounts(baseInfos) {
+                const byNo = Object.create(null);
+                (baseInfos || []).forEach(i => {
+                    if(!i)return;
+                    const no=String(i.cardNo||'').trim();
+                    const owner=String(i.ownerKey||'');
+                    if(!no||!owner)return;
+                    (byNo[no]||(byNo[no]=new Set())).add(owner);
+                });
+                const out=Object.create(null);
+                Object.keys(byNo).forEach(no=>{out[no]=byNo[no].size;});
+                return out;
+            }
+            function hasDuplicateCardNo(info) {
+                const no=String(info&&info.cardNo||'').trim();
+                return !!(no && (cardNoOwnerCounts[no]||0)>1);
+            }
+            // 単一スキルの機能シグネチャ。カードID/武将名/skillIdそのものは含めず、
+            // CT挙動が同じなら同一機能とみなす。
+            function simpleFunctionalKey(info) {
+                if (!info) return 'null';
+                return [
+                    info.ctCost || 0, info.scope || '', info.baseShorten || 0,
+                    info.mainMirrorShorten || 0, info.subMirrorShorten || 0,
+                    info.selfShorten || 0, info.othersShorten || 0,
+                    isSelfExcluded(info) ? 1 : 0,
+                    info.isHolyWater ? 1 : 0, info.isToki ? 1 : 0, isRyukan(info) ? 1 : 0,
+                    info.strongYuga ? 1 : 0
+                ].join('/');
+            }
+            // 同一カード(owner)に複数の回復候補がある場合でも、そのカード全体の候補構成が
+            // 別カードと同型ならowner除外関係まで含めて対称になる。ownerごとの候補シグネチャ
+            // 多重集合をプロフィール化し、安全にグループ化する。
+            function buildOwnerProfiles(baseInfos) {
+                const byOwner = Object.create(null);
+                (baseInfos || []).forEach(info => {
+                    const o = String(info && info.ownerKey || '');
+                    (byOwner[o] || (byOwner[o] = [])).push(simpleFunctionalKey(info));
+                });
+                const out = Object.create(null);
+                Object.keys(byOwner).forEach(o => {
+                    const xs = byOwner[o].slice().sort();
+                    out[o] = xs.join('||');
+                });
+                return out;
+            }
+            function functionalKey(info) {
+                if (!info) return 'null';
+                const base = simpleFunctionalKey(info);
+                const o = String(info.ownerKey || '');
+                // v6.2.3.6: 1カードに複数の回復候補スキルがある場合も、各スキルを独立候補として
+                // 同一ループに複数採用できることを保証する。別ownerとの圧縮によって
+                // 「同じカードからA+Bを採る / 別カードからAとBを採る」のowner除外差を
+                // 代表形1つへ潰さないよう、複数候補ownerは個別化する。
+                // 1候補しかないowner同士だけ、機能等価なら安全にグループ圧縮する。
+                if ((ownerCounts[o] || 0) > 1) return base + '|multiOwner:' + o;
+                // カードファイルでは同一cardNoの異なる実カード個体を複数貼れる。
+                // ゲーム上は同一cardNoを同時にデッキへ置けないため、重複Noの各個体は
+                // 機能等価圧縮で同一自由選択群へ混ぜず、排他的な代替候補として個別化する。
+                if (hasDuplicateCardNo(info)) return base + '|dupCardNo:' + String(info.cardNo||'') + '|owner:' + o;
+                return base + '|singleOwner';
+            }
+            function stableMemberSort(a,b) {
+                // CT機能が同じカードなら、まず低コストを優先して代表カードにする。
+                // cost=0 はDOM取得不能なので最後へ送る。
+                const ac=Number(a && a.cost)||0, bc=Number(b && b.cost)||0;
+                const ae=ac>0?ac:Number.POSITIVE_INFINITY, be=bc>0?bc:Number.POSITIVE_INFINITY;
+                if (ae !== be) return ae-be;
+                const an=Number(a && a.cardId), bn=Number(b && b.cardId);
+                if (Number.isFinite(an) && Number.isFinite(bn) && an !== bn) return an-bn;
+                return String(a && a.baseUid || '').localeCompare(String(b && b.baseUid || ''));
+            }
+            function groupInfos(infos) {
+                const map = new Map();
+                (infos || []).forEach(info => {
+                    const key = functionalKey(info);
+                    if (!map.has(key)) map.set(key, { key, members: [], proto: info });
+                    map.get(key).members.push(info);
+                });
+                const arr = Array.from(map.values());
+                arr.forEach(g => g.members.sort(stableMemberSort));
+                return arr;
+            }
+            function identityGroups(infos) {
+                return (infos || []).map(info => ({ key:'id:'+String(info.baseUid||''), members:[info], proto:info }));
+            }
+            // 使用中スキルだけを owner 単位で束ねた CT 機能形。cardId は含めない。
+            // externalContribution は「同一ownerか」と各スキル機能だけに依存するため、
+            // この形が同一なら最小カード探索の順序成立性は対称として代表1件に圧縮できる。
+            function usageFunctionalShapeKey(usage, baseMap) {
+                const byOwner=Object.create(null);
+                Object.keys(usage||{}).forEach(b=>{
+                    const n=Math.max(0,Math.floor(Number(usage[b])||0)); if(n<=0)return;
+                    const i=baseMap[b]; if(!i)return;
+                    const o=String(i.ownerKey||'');
+                    (byOwner[o]||(byOwner[o]=[])).push(simpleFunctionalKey(i)+'x'+n);
+                });
+                const bundles=Object.keys(byOwner).map(o=>byOwner[o].slice().sort().join('+')).sort();
+                return bundles.join('##');
+            }
+            function usageOwnerSet(usage, baseMap) {
+                const st=new Set();
+                Object.keys(usage||{}).forEach(b=>{if((usage[b]||0)>0&&baseMap[b])st.add(String(baseMap[b].ownerKey||''));});
+                return st;
+            }
+            function usagePairs(usage) {
+                return Object.keys(usage||{}).filter(b=>(usage[b]||0)>0).sort().map(b=>[b,Math.floor(Number(usage[b])||0)]);
+            }
+            function need(info) {
+                return Math.max(0, (info.ctCost || 0) - ((info.mainMirrorShorten || 0) + (info.subMirrorShorten || 0)));
+            }
+            function makeBaseMap(baseInfos) {
+                const m = Object.create(null);
+                baseInfos.forEach(x => { m[x.baseUid] = x; });
+                return m;
+            }
+            function usageHands(usage) {
+                let n = 0;
+                Object.keys(usage).forEach(k => { n += usage[k] || 0; });
+                return n;
+            }
+            function aggregateNecessary(usage, baseMap) {
+                const bases = Object.keys(usage).filter(k => (usage[k] || 0) > 0);
+                for (const targetBase of bases) {
+                    const target = baseMap[targetBase];
+                    if (!target) continue;
+                    const required = need(target) * (usage[targetBase] || 0);
+                    let available = 0;
+                    for (const sourceBase of bases) {
+                        const source = baseMap[sourceBase];
+                        if (!source) continue;
+                        available += externalContribution(source,target) * (usage[sourceBase] || 0);
+                    }
+                    if (available < required) return false;
+                }
+                return true;
+            }
+            // 2回使用スキル同士の循環配置に対する安全な必要条件。
+            // Bの2区間でAの2使用を1個ずつ分けることが数値的に不可能な場合、
+            // Bの片区間はAを0個、反対区間は2個含む。Aを含まないB区間がAの1区間内へ
+            // 丸ごと収まるため、その最小必要回復量がA区間の最大許容量を超える枝は順序不可能。
+            // この判定は各モードの理論下限手数だけに使い、上位手数の高速候補探索には影響させない。
+            function cyclicPairNecessary(usage,baseMap){
+                const bases=Object.keys(usage).filter(b=>(usage[b]||0)>0);
+                const reps=bases.filter(b=>(usage[b]||0)===2);
+                function totalFor(target){let z=0;for(const b of bases){const src=baseMap[b];if(src)z+=externalContribution(src,target)*(usage[b]||0);}return z;}
+                // 総量に余裕がある構成ではこの高価な枝刈りを行わない。
+                let tight=Number.POSITIVE_INFINITY;
+                for(const b of bases){const t=baseMap[b];if(t)tight=Math.min(tight,totalFor(t)-need(t)*(usage[b]||0));}
+                function subsetExists(vals,lo,hi){
+                    lo=Math.max(0,Math.ceil(lo));hi=Math.floor(hi);if(hi<lo)return false;
+                    const total=vals.reduce((a,v)=>a+Math.max(0,Math.floor(v||0)),0);hi=Math.min(hi,total);if(hi<lo)return false;
+                    const reach=new Uint8Array(total+1);reach[0]=1;let mx=0;
+                    for(const raw of vals){const v=Math.max(0,Math.floor(raw||0));if(v<=0)continue;for(let x=Math.min(total,mx+v);x>=v;x--)if(!reach[x]&&reach[x-v])reach[x]=1;mx=Math.min(total,mx+v);}
+                    for(let x=lo;x<=hi;x++)if(reach[x])return true;return false;
+                }
+
+                // v6.2.3.12: tight repeated-arc containment proof.
+                // 2回使用の吐息系Aについて、各A区間の「生の短縮量」下限は need(A)+others(A)。
+                // 別の吐息系Bの2端点がAの同一区間へ入るには、Bの必要区間+B始点+A終点だけで
+                // A区間上限以下でなければならない。これを超える全BはAと必ず交互配置になり、
+                // Aの各半周には各Bがちょうど1回ずつ入る。
+                // その前提でも別の2回使用スキルHをA半周へ1回だけ置く部分和が存在せず、
+                // Hを2回とも同じA半周へ置いた場合の包含区間上限でもHのCTを戻せないなら、
+                // 任意順序でも成立不能。部分和側は他イベントを自由配置できる過大評価なので安全な必要条件。
+                try { (function(){
+                    const rawTotal=bases.reduce((z,b)=>{const i=baseMap[b];return z+(i?(i.othersShorten||0)*(usage[b]||0):0);},0);
+                    const tokiReps=reps.map(b=>baseMap[b]).filter(i=>i&&i.isToki&&!isSelfExcluded(i));
+                    if(tokiReps.length<2)return;
+                    for(const A of tokiReps){
+                        const wA=Math.max(0,A.othersShorten||0), lowA=need(A)+wA, highA=rawTotal-lowA;
+                        if(highA<lowA){throw {__tightArcImpossible:true};}
+                        // Aと全ての他tokiRepsが交互配置を強制される場合だけ使う。
+                        let forced=true;
+                        for(const B of tokiReps){
+                            if(B.baseUid===A.baseUid)continue;
+                            const wB=Math.max(0,B.othersShorten||0), lowB=need(B)+wB;
+                            if(lowB+wB+wA<=highA){forced=false;break;}
+                        }
+                        if(!forced)continue;
+                        const baseline=tokiReps.reduce((z,i)=>z+Math.max(0,i.othersShorten||0),0);
+                        const loExtra=lowA-baseline, hiExtra=highA-baseline;
+                        if(hiExtra<loExtra)continue;
+                        for(const hb of reps){
+                            const H=baseMap[hb];if(!H||H.isToki)continue;
+                            const wH=Math.max(0,H.othersShorten||0);
+                            const vals=[];
+                            for(const sb of bases){
+                                const S=baseMap[sb];if(!S)continue;
+                                let cnt=usage[sb]||0;
+                                if(cnt<=0)continue;
+                                if(cnt===2&&S.isToki&&!isSelfExcluded(S))continue; // A半周に1回ずつ固定済み
+                                if(sb===hb)cnt=0; // Hはちょうど1回を固定し、もう1回は反対半周
+                                for(let k=0;k<cnt;k++)vals.push(Math.max(0,S.othersShorten||0));
+                            }
+                            if(subsetExists(vals,loExtra-wH,hiExtra-wH))continue;
+                            // Hが分離できないなら2回とも同じA区間。片方のH区間はそのA区間内に包含される。
+                            // A終点、H始点、H終点の生短縮量を除いても need(H) に届かなければ不可能。
+                            const maxContainedRecover=highA-(2*wH)-wA;
+                            if(maxContainedRecover<need(H)){throw {__tightArcImpossible:true};}
+                        }
+                    }
+                })(); } catch(e) { if(e&&e.__tightArcImpossible)return false; throw e; }
+                if(tight>12)return true;
+                for(const ab of reps){
+                    const A=baseMap[ab];if(!A)continue;const nA=need(A),tA=totalFor(A),maxArcA=tA-nA;if(maxArcA<nA)continue;
+                    for(const bb of reps){
+                        if(bb===ab)continue;const B=baseMap[bb];if(!B)continue;const nB=need(B),tB=totalFor(B),maxArcB=tB-nB;if(maxArcB<nB)continue;
+                        const aToB=externalContribution(A,B), bToA=externalContribution(B,A);
+                        if(2*bToA+nB<=maxArcA)continue;
+                        const vals=[];let domination=true;
+                        for(const sb of bases){
+                            if(sb===ab||sb===bb)continue;const S=baseMap[sb];if(!S)continue;
+                            const va=externalContribution(S,A),vb=externalContribution(S,B);if(va<vb){domination=false;break;}
+                            for(let k=0;k<(usage[sb]||0);k++)vals.push(vb);
+                        }
+                        if(!domination)continue;
+                        // B区間がAを1回だけ含む数値解が存在するなら、このペアでは証明に使わない。
+                        if(subsetExists(vals,nB-aToB,maxArcB-aToB))continue;
+                        // Aを含まないB区間がA区間内に収まる場合、B両端+内部だけでA区間上限を超える。
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            function validatorMode(usage, baseMap) {
+                for (const base of Object.keys(usage)) {
+                    if ((usage[base] || 0) >= 2) {
+                        const info = baseMap[base];
+                        if (info && info.isToki) return 'toki';
+                    }
+                }
+                return 'primary';
+            }
+            function simulate(order, baseMap, rounds) {
+                const ids = [];
+                const idIndex = Object.create(null);
+                for (const ev of order) {
+                    const uid = ev.baseUid + '#' + ev.useIndex;
+                    if (!(uid in idIndex)) { idIndex[uid] = ids.length; ids.push(uid); }
+                }
+                const ct = new Array(ids.length).fill(0);
+                function infoForUid(uid) { return baseMap[uid.split('#')[0]]; }
+                function decOwner(ownerKey, value) {
+                    if (!value) return;
+                    for (let i=0;i<ids.length;i++) {
+                        const inf = infoForUid(ids[i]);
+                        if (!inf || inf.ownerKey === ownerKey) continue;
+                        ct[i] = Math.max(0, ct[i] - value);
+                    }
+                }
+                function decUid(excludeUid, value) {
+                    if (!value) return;
+                    for (let i=0;i<ids.length;i++) {
+                        if (ids[i] === excludeUid) continue;
+                        ct[i] = Math.max(0, ct[i] - value);
+                    }
+                }
+                function decAll(value) {
+                    if (!value) return;
+                    for (let i=0;i<ids.length;i++) ct[i] = Math.max(0, ct[i] - value);
+                }
+                for (let r=0;r<rounds;r++) {
+                    for (let step=0;step<order.length;step++) {
+                        if (cancelled) return {success:false,cancelled:true};
+                        const ev = order[step];
+                        const uid = ev.baseUid + '#' + ev.useIndex;
+                        const inf = baseMap[ev.baseUid];
+                        if (!inf) continue;
+                        const idx = idIndex[uid];
+                        if (ct[idx] > 0) return {success:false, ids:ids.slice(), ctSnapshot:ct.slice()};
+                        ct[idx] += inf.ctCost || 0;
+                        const ex = isSelfExcluded(inf);
+                        if (ex) decOwner(inf.ownerKey, inf.baseShorten || 0); else decUid(uid, inf.baseShorten || 0);
+                        if (ex) decOwner(inf.ownerKey, inf.mainMirrorShorten || 0); else decAll(inf.mainMirrorShorten || 0);
+                        if (ex) decOwner(inf.ownerKey, inf.subMirrorShorten || 0); else decAll(inf.subMirrorShorten || 0);
+                    }
+                }
+                return {success:true, ids:ids.slice(), ctSnapshot:ct.slice()};
+            }
+            function checkIntervals(order, baseMap) {
+                const len = order.length;
+                const pos = Object.create(null);
+                order.forEach((ev,i) => { (pos[ev.baseUid] || (pos[ev.baseUid]=[])).push(i); });
+                function recover(fromExclusive,toInclusive,target) {
+                    let sum=0, i=(fromExclusive+1)%len;
+                    while (true) {
+                        const src=baseMap[order[i].baseUid];
+                        if (src) sum += externalContribution(src,target);
+                        if (i===toInclusive) break;
+                        i=(i+1)%len;
+                    }
+                    return sum;
+                }
+                for (const base of Object.keys(pos)) {
+                    const arr=pos[base], target=baseMap[base];
+                    if (!target) continue;
+                    const req=need(target);
+                    if (arr.length>=2) {
+                        for (let i=0;i<arr.length-1;i++) if (recover(arr[i],arr[i+1],target) < req) return false;
+                        if (recover(arr[arr.length-1],arr[0],target) < req) return false;
+                    }
+                }
+                return true;
+            }
+            function periodicValid(order, usage, baseMap, mode) {
+                if (!order.length || !aggregateNecessary(usage,baseMap)) return false;
+                if (mode === 'toki' && !order.some(ev => baseMap[ev.baseUid] && baseMap[ev.baseUid].isToki)) return false;
+                if (!checkIntervals(order,baseMap)) return false;
+                const s2=simulate(order,baseMap,2);
+                if (!s2.success) return false;
+                const s1=simulate(order,baseMap,1);
+                if (!s1.success) return false;
+                const c1=Object.create(null);
+                s1.ids.forEach((id,i)=>{ c1[id]=(s1.ctSnapshot||[])[i]||0; });
+                for (let i=0;i<s2.ids.length;i++) {
+                    const id=s2.ids[i], v2=(s2.ctSnapshot||[])[i]||0;
+                    if (v2 > (c1[id]||0)) return false;
+                }
+                return true;
+            }
+            function perms(items, limit, seedSalt) {
+                limit=Math.max(1,Math.floor(limit||1));
+                if (items.length<=1) return [items.slice()];
+                const out=[], seen=new Set();
+                function add(a){
+                    if(out.length>=limit)return;
+                    const k=a.map(x=>String(x.baseUid||functionalKey(x))).join('|');
+                    if(seen.has(k))return; seen.add(k); out.push(a.slice());
+                }
+                const base=items.slice();
+                const byRecovery=items.slice().sort((a,b)=>(b.othersShorten||0)-(a.othersShorten||0) || functionalKey(a).localeCompare(functionalKey(b)));
+                add(byRecovery); add(byRecovery.slice().reverse()); add(base); add(base.slice().reverse());
+                // 大きい再使用集合は factorial 全展開を避け、回転・入替・決定論的shuffleを
+                // パス予算の範囲で増やす。最小証明は理論下限一致時のみ絶対確定とする。
+                if(items.length>8){
+                    const seeds=[byRecovery,base];
+                    for(const seed of seeds){
+                        for(let sh=1;sh<seed.length&&out.length<limit;sh++)add(seed.slice(sh).concat(seed.slice(0,sh)));
+                        for(let i=0;i<seed.length&&out.length<limit;i++){
+                            for(let j=i+1;j<seed.length&&out.length<limit;j++){
+                                const a=seed.slice(); const t=a[i];a[i]=a[j];a[j]=t;add(a);
+                            }
+                        }
+                    }
+                    let h=(2166136261 ^ ((Number(seedSalt)||0)*2654435761))>>>0;
+                    for(const x of items){const z=String(x.baseUid||'');for(let i=0;i<z.length;i++){h^=z.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}}
+                    function rnd(){h^=h<<13;h^=h>>>17;h^=h<<5;return (h>>>0)/4294967296;}
+                    let guard=0;
+                    while(out.length<limit && guard<limit*20){
+                        guard++;
+                        const a=base.slice();
+                        for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}
+                        add(a);
+                    }
+                    return out;
+                }
+                const a=items.slice();
+                function dfs(pos) {
+                    if (out.length>=limit || cancelled) return;
+                    if (pos>=a.length) { add(a); return; }
+                    const used=new Set();
+                    for (let i=pos;i<a.length;i++) {
+                        const fk=functionalKey(a[i]); if(used.has(fk))continue; used.add(fk);
+                        const t=a[pos]; a[pos]=a[i]; a[i]=t;
+                        dfs(pos+1);
+                        a[i]=a[pos]; a[pos]=t;
+                        if (out.length>=limit) return;
+                    }
+                }
+                dfs(0); return out;
+            }
+            function variants(items) {
+                const out=[], seen=new Set();
+                function add(a){
+                    const k=a.map(x=>functionalKey(x)).join('|');
+                    if(!seen.has(k)){seen.add(k);out.push(a);}
+                }
+                function tie(a,b){return functionalKey(a).localeCompare(functionalKey(b)) || stableMemberSort(a,b);}
+                add(items.slice().sort((a,b)=>((b.othersShorten||0)-(a.othersShorten||0)) || tie(a,b)));
+                add(items.slice().sort((a,b)=>((b.selfShorten||0)-(a.selfShorten||0)) || tie(a,b)));
+                add(items.slice().sort((a,b)=>(need(b)-need(a)) || tie(a,b)));
+                const copy=out.slice(); copy.forEach(v=>add(v.slice().reverse()));
+                return out;
+            }
+            // owner競合時の middle/tail 分割は候補を配列へ蓄積せず、1件ずつ逐次生成する。
+            // これにより探索量を増やしてもメモリ使用量が分割数に比例して増えない。
+            function visitGroupedPartitions(singles, cfg, state, visitor) {
+                const gs = groupInfos(singles);
+                if (!gs.length) {
+                    state.partitionVisited = (state.partitionVisited || 0) + 1;
+                    return { groups: gs, complete: true, total: 1, found: !!visitor([], gs) };
+                }
+                let total = 1;
+                for (const g of gs) {
+                    total *= (g.members.length + 1);
+                    if (!Number.isFinite(total) || total > 1e12) { total = 1e12; break; }
+                }
+                state.partitionGroups = Math.max(state.partitionGroups || 0, gs.length);
+                state.partitionTotal = Math.max(state.partitionTotal || 0, total);
+                const visitBudget = Math.max(1, Number(cfg.maxGroupedPartitions) || 20000);
+                function choices(k) {
+                    const a=[]; for(let i=0;i<=k;i++)a.push(i);
+                    // middle/tail が均衡する分割を先に試す。
+                    a.sort((x,y)=>Math.abs(2*x-k)-Math.abs(2*y-k) || y-x);
+                    return a;
+                }
+                const counts = new Array(gs.length).fill(0);
+                let found = false;
+                let exhausted = true;
+                function dfs(gi) {
+                    if (found || cancelled) return;
+                    if ((state.partitionVisited || 0) >= visitBudget) { exhausted = false; return; }
+                    if (gi >= gs.length) {
+                        state.partitionVisited = (state.partitionVisited || 0) + 1;
+                        if ((state.partitionVisited % 256) === 0) progress(state, state.label, false);
+                        if (visitor(counts, gs)) found = true;
+                        return;
+                    }
+                    const g = gs[gi], k = g.members.length;
+                    for (const c of choices(k)) {
+                        counts[gi] = c;
+                        dfs(gi + 1);
+                        if (found || cancelled || !exhausted) return;
+                    }
+                }
+                dfs(0);
+                return { groups: gs, complete: exhausted, total, found };
+            }
+            // 2回使用カードを first-block / second-block に置く現在の探索形では、
+            // 通常1回使用カードの「順番」自体は再使用区間の回復量に影響せず、
+            // middle / tail のどちらに入るかだけが本質になる。
+            // owner競合がない通常ケースは subset-sum DP で成立する分割を直接求める。
+            function intervalPartitionDP(repeated,singles,r1,r2,baseMap) {
+                // DPは各singleが全repeated targetへ同じ短縮量を与える場合だけ安全に使う。
+                // 同一カードでも通常回復スキル同士なら othersShorten がそのまま入るため対応可能。
+                // 自己除外型など target ごとに寄与が変わる場合だけ grouped partition へフォールバックする。
+                for(const s of singles){
+                    for(const t of repeated){
+                        if(externalContribution(s,t)!==(s.othersShorten||0))return {supported:false,partition:null};
+                    }
+                }
+                const seq=[];
+                r1.forEach(i=>seq.push({info:i,useIndex:1}));
+                r2.forEach(i=>seq.push({info:i,useIndex:2}));
+                const n=seq.length;
+                const positions=Object.create(null);
+                for(let i=0;i<n;i++){
+                    const b=seq[i].info.baseUid;
+                    (positions[b]||(positions[b]=[])).push(i);
+                }
+                const totalSingles=singles.reduce((a,i)=>a+(i.othersShorten||0),0);
+                let low=0, high=totalSingles;
+                function sumForward(fromExclusive,toInclusive,target){
+                    let sum=0, k=(fromExclusive+1)%n;
+                    while(true){
+                        const src=seq[k].info;
+                        if(src)sum+=externalContribution(src,target);
+                        if(k===toInclusive)break;
+                        k=(k+1)%n;
+                    }
+                    return sum;
+                }
+                for(const target of repeated){
+                    const ps=positions[target.baseUid]||[];
+                    if(ps.length!==2)return {supported:false,partition:null};
+                    const p1=ps[0],p2=ps[1];
+                    const fixedMid=sumForward(p1,p2,target);
+                    const fixedTail=sumForward(p2,p1,target);
+                    const req=need(target);
+                    low=Math.max(low,req-fixedMid);
+                    high=Math.min(high,totalSingles-Math.max(0,req-fixedTail));
+                    if(low>high)return {supported:true,partition:null};
+                }
+                low=Math.max(0,Math.ceil(low)); high=Math.min(totalSingles,Math.floor(high));
+                if(low>high)return {supported:true,partition:null};
+                // 0/1 subset-sum。回復量は分単位整数で総和も小さいため非常に軽い。
+                const reach=new Uint8Array(totalSingles+1); reach[0]=1;
+                const prevSum=new Int32Array(totalSingles+1); prevSum.fill(-1);
+                const prevIdx=new Int32Array(totalSingles+1); prevIdx.fill(-1);
+                let maxReach=0;
+                for(let i=0;i<singles.length;i++){
+                    const v=Math.max(0,Math.floor(singles[i].othersShorten||0));
+                    if(v===0)continue;
+                    for(let x=Math.min(totalSingles,maxReach+v);x>=v;x--){
+                        if(!reach[x]&&reach[x-v]){reach[x]=1;prevSum[x]=x-v;prevIdx[x]=i;}
+                    }
+                    maxReach=Math.min(totalSingles,maxReach+v);
+                }
+                let targetSum=-1;
+                const center=(low+high)/2;
+                for(let d=0;d<=high-low;d++){
+                    const a=Math.floor(center-d/2), b=Math.ceil(center+d/2);
+                    if(a>=low&&a<=high&&reach[a]){targetSum=a;break;}
+                    if(b>=low&&b<=high&&reach[b]){targetSum=b;break;}
+                }
+                if(targetSum<0){for(let x=low;x<=high;x++){if(reach[x]){targetSum=x;break;}}}
+                if(targetSum<0)return {supported:true,partition:null};
+                const chosen=new Set(); let cur=targetSum;
+                while(cur>0){const idx=prevIdx[cur];if(idx<0)break;chosen.add(idx);cur=prevSum[cur];}
+                const mid=[],tail=[];
+                for(let i=0;i<singles.length;i++)(chosen.has(i)?mid:tail).push(singles[i]);
+                return {supported:true,partition:{mid,tail,sum:targetSum,low,high}};
+            }
+
+            function tryOrders(usage,baseMap,state,cfg) {
+                if (!aggregateNecessary(usage,baseMap)) return null;
+                const repeated=[], singles=[];
+                Object.keys(usage).forEach(base=>{const i=baseMap[base]; if(!i)return; if(usage[base]>=2) repeated.push(i); else if(usage[base]===1) singles.push(i);});
+                const mode=validatorMode(usage,baseMap);
+                const tested=new Set();
+                function test(order){
+                    if(cancelled)return false;
+                    state.orderEnumerated=(state.orderEnumerated||0)+1;
+                    if(state.orderEnumerated>cfg.orderTestBudget){state.complete=false;state.reason='order-test-budget';return false;}
+                    // 一時停止/再開時は、前回すでに検証済みの順序位置まではCTシミュレーションを省略する。
+                    if(state.orderEnumerated <= (cfg.resumeOrderOffset||0)){
+                        if((state.orderEnumerated%2048)===0)progress(state,state.label,false);
+                        return false;
+                    }
+                    const shape=order.map(ev=>(((usage[ev.baseUid]||0)>=2)?ev.baseUid:functionalKey(baseMap[ev.baseUid]))+'#'+ev.useIndex).join('>');
+                    if(tested.has(shape))return false;
+                    tested.add(shape);
+                    if(tested.size>120000)tested.clear();
+                    state.orderTests++; if((state.orderTests%32)===0)progress(state,state.label,false);
+                    const ok=periodicValid(order,usage,baseMap,mode);
+                    if(ok)state.lastValidOrder=order.slice();
+                    return ok;
+                }
+                if (!repeated.length) {
+                    for (const v of variants(singles)) {
+                        for (let shift=0;shift<Math.min(v.length,10);shift++) {
+                            const rot=v.slice(shift).concat(v.slice(0,shift));
+                            const o=rot.map(i=>({baseUid:i.baseUid,useIndex:1}));
+                            if(test(o))return {order:o,mode};
+                            if(!state.complete||cancelled)return null;
+                        }
+                    }
+                    return null;
+                }
+                // V7: 8種類以下の再使用骨格は非同順も完全列挙する。
+                // 9種類以上は factorial 爆発を避けて anytime 探索へ移るが、
+                // その場合は approximate=true を残し、未完走を「不可能証明」には使わない。
+                function factorialSmall(n){let r=1;for(let k=2;k<=n;k++)r*=k;return r;}
+                const exactRepeatedThreshold=Math.max(1,Math.min(8,Number(cfg.exactRepeatedPermutationThreshold)||8));
+                const repPermLimit=(repeated.length<=exactRepeatedThreshold)
+                    ? factorialSmall(repeated.length)
+                    : Math.max(3,Math.min(Number(cfg.maxPermutationsPerSelection)||5000,5000));
+
+                // v6.2.3.13 同順Fast Path:
+                // 2回使用群を P -> middle -> P -> tail と同じ相対順序に置くと、各再使用targetの
+                // 2つのCT区間には「自分以外の再使用イベント」が必ず1回ずつ入る。したがって
+                // 再使用群内部のPの並び替えは区間供給量を変えず、同順を何千通りも試す必要はない。
+                // owner非依存singleで安全にsubset-sum DPできる通常ケースではcanonical Pを1回だけ厳密検証する。
+                const canonicalRepeated=repeated.slice().sort((a,b)=>
+                    ((b.othersShorten||0)-(a.othersShorten||0)) ||
+                    (need(b)-need(a)) ||
+                    functionalKey(a).localeCompare(functionalKey(b)) ||
+                    stableMemberSort(a,b)
+                );
+                state.sameOrderFastPathTried=(state.sameOrderFastPathTried||0)+1;
+                const fastDp=intervalPartitionDP(repeated,singles,canonicalRepeated,canonicalRepeated,baseMap);
+                const sameOrderDpSupported=!!fastDp.supported;
+                if(fastDp.supported){
+                    state.partitionTotal=Math.max(state.partitionTotal||0,1);
+                    if(fastDp.partition){
+                        const mv=variants(fastDp.partition.mid)[0]||[], tv=variants(fastDp.partition.tail)[0]||[];
+                        const o=[];
+                        canonicalRepeated.forEach(i=>o.push({baseUid:i.baseUid,useIndex:1}));
+                        mv.forEach(i=>o.push({baseUid:i.baseUid,useIndex:1}));
+                        canonicalRepeated.forEach(i=>o.push({baseUid:i.baseUid,useIndex:2}));
+                        tv.forEach(i=>o.push({baseUid:i.baseUid,useIndex:1}));
+                        if(test(o)){state.sameOrderFastPathHit=(state.sameOrderFastPathHit||0)+1;return {order:o,mode};}
+                        if(!state.complete||cancelled)return null;
+                    }
+                }
+                state.sameOrderFastPathFallback=(state.sameOrderFastPathFallback||0)+1;
+
+                const repPerms=perms(repeated,repPermLimit,cfg.passId||1);
+                if(repeated.length>exactRepeatedThreshold)state.approximate=true;
+                let needFallback=!sameOrderDpSupported;
+                // Fast Pathで同順は1回だけ検証済み。DPが安全に使えるケースのフォールバックでは
+                // 同順を再生成せず、逆順など意図的に偏りを作る非同順だけを探索する。
+                // DP非対応(owner依存寄与)では旧仕様を保持し、同順も含めて探索する。
+                for(const r1 of repPerms){
+                    const r2Variants=sameOrderDpSupported?[r1.slice().reverse()]:[r1,r1.slice().reverse()];
+                    for(const r2 of r2Variants){
+                        const dp=intervalPartitionDP(repeated,singles,r1,r2,baseMap);
+                        if(!dp.supported){needFallback=true;continue;}
+                        state.partitionTotal=Math.max(state.partitionTotal||0,1);
+                        if(!dp.partition)continue;
+                        const mv=variants(dp.partition.mid)[0]||[], tv=variants(dp.partition.tail)[0]||[];
+                        const o=[];
+                        r1.forEach(i=>o.push({baseUid:i.baseUid,useIndex:1}));
+                        mv.forEach(i=>o.push({baseUid:i.baseUid,useIndex:1}));
+                        r2.forEach(i=>o.push({baseUid:i.baseUid,useIndex:2}));
+                        tv.forEach(i=>o.push({baseUid:i.baseUid,useIndex:1}));
+                        if(test(o))return {order:o,mode};
+                        if(!state.complete||cancelled)return null;
+                    }
+                }
+                if(!needFallback)return null;
+
+                // 同一owner上に複数候補スキルがあり、再使用カードとのowner競合があるケースは
+                // 分割候補を逐次生成する。上限到達時も配列を保持しないためメモリを圧迫しない。
+                for(const r1 of repPerms){
+                    const r2Variants=sameOrderDpSupported?[r1.slice().reverse()]:[r1,r1.slice().reverse()];
+                    for(const r2 of r2Variants){
+                        const vr=visitGroupedPartitions(singles,cfg,state,(counts,gs)=>{
+                            if(cancelled || !state.complete)return false;
+                            const mid=[],tail=[];
+                            for(let gi=0;gi<gs.length;gi++){
+                                const g=gs[gi], c=counts[gi]||0;
+                                for(let j=0;j<g.members.length;j++) (j<c?mid:tail).push(g.members[j]);
+                            }
+                            const mv=variants(mid)[0]||[], tv=variants(tail)[0]||[];
+                            const o=[];
+                            r1.forEach(i=>o.push({baseUid:i.baseUid,useIndex:1}));
+                            mv.forEach(i=>o.push({baseUid:i.baseUid,useIndex:1}));
+                            r2.forEach(i=>o.push({baseUid:i.baseUid,useIndex:2}));
+                            tv.forEach(i=>o.push({baseUid:i.baseUid,useIndex:1}));
+                            return test(o);
+                        });
+                        if(vr.found)return {order:(state.lastValidOrder||null),mode};
+                        if(!vr.complete){state.complete=false;state.reason=state.reason||'group-partition-budget';return null;}
+                        if(!state.complete||cancelled)return null;
+                    }
+                }
+                return null;
+            }
+            const modes=[
+                {id:'holy2',label:'聖水2回使用',h:true,t:false,fh:false,ft:true},
+                {id:'normal',label:'聖水・吐息とも1回使用',h:false,t:false,fh:true,ft:true},
+                {id:'toki2',label:'吐息2回使用',h:false,t:true,fh:true,ft:false},
+                {id:'mixed2',label:'聖水2回＋吐息2回（混合）',h:true,t:true,fh:false,ft:false}
+            ];
+            function repeatMatch(p,m){let h=0,t=0;p.forEach(i=>{if(i.isHolyWater)h++;if(i.isToki)t++;});if(m.h&&!h)return false;if(m.t&&!t)return false;if(m.fh&&h)return false;if(m.ft&&t)return false;return true;}
+            function repeatPool(baseInfos,m){return baseInfos.filter(i=>{if(!(i.isHolyWater||i.isToki))return false;if(m.id==='holy2')return !!i.isHolyWater;if(m.id==='toki2')return !!i.isToki;if(m.id==='mixed2')return !!(i.isHolyWater||i.isToki);return false;}).sort((a,b)=>(b.othersShorten||0)-(a.othersShorten||0));}
+            function repeatAllowedByMode(info,m){
+                if(!info)return false;
+                if(info.isHolyWater) return !m.fh;
+                if(info.isToki) return !m.ft;
+                return false;
+            }
+            // target を uses 回使うと仮定したとき、そのowner以外から必要CTを供給するために
+            // 理論上最低何手必要か。各候補スキルは1回、モードで再使用可能な聖水/吐息は
+            // 追加でもう1回使える「使用イベント」として数える。
+            function targetSupplyLowerBound(baseInfos,target,m,uses){
+                if(!target)return Infinity;
+                const vals=[];
+                for(const i of baseInfos){
+                    if(!i)continue;
+                    const v=externalContribution(i,target);
+                    if(v<=0)continue;
+                    vals.push(v);
+                    if(repeatAllowedByMode(i,m)) vals.push(v);
+                }
+                vals.sort((a,b)=>b-a);
+                const required=need(target)*Math.max(1,uses||1);
+                let sum=0,k=0;
+                while(k<vals.length && sum<required)sum+=vals[k++];
+                if(sum<required)return Infinity;
+                return Math.max(1,uses||1)+k;
+            }
+            function bestRepeatLowerBound(baseInfos,m,kind){
+                const list=baseInfos.filter(i=>kind==='holy'?i.isHolyWater:i.isToki);
+                if(!list.length)return Infinity;
+                let best=Infinity;
+                for(const t of list)best=Math.min(best,targetSupplyLowerBound(baseInfos,t,m,2));
+                return best;
+            }
+            // arbitraryな1手から開始せず、候補の実短縮量から安全な理論下限を作る。
+            // 80分施術しかない環境なら CT3990 を他カード50回で戻すため 51手が下限になる。
+            function genericOneUseLowerBound(baseInfos,m){
+                let best=Infinity;
+                for(const t of baseInfos)best=Math.min(best,targetSupplyLowerBound(baseInfos,t,m,1));
+                return Number.isFinite(best)?best:Infinity;
+            }
+            function lowerBound(baseInfos,m,ryu){
+                let lb=genericOneUseLowerBound(baseInfos,m);
+                if(!Number.isFinite(lb))return Infinity;
+                if(ryu)lb=Math.max(lb,targetSupplyLowerBound(baseInfos,ryu,m,1));
+                if(m.h){
+                    const x=bestRepeatLowerBound(baseInfos,m,'holy');
+                    if(!Number.isFinite(x))return Infinity;
+                    lb=Math.max(lb,x,(ryu?1:0)+2);
+                }
+                if(m.t){
+                    const x=bestRepeatLowerBound(baseInfos,m,'toki');
+                    if(!Number.isFinite(x))return Infinity;
+                    lb=Math.max(lb,x,(ryu?1:0)+(m.h?4:2));
+                }
+                return lb;
+            }
+            // モード全体の安全な固定点枝刈り。
+            // 「現在残っている全候補を、そのモードで許される最大回数まで使っても1回分のCTを戻せない」
+            // スキルは、どの部分集合の成立ループにも参加できないため除外できる。これを固定点まで反復する。
+            // 全候補（または必須龍肝）が消えたモードは、順序探索前に不可能と証明できる。
+            function modePotentiallyViable(baseInfos,m,ryu){
+                let active=(baseInfos||[]).slice();
+                for(let guard=0;guard<active.length+2;guard++){
+                    if(!active.length)return false;
+                    const bad=[];
+                    for(const target of active){
+                        let available=0;
+                        for(const source of active){
+                            const mult=repeatAllowedByMode(source,m)?2:1;
+                            available+=externalContribution(source,target)*mult;
+                        }
+                        if(available<need(target))bad.push(target.baseUid);
+                    }
+                    if(!bad.length)break;
+                    const rm=new Set(bad);active=active.filter(i=>!rm.has(i.baseUid));
+                }
+                if(!active.length)return false;
+                if(ryu && !active.some(i=>i.baseUid===ryu.baseUid))return false;
+                if(m.h && !active.some(i=>i.isHolyWater))return false;
+                if(m.t && !active.some(i=>i.isToki))return false;
+                return true;
+            }
+
+            // v6.2.3.15: 手数Hを固定したCT供給上界。
+            // targetをuses回使う手数を先に確保し、龍肝が必須ならtarget自身が龍肝でない限り
+            // 龍肝1手も必ず確保する。残り枠へ、現在activeな各候補がそのモードで発生できる
+            // 最大回数の短縮イベントを「targetへの寄与が大きい順」に詰める。
+            // 実際の同時成立・順序・区間分割を無視した楽観上界なので、これでもCT不足なら
+            // そのtargetはH手ループには絶対に参加できず、安全に候補から除外できる。
+            function handCappedMaxSupply(active,target,m,hands,uses,ryu){
+                uses=Math.max(1,Math.floor(Number(uses)||1));
+                let slots=Math.floor(Number(hands)||0)-uses;
+                if(slots<0)return -1;
+                let total=0;
+                const mandatoryRyu=ryu && active.some(i=>i.baseUid===ryu.baseUid) ? ryu : null;
+                if(ryu && !mandatoryRyu)return -1;
+                if(mandatoryRyu && target.baseUid!==mandatoryRyu.baseUid){
+                    if(slots<1)return -1;
+                    total+=externalContribution(mandatoryRyu,target);
+                    slots--;
+                }
+                const vals=[];
+                for(const source of active){
+                    if(!source)continue;
+                    if(mandatoryRyu && target.baseUid!==mandatoryRyu.baseUid && source.baseUid===mandatoryRyu.baseUid)continue;
+                    const v=externalContribution(source,target);
+                    if(v<=0)continue;
+                    const mult=repeatAllowedByMode(source,m)?2:1;
+                    for(let k=0;k<mult;k++)vals.push(v);
+                }
+                vals.sort((a,b)=>b-a);
+                for(let k=0;k<vals.length && k<slots;k++)total+=vals[k];
+                return total;
+            }
+
+            // H手という上限の中で成立不能な候補を固定点まで除外する。
+            // 例: 龍肝と同ownerの神医は龍肝600分を受けられないためH=57でまず脱落し、
+            // その80分供給が消えることで次反復で必須龍肝も脱落する、という連鎖を拾う。
+            function handCappedModePotentiallyViable(baseInfos,m,ryu,hands,trace){
+                let active=(baseInfos||[]).slice();
+                const removedRounds=[];
+                for(let guard=0;guard<active.length+2;guard++){
+                    if(!active.length)return {ok:false,active,removedRounds,reason:'all-removed'};
+                    const bad=[];
+                    for(const target of active){
+                        const available=handCappedMaxSupply(active,target,m,hands,1,ryu);
+                        if(available<need(target))bad.push({baseUid:target.baseUid,cardId:target.cardId||'',cardName:target.cardName||'',skillId:target.skillId||'',available,required:need(target)});
+                    }
+                    if(!bad.length)break;
+                    removedRounds.push(bad);
+                    const rm=new Set(bad.map(x=>x.baseUid));
+                    active=active.filter(i=>!rm.has(i.baseUid));
+                    if(ryu && rm.has(ryu.baseUid))return {ok:false,active,removedRounds,reason:'mandatory-ryukan-removed'};
+                }
+                if(!active.length)return {ok:false,active,removedRounds,reason:'all-removed'};
+                if(ryu && !active.some(i=>i.baseUid===ryu.baseUid))return {ok:false,active,removedRounds,reason:'mandatory-ryukan-missing'};
+                // 固定点後の候補だけでH手そのものを物理的に作れなければ不可能。
+                let maxHands=active.length;
+                for(const i of active)if(repeatAllowedByMode(i,m))maxHands++;
+                if(maxHands<hands)return {ok:false,active,removedRounds,reason:'insufficient-events'};
+
+                // モードが要求する2回使用種についても、H手上界でneed×2へ届く候補が
+                // 少なくとも1つ必要。これはあくまで必要条件で、順序成立は後段で検証する。
+                if(m.h){
+                    let any=false;
+                    for(const i of active){
+                        if(!i.isHolyWater)continue;
+                        if(handCappedMaxSupply(active,i,m,hands,2,ryu)>=need(i)*2){any=true;break;}
+                    }
+                    if(!any)return {ok:false,active,removedRounds,reason:'holy-repeat-impossible'};
+                }
+                if(m.t){
+                    let any=false;
+                    for(const i of active){
+                        if(!i.isToki)continue;
+                        if(handCappedMaxSupply(active,i,m,hands,2,ryu)>=need(i)*2){any=true;break;}
+                    }
+                    if(!any)return {ok:false,active,removedRounds,reason:'toki-repeat-impossible'};
+                }
+                return {ok:true,active,removedRounds,reason:'ok'};
+            }
+
+            function handCappedLowerBound(baseInfos,m,ryu,startHands,maxHands){
+                const start=Math.max(1,Math.floor(Number(startHands)||1));
+                const end=Math.max(start,Math.floor(Number(maxHands)||start));
+                let lastFail=null;
+                for(let h=start;h<=end;h++){
+                    const r=handCappedModePotentiallyViable(baseInfos,m,ryu,h,false);
+                    if(r.ok)return {lowerBound:h,lastFail,firstOk:r};
+                    lastFail={hands:h,result:r};
+                }
+                return {lowerBound:Infinity,lastFail,firstOk:null};
+            }
+            function handFixedPointTraceSummary(fp){
+                if(!fp||!fp.lastFail||!fp.lastFail.result)return '';
+                const h=fp.lastFail.hands, rounds=fp.lastFail.result.removedRounds||[];
+                const parts=[];
+                for(const round of rounds){
+                    if(!round||!round.length)continue;
+                    const xs=round.slice(0,3).map(x=>(x.cardName||x.cardId||'?')+'['+(x.skillId||'?')+'] '+Math.round(Number(x.available)||0)+'<'+Math.round(Number(x.required)||0));
+                    if(round.length>3)xs.push('他'+(round.length-3)+'件');
+                    parts.push(xs.join(', '));
+                    if(parts.length>=2)break;
+                }
+                return parts.length?(h+'手: '+parts.join(' → ')):(h+'手: '+(fp.lastFail.result.reason||'不成立'));
+            }
+
+            // このモードで物理的に発生し得る最大使用手数。
+            // 1カード1スキルではなく、baseInfos の各スキル候補をすべて1回ずつ使用可能とし、
+            // 聖水/吐息はモードが許す場合のみ各スキル候補ごとに2回目を1手追加する。
+            function modeNaturalMaxHands(baseInfos,m){
+                // 同一cardNoはデッキ上に最大1個体。各cardNoについて、貼り付けられた
+                // 代替個体のうちこのモードで最大手数を持つ1個体だけを採れるものとして上限を計算する。
+                const byOwner=Object.create(null);
+                for(const i of (baseInfos||[])){
+                    if(!i)continue;
+                    const o=String(i.ownerKey||'');
+                    const st=byOwner[o]||(byOwner[o]={cardNo:String(i.cardNo||'').trim(),hands:0});
+                    st.hands+=1+(repeatAllowedByMode(i,m)?1:0);
+                }
+                const byNo=Object.create(null);
+                let total=0;
+                for(const o of Object.keys(byOwner)){
+                    const st=byOwner[o];
+                    const key=st.cardNo?('no:'+st.cardNo):('owner:'+o);
+                    byNo[key]=Math.max(byNo[key]||0,st.hands||0);
+                }
+                for(const k of Object.keys(byNo))total+=byNo[k];
+                return total;
+            }
+            function score(i,crit){let s=(i.othersShorten||0)*10+(i.selfShorten||0);crit.forEach(t=>{s+=externalContribution(i,t)*20;});return s;}
+
+            // v6.2.3.6: 「1スキルの短縮量」だけでなく、同一カードが持つ複数回復スキルを
+            // まとめた1カード当たり/1コスト当たりの周回供給量を探索順位へ反映する。
+            // 例: 神医80 + 吐息20 = 100分/カード、吐息2回モードなら 120分/カード。
+            function buildOwnerEconomics(baseInfos,m){
+                const out=Object.create(null);
+                for(const i of (baseInfos||[])){
+                    if(!i)continue;
+                    const o=String(i.ownerKey||'');
+                    const st=out[o]||(out[o]={ownerKey:o,cardId:i.cardId||'',cardName:i.cardName||'',cost:0,oneUseRecovery:0,modeRecovery:0,skillCount:0});
+                    const c=Number(i.cost)||0;
+                    if(c>0 && (!st.cost || c<st.cost))st.cost=c;
+                    const v=Number(i.othersShorten)||0;
+                    st.oneUseRecovery+=v;
+                    st.modeRecovery+=v;
+                    if(repeatAllowedByMode(i,m))st.modeRecovery+=v;
+                    st.skillCount++;
+                }
+                Object.keys(out).forEach(o=>{
+                    const st=out[o];
+                    st.recoveryPerCost=st.cost>0?st.modeRecovery/st.cost:0;
+                });
+                return out;
+            }
+
+            // V7 saturation certificate:
+            // If the H-hand fixed point leaves exactly H maximum executable events,
+            // every H-hand solution in that mode is forced to use all remaining events
+            // at their mode-allowed multiplicity. This fixes the owner set and therefore
+            // fixes deck cost/card count without a separate combinational search.
+            function modeSaturationCertificateV7(m,hands,fp,baseMap){
+                if(!fp||!fp.firstOk||!fp.firstOk.ok)return null;
+                const active=(fp.firstOk.active||[]).slice();
+                let maxHands=active.length;
+                for(const i of active)if(repeatAllowedByMode(i,m))maxHands++;
+                if(maxHands!==hands)return null;
+                const usage=Object.create(null);
+                for(const i of active)usage[i.baseUid]=repeatAllowedByMode(i,m)?2:1;
+                if(usageHands(usage)!==hands)return null;
+                if(!usageCardNoCompatible(usage,baseMap))return null;
+                const metrics=usageMetrics(usage,baseMap);
+                return {
+                    modeId:m.id,modeLabel:m.label,hands,
+                    uniqueCards:metrics.uniqueCards,totalCost:metrics.totalCost,
+                    unknownCostCards:metrics.unknownCostCards,
+                    totalRecovery:metrics.totalRecovery,minSupplyMargin:metrics.minSupplyMargin
+                };
+            }
+            function globalSaturationCertificateV7(modes,lbs,lb,handFp,baseMap){
+                const atLb=modes.filter(m=>Number.isFinite(lbs[m.id])&&lbs[m.id]===lb);
+                if(!atLb.length)return null;
+                const sats=[];
+                for(const m of atLb){
+                    const sat=modeSaturationCertificateV7(m,lb,handFp[m.id],baseMap);
+                    if(!sat)return null;
+                    sats.push(sat);
+                }
+                if(sats.some(x=>x.unknownCostCards))return {complete:true,modes:sats,costKnown:false};
+                let minCost=Math.min.apply(null,sats.map(x=>x.totalCost));
+                const costModes=sats.filter(x=>Math.abs(x.totalCost-minCost)<1e-9);
+                const minCards=Math.min.apply(null,costModes.map(x=>x.uniqueCards));
+                const cardModes=costModes.filter(x=>x.uniqueCards===minCards);
+                const maxMargin=Math.max.apply(null,cardModes.map(x=>Number(x.minSupplyMargin)||0));
+                return {complete:true,modes:sats,costKnown:true,minCost,minCards,maxMargin};
+            }
+
+            function ownerBundlePriority(info,crit,m,ownerEco,fixedOwners){
+                const o=String(info&&info.ownerKey||'');
+                const st=ownerEco[o]||{modeRecovery:0,oneUseRecovery:0,skillCount:1,cost:0,recoveryPerCost:0};
+                let s=score(info,crit);
+                // 既に龍肝/再使用スキルで必要なカードなら、同カード内の別スキルは
+                // 新しい実カードを増やさず使えるので強く優先する。
+                if(fixedOwners && fixedOwners.has(o))s+=100000000;
+                // カード全体の回復供給量とコスト効率を優先。
+                s+=(st.modeRecovery||0)*120;
+                s+=(st.oneUseRecovery||0)*30;
+                s+=(st.recoveryPerCost||0)*60;
+                s+=Math.max(0,(st.skillCount||1)-1)*500;
+                // 同等なら低コストを少し優先。cost=0 は評価しない。
+                if(st.cost>0)s+=Math.max(0,100-st.cost)*2;
+                return s;
+            }
+            function makeOwnerRank(baseInfos,m,crit,fixedOwners){
+                const eco=buildOwnerEconomics(baseInfos,m);
+                const owners=Object.keys(eco);
+                owners.sort((oa,ob)=>{
+                    const ia=(baseInfos||[]).find(x=>String(x.ownerKey||'')===oa);
+                    const ib=(baseInfos||[]).find(x=>String(x.ownerKey||'')===ob);
+                    const sa=ownerBundlePriority(ia,crit,m,eco,fixedOwners);
+                    const sb=ownerBundlePriority(ib,crit,m,eco,fixedOwners);
+                    if(sb!==sa)return sb-sa;
+                    const ca=eco[oa].cost>0?eco[oa].cost:Number.POSITIVE_INFINITY;
+                    const cb=eco[ob].cost>0?eco[ob].cost:Number.POSITIVE_INFINITY;
+                    if(ca!==cb)return ca-cb;
+                    return oa.localeCompare(ob);
+                });
+                const rank=Object.create(null);owners.forEach((o,idx)=>{rank[o]=idx;});
+                return {rank,eco};
+            }
+            function solutionMetrics(order,baseMap){
+                const owners=Object.create(null), usage=Object.create(null);
+                let totalRecovery=0;
+                for(const ev of (order||[])){
+                    const i=baseMap[ev.baseUid];if(!i)continue;
+                    usage[ev.baseUid]=(usage[ev.baseUid]||0)+1;
+                    const o=String(i.ownerKey||'');
+                    const st=owners[o]||(owners[o]={ownerKey:o,cardId:i.cardId||'',cardName:i.cardName||'',cost:0,recovery:0,hands:0,skills:Object.create(null)});
+                    const c=Number(i.cost)||0;if(c>0 && (!st.cost||c<st.cost))st.cost=c;
+                    st.recovery+=Number(i.othersShorten)||0;
+                    st.hands++;
+                    st.skills[i.skillId]=(st.skills[i.skillId]||0)+1;
+                    totalRecovery+=Number(i.othersShorten)||0;
+                }
+                const ownerList=Object.keys(owners).map(o=>owners[o]);
+                let totalCost=0,unknownCostCards=0;
+                for(const st of ownerList){if(st.cost>0)totalCost+=st.cost;else unknownCostCards++;}
+                let minSupplyMargin=Number.POSITIVE_INFINITY;
+                for(const b of Object.keys(usage)){
+                    const target=baseMap[b];if(!target)continue;
+                    const req=need(target)*(usage[b]||0);
+                    let have=0;
+                    for(const sb of Object.keys(usage)){
+                        const src=baseMap[sb];if(!src)continue;
+                        have+=externalContribution(src,target)*(usage[sb]||0);
+                    }
+                    minSupplyMargin=Math.min(minSupplyMargin,have-req);
+                }
+                if(!Number.isFinite(minSupplyMargin))minSupplyMargin=0;
+                const uniqueCards=ownerList.length;
+                const recoveryPerCard=uniqueCards?totalRecovery/uniqueCards:0;
+                const recoveryPerCost=(totalCost>0&&unknownCostCards===0)?totalRecovery/totalCost:0;
+                const bundleDetails=ownerList.map(st=>({
+                    ownerKey:st.ownerKey,cardId:st.cardId,cardName:st.cardName,cost:st.cost,
+                    recovery:st.recovery,hands:st.hands,
+                    skillIds:Object.keys(st.skills),skillUseCounts:Object.assign({},st.skills),
+                    recoveryPerCost:st.cost>0?st.recovery/st.cost:0
+                })).sort((a,b)=>{
+                    const am=a.skillIds.length>1?1:0,bm=b.skillIds.length>1?1:0;
+                    if(bm!==am)return bm-am;
+                    if(b.recovery!==a.recovery)return b.recovery-a.recovery;
+                    return (b.recoveryPerCost||0)-(a.recoveryPerCost||0);
+                });
+                return {hands:(order||[]).length,uniqueCards,totalCost,unknownCostCards,totalRecovery,recoveryPerCard,recoveryPerCost,minSupplyMargin,bundleDetails};
+            }
+            function usageMetrics(usage,baseMap){
+                const order=[];
+                Object.keys(usage||{}).forEach(b=>{
+                    const n=Math.max(0,Math.floor(Number(usage[b])||0));
+                    for(let k=1;k<=n;k++)order.push({baseUid:b,useIndex:k});
+                });
+                return solutionMetrics(order,baseMap);
+            }
+            function compactMetrics(m){
+                if(!m)return null;
+                return {
+                    hands:m.hands||0,uniqueCards:m.uniqueCards||0,totalCost:m.totalCost||0,
+                    unknownCostCards:m.unknownCostCards||0,totalRecovery:m.totalRecovery||0,
+                    recoveryPerCard:m.recoveryPerCard||0,recoveryPerCost:m.recoveryPerCost||0,
+                    minSupplyMargin:m.minSupplyMargin||0
+                };
+            }
+            function compareSolutionMetrics(a,b){
+                if(!b)return -1;
+                // V7 lexicographic objective:
+                // hands are fixed at this stage, then cost -> physical cards -> CT stability.
+                if(a.unknownCostCards!==b.unknownCostCards)return a.unknownCostCards-b.unknownCostCards;
+                if(a.unknownCostCards===0 && b.unknownCostCards===0 && Math.abs(a.totalCost-b.totalCost)>1e-9)return a.totalCost-b.totalCost;
+                if(a.uniqueCards!==b.uniqueCards)return a.uniqueCards-b.uniqueCards;
+                if(a.minSupplyMargin!==b.minSupplyMargin)return b.minSupplyMargin-a.minSupplyMargin;
+                if(a.totalRecovery!==b.totalRecovery)return b.totalRecovery-a.totalRecovery;
+                if(Math.abs(a.recoveryPerCost-b.recoveryPerCost)>1e-9)return b.recoveryPerCost-a.recoveryPerCost;
+                if(Math.abs(a.recoveryPerCard-b.recoveryPerCard)>1e-9)return b.recoveryPerCard-a.recoveryPerCard;
+                return 0;
+            }
+            function fmtNum(x,d){return Number.isFinite(Number(x))?Number(x).toFixed(d==null?1:d):'-';}
+            function metricLogLines(metrics){
+                if(!metrics)return [];
+                const costText=metrics.unknownCostCards?('既知C'+fmtNum(metrics.totalCost,1)+' + 不明'+metrics.unknownCostCards+'枚'):fmtNum(metrics.totalCost,1)+'C';
+                const lines=[
+                    '同手数採用評価: 実カード '+metrics.uniqueCards+'枚 / デッキコスト '+costText+
+                    ' / 周回供給 '+metrics.totalRecovery+'分 / '+fmtNum(metrics.recoveryPerCard,1)+'分/カード'+
+                    (metrics.unknownCostCards?'':(' / '+fmtNum(metrics.recoveryPerCost,1)+'分/C'))+
+                    ' / 総量最小余裕 +'+metrics.minSupplyMargin+'分'
+                ];
+                const multi=(metrics.bundleDetails||[]).filter(x=>x.skillIds.length>1||x.hands>1).slice(0,12);
+                if(multi.length){
+                    lines.push('複数スキル/複数回活用: '+multi.map(x=>{
+                        const skills=x.skillIds.map(id=>id+(x.skillUseCounts[id]>1?'×'+x.skillUseCounts[id]:'')).join('+');
+                        const c=x.cost>0?(' / C'+fmtNum(x.cost,1)+' / '+fmtNum(x.recoveryPerCost,1)+'分/C'):'';
+                        return x.cardName+'['+skills+']='+x.recovery+'分/周'+c;
+                    }).join(' | '));
+                }
+                return lines;
+            }
+            function usageCardNoCompatible(usage,baseMap){
+                const ownerByNo=Object.create(null);
+                for(const b of Object.keys(usage||{})){
+                    if((usage[b]||0)<=0)continue;
+                    const i=baseMap[b]; if(!i)continue;
+                    const no=String(i.cardNo||'').trim();
+                    const owner=String(i.ownerKey||'');
+                    if(!no||!owner)continue;
+                    if(ownerByNo[no] && ownerByNo[no]!==owner)return false;
+                    ownerByNo[no]=owner;
+                }
+                return true;
+            }
+            function usageResourceStats(usage,baseMap){
+                const owners=Object.create(null);
+                for(const b of Object.keys(usage||{})){
+                    if((usage[b]||0)<=0)continue;const i=baseMap[b];if(!i)continue;
+                    const o=String(i.ownerKey||'');
+                    if(!owners[o])owners[o]={cost:Number(i.cost)||0};
+                    else if(!owners[o].cost && Number(i.cost)>0)owners[o].cost=Number(i.cost);
+                }
+                let totalCost=0,unknown=0;
+                for(const o of Object.keys(owners)){const c=Number(owners[o].cost)||0;if(c>0)totalCost+=c;else unknown++;}
+                return {uniqueCards:Object.keys(owners).length,totalCost,unknownCostCards:unknown};
+            }
+            function partialResourceFits(usage,chosen,baseMap,cfg){
+                const temp=Object.assign({},usage);(chosen||[]).forEach(i=>{if(i)temp[i.baseUid]=Math.max(1,temp[i.baseUid]||0);});
+                if(!usageCardNoCompatible(temp,baseMap))return false;
+                if(!(cfg.maxUniqueCards>0) && !(cfg.maxTotalCost>=0))return true;
+                const st=usageResourceStats(temp,baseMap);
+                if(cfg.maxUniqueCards>0 && st.uniqueCards>cfg.maxUniqueCards)return false;
+                if(cfg.maxTotalCost>=0){if(st.unknownCostCards>0)return false;if(st.totalCost>cfg.maxTotalCost+1e-9)return false;}
+                return true;
+            }
+            function finalResourceFits(usage,baseMap,cfg){
+                if(!usageCardNoCompatible(usage,baseMap))return false;
+                const st=usageResourceStats(usage,baseMap);
+                if(cfg.maxUniqueCards>0 && st.uniqueCards>cfg.maxUniqueCards)return false;
+                if(cfg.minUniqueCards>0 && st.uniqueCards<cfg.minUniqueCards)return false;
+                if(cfg.maxTotalCost>=0){if(st.unknownCostCards>0)return false;if(st.totalCost>cfg.maxTotalCost+1e-9)return false;}
+                return true;
+            }
+
+            // 再使用集合を作っている途中で、残り手数を理論上最高の短縮カードで埋めても
+            // 固定済み再使用カード/龍肝のCTが戻らない枝を安全に枝刈りする。
+            // partial=true のときは未選択の聖水/吐息を2回使えるものとして上界を緩める。
+            function optimisticRepeatPossible(picked,hands,ryu,baseInfos,m,partial){
+                const fixed=[]; const fixedBases=new Set(); let fixedHands=0;
+                if(ryu){fixed.push({info:ryu,count:1});fixedBases.add(ryu.baseUid);fixedHands++;}
+                (picked||[]).forEach(i=>{fixed.push({info:i,count:2});fixedBases.add(i.baseUid);fixedHands+=2;});
+                if(fixedHands>hands)return false;
+                const slots=hands-fixedHands;
+                for(const t of fixed){
+                    const target=t.info; const required=need(target)*t.count;
+                    let have=0;
+                    for(const src of fixed){
+                        have+=externalContribution(src.info,target)*src.count;
+                    }
+                    const vals=[];
+                    for(const i of baseInfos){
+                        if(!i||fixedBases.has(i.baseUid))continue;
+                        const v=externalContribution(i,target);
+                        if(v<=0)continue;
+                        vals.push(v);
+                        if(partial && (i.isHolyWater||i.isToki)){
+                            const repeatAllowed=(i.isHolyWater&&!m.fh)||(i.isToki&&!m.ft);
+                            if(repeatAllowed)vals.push(v);
+                        }
+                    }
+                    vals.sort((a,b)=>b-a);
+                    for(let j=0;j<Math.min(slots,vals.length);j++)have+=vals[j];
+                    if(have<required)return false;
+                }
+                return true;
+            }
+            function repeatShapeKey(picked){
+                return (picked||[]).map(i=>functionalKey(i)).sort().join('@@');
+            }
+            function optimisticGrouped(usage,chosen,groups,groupIdx,slots,baseMap) {
+                const temp=Object.assign({},usage); chosen.forEach(i=>temp[i.baseUid]=1);
+                const targets=Object.keys(temp).filter(b=>(temp[b]||0)>0);
+                for(const tb of targets){
+                    const target=baseMap[tb]; if(!target)continue;
+                    let have=0;
+                    Object.keys(temp).forEach(b=>{const i=baseMap[b];if(i)have+=externalContribution(i,target)*(temp[b]||0);});
+                    const vals=[];
+                    for(let gi=groupIdx;gi<groups.length;gi++){
+                        for(const i of groups[gi].members){if(i){const v=externalContribution(i,target);if(v>0)vals.push(v);}}
+                    }
+                    vals.sort((a,b)=>b-a);
+                    for(let j=0;j<Math.min(slots,vals.length);j++)have+=vals[j];
+                    if(have < need(target)*(temp[tb]||1)) return false;
+                }
+                return true;
+            }
+            function searchSingles(baseInfos,baseMap,m,hands,reps,ryu,state,cfg,repeatMultiplicity){
+                const usage=Object.create(null);const excluded=new Set();reps.forEach(i=>{usage[i.baseUid]=2;excluded.add(i.baseUid);});
+                let fixed=reps.length*2;
+                if(ryu&&!excluded.has(ryu.baseUid)){usage[ryu.baseUid]=1;excluded.add(ryu.baseUid);fixed++;}
+                const needSlots=hands-fixed;if(needSlots<0)return null;
+                const pool=baseInfos.filter(i=>!excluded.has(i.baseUid));
+                const crit=ryu?[ryu].concat(reps):reps.slice();
+                const fixedOwners=new Set();
+                if(ryu)fixedOwners.add(String(ryu.ownerKey||''));
+                reps.forEach(i=>fixedOwners.add(String(i.ownerKey||'')));
+                const ownerOrder=makeOwnerRank(baseInfos,m,crit,fixedOwners);
+                const groups=cfg.cardPlanOnly?identityGroups(pool):groupInfos(pool);
+                groups.forEach(g=>g.members.sort((a,b)=>{
+                    const ra=ownerOrder.rank[String(a.ownerKey||'')];
+                    const rb=ownerOrder.rank[String(b.ownerKey||'')];
+                    if(ra!==rb)return ra-rb;
+                    return stableMemberSort(a,b);
+                }));
+                groups.sort((a,b)=>{
+                    const ao=a.members[0],bo=b.members[0];
+                    const ra=ownerOrder.rank[String(ao&&ao.ownerKey||'')];
+                    const rb=ownerOrder.rank[String(bo&&bo.ownerKey||'')];
+                    if(ra!==rb)return ra-rb;
+                    const sa=ownerBundlePriority(ao,crit,m,ownerOrder.eco,fixedOwners);
+                    const sb=ownerBundlePriority(bo,crit,m,ownerOrder.eco,fixedOwners);
+                    if(sb!==sa)return sb-sa;
+                    return b.members.length-a.members.length || a.key.localeCompare(b.key);
+                });
+                const suffix=new Array(groups.length+1).fill(0);
+                for(let i=groups.length-1;i>=0;i--)suffix[i]=suffix[i+1]+groups[i].members.length;
+                state.functionalGroups=Math.max(state.functionalGroups||0,groups.length);
+                const chosen=[];let bestFound=null;
+                const repMult=Math.max(1,Number(repeatMultiplicity)||1);
+                const stopOnFirst=!cfg.optimizeSameHands;
+                function consider(r){
+                    if(!r)return;
+                    const metrics=solutionMetrics(r.order,baseMap);
+                    if(!bestFound || compareSolutionMetrics(metrics,bestFound.metrics)<0){
+                        bestFound={order:r.order,mode:r.mode,metrics};
+                        state.bestMetrics=metrics;
+                    }
+                }
+                function dfs(gi,selMult){
+                    if((bestFound&&stopOnFirst)||cancelled||!state.complete)return;
+                    state.selectionNodes++;if((state.selectionNodes%128)===0)progress(state,state.label,false);
+                    if(state.selectionNodes>=cfg.selectionNodeBudget){state.complete=false;state.reason='selection-node-budget';return;}
+                    const left=needSlots-chosen.length;
+                    if(!partialResourceFits(usage,chosen,baseMap,cfg))return;
+                    if(left===0){
+                        const weight=repMult*Math.max(1,selMult||1);
+                        state.candidateVisited=Math.min(1e300,(state.candidateVisited||0)+weight);
+                        const u=Object.assign({},usage);chosen.forEach(i=>u[i.baseUid]=1);
+                        if(!finalResourceFits(u,baseMap,cfg))return;
+                        state.planResourcePass=(state.planResourcePass||0)+weight;
+                        if(!aggregateNecessary(u,baseMap))return;
+                        state.planAggregatePass=(state.planAggregatePass||0)+weight;
+                        if((cfg.cardPlanOnly || cfg.proofStaticCyclic || (cfg.tightPairPruneHands||0)===hands) && !cyclicPairNecessary(u,baseMap))return;
+                        state.planCyclicPass=(state.planCyclicPass||0)+weight;
+                        state.leaves++;
+                        const preMetrics=usageMetrics(u,baseMap);
+                        if(cfg.cardPlanOnly){
+                            const uc=preMetrics.uniqueCards;
+                            if(uc < state.planMinUnique){
+                                state.planMinUnique=uc;
+                                state.planShapeMap=new Map();
+                                state.planOmittedSets=new Map();
+                            }
+                            if(uc===state.planMinUnique){
+                                const sk=usageFunctionalShapeKey(u,baseMap);
+                                if(!state.planShapeMap.has(sk) && state.planShapeMap.size < (cfg.maxPlanShapes||20000)){
+                                    state.planShapeMap.set(sk,{shapeKey:sk,usage:usagePairs(u),mode:m.id,modeLabel:m.label,metrics:compactMetrics(preMetrics),weight:weight});
+                                } else if(state.planShapeMap.has(sk)) {
+                                    state.planShapeMap.get(sk).weight += weight;
+                                } else {
+                                    state.planShapeOverflow=true;
+                                }
+                                const used=usageOwnerSet(u,baseMap);
+                                const omitted=(state.planOwnerUniverse||[]).filter(o=>!used.has(o)).sort();
+                                const ok=omitted.join('|');
+                                if(!state.planOmittedSets.has(ok))state.planOmittedSets.set(ok,{owners:omitted,count:0});
+                                state.planOmittedSets.get(ok).count+=weight;
+                                state.planShapeCount=state.planShapeMap.size;
+                            }
+                            return;
+                        }
+                        if(cfg.scanOnly){
+                            if(!state.staticBestMetrics || compareSolutionMetrics(preMetrics,state.staticBestMetrics)<0){
+                                state.staticBestMetrics=compactMetrics(preMetrics);
+                                state.staticBestUsage=Object.keys(u).filter(b=>(u[b]||0)>0).map(b=>[b,u[b]]);
+                            }
+                            return;
+                        }
+                        if(cfg.incumbentMetrics && compareSolutionMetrics(preMetrics,cfg.incumbentMetrics)>=0)return;
+                        const r=tryOrders(u,baseMap,state,cfg);consider(r);return;
+                    }
+                    if(gi>=groups.length||suffix[gi]<left)return;
+                    if(!optimisticGrouped(usage,chosen,groups,gi,left,baseMap))return;
+                    const g=groups[gi], max=Math.min(g.members.length,left);
+                    for(let c=max;c>=0;c--){
+                        const before=chosen.length;
+                        for(let j=0;j<c;j++)chosen.push(g.members[j]);
+                        dfs(gi+1,(selMult||1)*combNum(g.members.length,c));
+                        chosen.length=before;
+                        if((bestFound&&stopOnFirst)||!state.complete||cancelled)return;
+                    }
+                }
+                dfs(0,1);return bestFound;
+            }
+            function searchMode(baseInfos,baseMap,m,hands,ryu,cfg){
+                const state={complete:true,reason:'',repeatNodes:0,selectionNodes:0,orderTests:0,orderEnumerated:0,leaves:0,label:hands+'手 / '+m.label,functionalGroups:0,partitionGroups:0,partitionTotal:0,partitionVisited:0,sameOrderFastPathTried:0,sameOrderFastPathHit:0,sameOrderFastPathFallback:0,bestMetrics:null,staticBestMetrics:null,staticBestUsage:null,approximate:false,candidateVisited:0,candidateTotal:rawUsagePatternCount(baseInfos,m,hands,ryu),candidateExact:false,_cfg:cfg,
+                    planStage:cfg.cardPlanOnly?'静的使用構成全走査':'',planOwnerUniverse:Array.from(new Set((baseInfos||[]).map(i=>String(i.ownerKey||'')))),planOwnerChecked:0,planOwnerTotal:0,planRawPrefilter:0,planResourcePass:0,planAggregatePass:0,planCyclicPass:0,planShapeCount:0,planMinUnique:Infinity,planShapeMap:new Map(),planOmittedSets:new Map(),planShapeOverflow:false};
+                state.planOwnerTotal=state.planOwnerUniverse.length;
+                if(m.id==='normal')return {found:searchSingles(baseInfos,baseMap,m,hands,[],ryu,state,cfg,1),state};
+                const rp=repeatPool(baseInfos,m), rg=cfg.cardPlanOnly?identityGroups(rp):groupInfos(rp), maxRep=Math.floor((hands-(ryu?1:0))/2), picked=[];let bestFound=null;
+                const stopOnFirst=!cfg.optimizeSameHands;
+                const repeatMemo=new Set();
+                const repeatFixedOwners=new Set(); if(ryu)repeatFixedOwners.add(String(ryu.ownerKey||''));
+                const repeatOwnerOrder=makeOwnerRank(baseInfos,m,ryu?[ryu]:[],repeatFixedOwners);
+                rg.forEach(g=>g.members.sort((a,b)=>{
+                    const ra=repeatOwnerOrder.rank[String(a.ownerKey||'')], rb=repeatOwnerOrder.rank[String(b.ownerKey||'')];
+                    if(ra!==rb)return ra-rb;
+                    return stableMemberSort(a,b);
+                }));
+                rg.sort((a,b)=>{
+                    const ao=a.members[0],bo=b.members[0];
+                    const ra=repeatOwnerOrder.rank[String(ao&&ao.ownerKey||'')], rb=repeatOwnerOrder.rank[String(bo&&bo.ownerKey||'')];
+                    if(ra!==rb)return ra-rb;
+                    return (b.proto.othersShorten||0)-(a.proto.othersShorten||0) || b.members.length-a.members.length;
+                });
+                function consider(f){
+                    if(!f)return;
+                    const metrics=f.metrics||solutionMetrics(f.order,baseMap);
+                    if(!bestFound || compareSolutionMetrics(metrics,bestFound.metrics)<0){
+                        bestFound={order:f.order,mode:f.mode,metrics};
+                        state.bestMetrics=metrics;
+                    }
+                }
+                function dfs(gi,repMult){
+                    if((bestFound&&stopOnFirst)||cancelled||!state.complete)return;
+                    state.repeatNodes++;if((state.repeatNodes%64)===0)progress(state,state.label,false);
+                    if(state.repeatNodes>=cfg.repeatNodeBudget){state.complete=false;state.reason='repeat-node-budget';return;}
+                    if(picked.length>maxRep)return;
+                    const partialUsage=Object.create(null);picked.forEach(i=>partialUsage[i.baseUid]=2);if(ryu)partialUsage[ryu.baseUid]=1;
+                    if(!finalResourceFits(partialUsage,baseMap,Object.assign({},cfg,{minUniqueCards:0,maxUniqueCards:cfg.maxUniqueCards||0,maxTotalCost:-1})))return;
+                    const mk=gi+'|'+picked.length+'|'+repeatShapeKey(picked);
+                    if(repeatMemo.has(mk))return; repeatMemo.add(mk); if(repeatMemo.size>200000)repeatMemo.clear();
+                    if(!optimisticRepeatPossible(picked,hands,ryu,baseInfos,m,true))return;
+                    if(gi>=rg.length||picked.length>=maxRep){
+                        if(picked.length&&repeatMatch(picked,m)){
+                            const f=(ryu?1:0)+picked.length*2;
+                            if(f<=hands && optimisticRepeatPossible(picked,hands,ryu,baseInfos,m,false)){
+                                consider(searchSingles(baseInfos,baseMap,m,hands,picked,ryu,state,cfg,repMult));
+                            }
+                        }
+                        return;
+                    }
+                    const g=rg[gi], max=Math.min(g.members.length,maxRep-picked.length);
+                    for(let c=max;c>=0;c--){
+                        const before=picked.length;for(let j=0;j<c;j++)picked.push(g.members[j]);
+                        dfs(gi+1,(repMult||1)*combNum(g.members.length,c));picked.length=before;
+                        if((bestFound&&stopOnFirst)||!state.complete||cancelled)return;
+                    }
+                }
+                dfs(0,1);return {found:bestFound,state};
+            }
+            function mergeSearchStateV7(dst,src){
+                if(!dst)return Object.assign({},src);
+                const sumKeys=['repeatNodes','selectionNodes','orderTests','orderEnumerated','leaves','partitionTotal','partitionVisited','candidateVisited','candidateTotal','planOwnerChecked','planOwnerTotal','planRawPrefilter','planResourcePass','planAggregatePass','planCyclicPass','planShapeCount'];
+                sumKeys.forEach(k=>{dst[k]=(Number(dst[k])||0)+(Number(src&&src[k])||0);});
+                const maxKeys=['functionalGroups','partitionGroups','sameOrderFastPathTried','sameOrderFastPathHit','sameOrderFastPathFallback'];
+                maxKeys.forEach(k=>{dst[k]=Math.max(Number(dst[k])||0,Number(src&&src[k])||0);});
+                dst.complete=!!dst.complete && !!(src&&src.complete);
+                dst.approximate=!!dst.approximate || !!(src&&src.approximate);
+                if(!dst.reason && src&&src.reason)dst.reason=src.reason;
+                return dst;
+            }
+            function searchModeAcrossRyu(baseInfos,baseMap,m,hands,ryuOptions,cfg){
+                const opts=(ryuOptions&&ryuOptions.length)?ryuOptions:[null];
+                let best=null, merged=null;
+                for(const ro of opts){
+                    const r=searchMode(baseInfos,baseMap,m,hands,ro,cfg);
+                    merged=mergeSearchStateV7(merged,r.state);
+                    if(r.found){
+                        const metrics=r.found.metrics||solutionMetrics(r.found.order,baseMap);
+                        if(!best || compareSolutionMetrics(metrics,best.metrics)<0)best={order:r.found.order,mode:r.found.mode,metrics};
+                    }
+                    if(cancelled)break;
+                }
+                if(!merged)merged={complete:true,approximate:false,reason:'',repeatNodes:0,selectionNodes:0,orderTests:0,orderEnumerated:0,leaves:0,label:hands+'手 / '+m.label,functionalGroups:0,partitionGroups:0,partitionTotal:0,partitionVisited:0,sameOrderFastPathTried:0,sameOrderFastPathHit:0,sameOrderFastPathFallback:0,candidateVisited:0,candidateTotal:0,_cfg:cfg};
+                merged.label=hands+'手 / '+m.label;
+                merged._cfg=cfg;
+                return {found:best,state:merged};
+            }
+            self.onmessage=function(ev){
+                const msg=ev.data||{};
+                if(msg.type==='cancel'){cancelled=true;return;}
+                if(msg.type!=='start')return;
+                cancelled=false;
+                const baseInfos=msg.baseInfos||[], cfg=Object.assign({selectionNodeBudget:120000,repeatNodeBudget:30000,orderTestBudget:25000,maxPermutationsPerSelection:5000,maxGroupedPartitions:5000,maxHands:0,optimizeSameHands:true,passId:1,phase:'minHands',objectiveLabel:'最小手数探索',targetHands:0,minUniqueCards:0,maxUniqueCards:0,maxTotalCost:-1,resumeOrderOffset:0,scanOnly:false,incumbentMetrics:null,quickSeed:true,cardPlanOnly:false,maxPlanShapes:20000,usageCandidates:null,perShapeOrderBudget:2000,shapeStartIndex:0,shapeResumeOrderOffset:0,exactRepeatedPermutationThreshold:8,proofStaticCyclic:false},msg.config||{});
+                ownerCounts=buildOwnerCounts(baseInfos);
+                cardNoOwnerCounts=buildCardNoOwnerCounts(baseInfos);
+                duplicateCardNos=new Set(Object.keys(cardNoOwnerCounts).filter(no=>(cardNoOwnerCounts[no]||0)>1));
+                ownerProfiles=buildOwnerProfiles(baseInfos);
+                initEffectMatrixV7(baseInfos);
+                const baseMap=makeBaseMap(baseInfos);
+                const ryus=baseInfos.filter(isRyukan).sort((a,b)=>(b.othersShorten||0)-(a.othersShorten||0));
+                // 龍肝候補が複数個体にある場合も、特定ownerを先頭1件に固定しない。
+                // 各龍肝個体を必須アンカーとする分岐を全て評価し、同一cardNo排他制約の下で最良を選ぶ。
+                const ryuOptions=ryus.length?ryus:[null];
+                const ryu=ryus.length?ryus[0]:null; // 表示用のみ
+                const lbs={}, baseLbs={}, modeMax={}, modeViable={}, handFp={};
+                modes.forEach(m=>{
+                    modeMax[m.id]=modeNaturalMaxHands(baseInfos,m);
+                    let bestBase=Infinity,bestLb=Infinity,bestFp=null,any=false;
+                    for(const ro of ryuOptions){
+                        if(!modePotentiallyViable(baseInfos,m,ro))continue;
+                        any=true;
+                        const b=lowerBound(baseInfos,m,ro);
+                        if(!Number.isFinite(b))continue;
+                        const fp=handCappedLowerBound(baseInfos,m,ro,b,modeMax[m.id]);
+                        if(b<bestBase)bestBase=b;
+                        if(Number.isFinite(fp.lowerBound) && fp.lowerBound<bestLb){bestLb=fp.lowerBound;bestFp=fp;}
+                    }
+                    modeViable[m.id]=any&&Number.isFinite(bestLb);
+                    baseLbs[m.id]=bestBase;
+                    lbs[m.id]=bestLb;
+                    handFp[m.id]=bestFp||{lowerBound:Infinity,lastFail:null,firstOk:null};
+                });
+                const modeCfg=(baseCfg,m)=>Object.assign({},baseCfg,{tightPairPruneHands:lbs[m.id]});
+                let lb=Math.min.apply(null,Object.values(lbs).filter(Number.isFinite));if(!Number.isFinite(lb))lb=1;
+                const saturationV7=(ryuOptions.length===1)?globalSaturationCertificateV7(modes,lbs,lb,handFp,baseMap):null;
+                const allGroups=groupInfos(baseInfos);
+                const compressed=baseInfos.length-allGroups.length;
+                const ownerProfileKinds=new Set(Object.keys(ownerProfiles).map(k=>ownerProfiles[k])).size;
+                const byOwner=Object.create(null);baseInfos.forEach(i=>{const o=String(i.ownerKey||'');byOwner[o]=(byOwner[o]||0)+1;});
+                const multiOwners=Object.keys(byOwner).filter(o=>byOwner[o]>1);
+                const repeatableCount=baseInfos.filter(i=>i.isHolyWater||i.isToki).length;
+                const naturalMax=Math.max.apply(null,modes.map(m=>modeMax[m.id]));
+                const hardMax=(cfg.maxHands&&cfg.maxHands>0)?Math.min(cfg.maxHands,naturalMax):naturalMax;
+                const logs=[
+                    '龍肝: '+(ryu?('必須 ['+ryu.cardId+'] '+ryu.cardName+' / '+ryu.skillId):'候補なし（必須制約なし）'),
+                    '候補スキル: '+baseInfos.length+'件 / 再使用可能スキル: '+repeatableCount+'件 / 自然最大手数: '+naturalMax+'手',
+                    '探索手数上限: '+hardMax+'手'+((cfg.maxHands&&cfg.maxHands>0)?'（設定上限あり）':'（固定上限なし・候補から自動算出）'),
+                    '同一カード複数スキル: '+multiOwners.length+'カード（各スキルを独立候補として同一ループへ複数採用可）',
+                    '採用評価軸: 手数最小 → デッキコスト最小 → 実カード枚数最小 → CT総量余裕最大',
+                    '相互短縮規則: 通常回復は同一カードの別スキルへ有効 / 同一物理スキル自身の基礎短縮は無効 / 自己除外型は同owner全体除外',
+                    'V7 Effect Matrix: '+effectN+'×'+effectN+'（数理探索用。最終物理CTシミュレータとは独立実装）',
+                    'V7 Repeated Skeleton: 同順+Gap DPを最優先 / 8種以下の非同順は完全列挙 / 9種以上は未完走を証明扱いしない',
+                    '現在の探索目的: '+(cfg.objectiveLabel||cfg.phase)+(cfg.targetHands?(' / '+cfg.targetHands+'手固定'):'')+(cfg.maxUniqueCards>0?(' / '+cfg.maxUniqueCards+'枚以下'):'' )+(cfg.maxTotalCost>=0?(' / '+fmtNum(cfg.maxTotalCost,1)+'C以下'):''),
+                    '機能等価グループ: '+baseInfos.length+'候補 → '+allGroups.length+'群（安全に圧縮できる単一候補ownerのみ / owner構成 '+ownerProfileKinds+'種）',
+                    '理論下限: '+modes.map(m=>m.label+'='+(Number.isFinite(lbs[m.id])?lbs[m.id]+'手':'不可')+' / 最大'+modeMax[m.id]+'手').join(' | '),
+                    '手数別CT固定点下限: '+modes.map(m=>{
+                        const b=baseLbs[m.id], h=lbs[m.id];
+                        if(!Number.isFinite(h))return m.label+'=不可'+(Number.isFinite(b)?('（従来下限'+b+'手から固定点で否定）'):'');
+                        return m.label+'='+h+'手'+(Number.isFinite(b)&&h>b?('（従来'+b+'手→+'+(h-b)+'）'):'');
+                    }).join(' | '),
+                    '固定点直前失敗: '+modes.map(m=>m.label+' '+(handFixedPointTraceSummary(handFp[m.id])||'なし')).join(' | '),
+                    'V7 Saturation証明: '+(saturationV7&&saturationV7.complete
+                        ? (saturationV7.costKnown
+                            ? ('下限'+lb+'手で全残存イベント使用が強制 / コスト下限 '+fmtNum(saturationV7.minCost,1)+'C / 同コスト内カード下限 '+saturationV7.minCards+'枚 / 静的余裕上限 +'+saturationV7.maxMargin+'分')
+                            : ('下限'+lb+'手で全残存イベント使用が強制 / コスト不明カードあり'))
+                        : '非飽和（追加最適化探索が必要）'),
+                    'モード固定点判定: '+modes.map(m=>m.label+'='+(modeViable[m.id]?'候補あり':'不可能')).join(' | ')
+                ];
+                if(cfg.cardPlanOnly){
+                    const hands=(cfg.targetHands&&cfg.targetHands>0)?cfg.targetHands:lb;
+                    let complete=true,minUnique=Infinity,totalVisited=0,totalCandidates=0,totalResource=0,totalAggregate=0,totalCyclic=0,totalSel=0,totalRep=0,totalLeaves=0;
+                    const shapeMap=new Map(), omittedMap=new Map();
+                    for(const m of modes){
+                        if(hands<lbs[m.id]||!Number.isFinite(lbs[m.id])||hands>modeMax[m.id])continue;
+                        const cc=Object.assign({},modeCfg(cfg,m),{cardPlanOnly:true,optimizeSameHands:true,scanOnly:false,resumeOrderOffset:0});
+                        const r=searchModeAcrossRyu(baseInfos,baseMap,m,hands,ryuOptions,cc), st=r.state;
+                        if(!st.complete||st.planShapeOverflow)complete=false;
+                        totalVisited+=Number(st.candidateVisited)||0; totalCandidates+=Number(st.candidateTotal)||0;
+                        totalResource+=Number(st.planResourcePass)||0; totalAggregate+=Number(st.planAggregatePass)||0; totalCyclic+=Number(st.planCyclicPass)||0;
+                        totalSel+=Number(st.selectionNodes)||0; totalRep+=Number(st.repeatNodes)||0; totalLeaves+=Number(st.leaves)||0;
+                        if(st.complete && (st.candidateTotal||0)>0){st.candidateVisited=st.candidateTotal;st.candidateExact=true;}
+                        if(Number.isFinite(st.planMinUnique)){
+                            if(st.planMinUnique<minUnique){minUnique=st.planMinUnique;shapeMap.clear();omittedMap.clear();}
+                            if(st.planMinUnique===minUnique){
+                                for(const [k,v] of st.planShapeMap.entries()){if(!shapeMap.has(k))shapeMap.set(k,v);else shapeMap.get(k).weight+=(v.weight||0);}
+                                for(const [k,v] of st.planOmittedSets.entries()){if(!omittedMap.has(k))omittedMap.set(k,{owners:v.owners.slice(),count:0});omittedMap.get(k).count+=v.count||0;}
+                            }
+                        }
+                        st.planOwnerChecked=st.planOwnerTotal; st.planStage='owner事前判定＋静的使用構成全走査';
+                        progress(st,'最小カード事前走査 / '+m.label,true);
+                    }
+                    const ownerUniverse=Array.from(new Set(baseInfos.map(i=>String(i.ownerKey||''))));
+                    const omittedSets=Array.from(omittedMap.values()).sort((a,b)=>(b.count||0)-(a.count||0));
+                    let prefilteredRaw=0,prefilterExact=false;
+                    if(omittedSets.length===1){
+                        const omit=new Set(omittedSets[0].owners||[]); const filtered=baseInfos.filter(i=>!omit.has(String(i.ownerKey||'')));
+                        const fr=filtered.filter(isRyukan).sort((a,b)=>(b.othersShorten||0)-(a.othersShorten||0))[0]||null;
+                        for(const m of modes){
+                            if(!modePotentiallyViable(filtered,m,fr))continue;
+                            const ml=lowerBound(filtered,m,fr), mm=modeNaturalMaxHands(filtered,m);
+                            if(hands>=ml&&hands<=mm)prefilteredRaw+=rawUsagePatternCount(filtered,m,hands,fr);
+                        }
+                        prefilterExact=true;
+                    }
+                    const shapes=Array.from(shapeMap.values());
+                    logs.push('最小カード事前走査: owner '+ownerUniverse.length+'/'+ownerUniverse.length+'確認 / 元候補 '+Math.round(totalCandidates).toLocaleString()+'構成');
+                    if(prefilterExact)logs.push('owner絞り込み後の理論使用構成: '+Math.round(prefilteredRaw).toLocaleString());
+                    logs.push('静的必要条件: 資源制約通過 '+Math.round(totalResource).toLocaleString()+' / 総CT必要条件通過 '+Math.round(totalAggregate).toLocaleString()+' / 循環必要条件（ペア＋包含上界）通過 '+Math.round(totalCyclic).toLocaleString());
+                    if(Number.isFinite(minUnique)){
+                        logs.push('静的に残る最小実カード数: '+minUnique+'枚 / CT機能等価圧縮 '+Math.round(totalCyclic).toLocaleString()+' → '+shapes.length+'形');
+                        if((cfg.maxUniqueCards||0)>minUnique)logs.push((minUnique-1)+'枚以下は静的必要条件で不可能。順序探索は'+minUnique+'枚候補だけに限定。');
+                    } else logs.push('現在より少ないカード枚数では静的必要条件を満たす使用構成なし');
+                    if(omittedSets.length<=12&&omittedSets.length){
+                        logs.push('生存owner除外候補: '+omittedSets.map(x=>(x.owners||[]).map(o=>{const i=baseInfos.find(z=>String(z.ownerKey||'')===o);return i?(i.cardName+'['+i.cardId+']'):o;}).join('+')).join(' | '));
+                    }
+                    self.postMessage({type:'result',ok:false,cardPlan:true,planComplete:complete,complete:complete,logs,globalLowerBound:lb,naturalMaxHands:naturalMax,passId:cfg.passId||1,phase:cfg.phase,objectiveLabel:cfg.objectiveLabel,
+                        plan:{hands:hands,currentMaxUnique:cfg.maxUniqueCards||0,minUniqueStatic:Number.isFinite(minUnique)?minUnique:null,shapeCount:shapes.length,shapes:shapes,shapeOverflow:!complete,omittedSets:omittedSets,ownerTotal:ownerUniverse.length,rawTotal:totalCandidates,prefilteredRaw:prefilteredRaw,prefilterExact:prefilterExact,resourcePass:totalResource,aggregatePass:totalAggregate,cyclicPass:totalCyclic,selectionNodes:totalSel,repeatNodes:totalRep,leaves:totalLeaves}});
+                    return;
+                }
+                if(Array.isArray(cfg.usageCandidates) && cfg.usageCandidates.length){
+                    const cands=cfg.usageCandidates, total=cands.length;
+                    let start=Math.max(0,Math.min(total-1,Math.floor(Number(cfg.shapeStartIndex)||0)));
+                    const perBudget=Math.max(100,Math.floor(Number(cfg.perShapeOrderBudget)||2000));
+                    const order=[]; for(let q=0;q<total;q++)order.push((start+q)%total);
+                    let anyApprox=false,anyIncomplete=false;
+                    for(let qi=0;qi<order.length&&!cancelled;qi++){
+                        const idx=order[qi], c=cands[idx], u=Object.create(null);
+                        for(const pair of (c.usage||[]))u[pair[0]]=Math.floor(Number(pair[1])||0);
+                        if(!usageCardNoCompatible(u,baseMap))continue;
+                        const state={complete:true,reason:'',repeatNodes:0,selectionNodes:0,orderTests:0,orderEnumerated:0,leaves:1,label:'機能形 '+(idx+1)+'/'+total,functionalGroups:0,partitionGroups:0,partitionTotal:0,partitionVisited:0,sameOrderFastPathTried:0,sameOrderFastPathHit:0,sameOrderFastPathFallback:0,approximate:false,candidateVisited:0,candidateTotal:0,candidateExact:false,_cfg:Object.assign({},cfg,{orderTestBudget:perBudget,resumeOrderOffset:(qi===0?Number(cfg.shapeResumeOrderOffset)||0:0)}),
+                            planStage:'機能等価形ラウンドロビン順序探索（形番号はラウンド内位置・全探索率ではない）',shapeIndex:idx+1,shapeTotal:total,shapeRound:cfg.passId||1,shapeBudget:perBudget};
+                        progress(state,state.label,true);
+                        const r=tryOrders(u,baseMap,state,state._cfg);
+                        anyApprox=anyApprox||!!state.approximate; anyIncomplete=anyIncomplete||!state.complete;
+                        progress(state,state.label,true);
+                        if(r){
+                            const metrics=solutionMetrics(r.order,baseMap);
+                            logs.push('最小カード順序探索: 機能形 '+(idx+1)+'/'+total+' / ラウンド '+(cfg.passId||1)+' で成立');
+                            logs.push(...metricLogLines(metrics));
+                            self.postMessage({type:'result',ok:true,order:r.order,mode:r.mode,searchModeLabel:(c.modeLabel||'機能形')+'（カード絞り込み）',certified:true,secondaryCertified:false,metrics,logs,globalLowerBound:lb,naturalMaxHands:naturalMax,passId:cfg.passId||1,phase:cfg.phase,objectiveLabel:cfg.objectiveLabel,complete:false});
+                            return;
+                        }
+                    }
+                    if(cancelled){self.postMessage({type:'cancelled'});return;}
+                    logs.push('最小カード順序探索: '+total+'機能形をラウンド '+(cfg.passId||1)+' で均等探索。成立なし。次ラウンドで順序予算と決定論的shuffleを拡張する。');
+                    self.postMessage({type:'result',ok:false,usageSearch:true,complete:false,certified:false,logs,globalLowerBound:lb,naturalMaxHands:naturalMax,passId:cfg.passId||1,phase:cfg.phase,objectiveLabel:cfg.objectiveLabel,roundComplete:true,approximate:anyApprox||anyIncomplete});
+                    return;
+                }
+                if(cfg.scanOnly){
+                    const hands=(cfg.targetHands&&cfg.targetHands>0)?cfg.targetHands:lb;
+                    let scanBest=null,scanUsage=null,scanMode='',scanIncomplete=false;
+                    let scanVisited=0,scanTotal=0,scanSel=0,scanRep=0,scanLeaves=0;
+                    for(const m of modes){
+                        if(hands<lbs[m.id]||!Number.isFinite(lbs[m.id])||hands>modeMax[m.id])continue;
+                        const r=searchModeAcrossRyu(baseInfos,baseMap,m,hands,ryuOptions,modeCfg(cfg,m));
+                        const statusIncomplete=(!r.state.complete);
+                        if(r.state.complete && (r.state.candidateTotal||0)>0){r.state.candidateVisited=r.state.candidateTotal;r.state.candidateExact=true;}
+                        scanVisited+=Number(r.state.candidateVisited)||0;scanTotal+=Number(r.state.candidateTotal)||0;
+                        scanSel+=Number(r.state.selectionNodes)||0;scanRep+=Number(r.state.repeatNodes)||0;scanLeaves+=Number(r.state.leaves)||0;
+                        if(statusIncomplete)scanIncomplete=true;
+                        if(r.state.staticBestMetrics && (!scanBest || compareSolutionMetrics(r.state.staticBestMetrics,scanBest)<0)){
+                            scanBest=r.state.staticBestMetrics;scanUsage=r.state.staticBestUsage;scanMode=m.id;
+                        }
+                        progress(r.state,'静的構成上界走査 / '+m.label,true);
+                    }
+                    logs.push('静的構成上界走査: '+(scanBest?('上界候補 周回供給'+scanBest.totalRecovery+'分 / 最小余裕+'+scanBest.minSupplyMargin+'分'):'成立必要条件を満たす構成なし')+
+                              ' [cand='+Math.round(scanVisited)+'/'+Math.round(scanTotal)+', sel='+scanSel+', rep='+scanRep+', leaves='+scanLeaves+']');
+                    self.postMessage({type:'result',ok:false,scanOnly:true,scanComplete:!scanIncomplete,scanMetrics:scanBest,scanUsage:scanUsage,scanMode:scanMode,
+                        complete:!scanIncomplete,logs:logs,globalLowerBound:lb,naturalMaxHands:naturalMax,passId:cfg.passId||1,phase:cfg.phase,objectiveLabel:cfg.objectiveLabel});
+                    return;
+                }
+                // v6.2.3.10: 最小証明が長引くデッキでも候補リストを先に提示するため、
+                // 初回パスだけ各モードの理論下限+1付近を小予算で先行探索する。
+                // 見つかった解は certified=false の暫定解として返し、次パスから通常の最小証明を継続する。
+                if(cfg.phase==='minHands' && !(cfg.targetHands&&cfg.targetHands>0) && (cfg.passId||1)===1 && cfg.quickSeed!==false){
+                    const qmodes=modes.slice().filter(m=>Number.isFinite(lbs[m.id])&&lbs[m.id]<=modeMax[m.id]).sort((a,b)=>lbs[b.id]-lbs[a.id]);
+                    const qcfg=Object.assign({},cfg,{
+                        selectionNodeBudget:Math.min(cfg.selectionNodeBudget||30000,30000),
+                        repeatNodeBudget:Math.min(cfg.repeatNodeBudget||12000,12000),
+                        orderTestBudget:Math.min(cfg.orderTestBudget||12000,12000),
+                        maxGroupedPartitions:Math.min(cfg.maxGroupedPartitions||12000,12000),
+                        maxPermutationsPerSelection:Math.min(cfg.maxPermutationsPerSelection||3000,3000),
+                        optimizeSameHands:false,resumeOrderOffset:0
+                    });
+                    for(const m of qmodes){
+                        const tries=[];
+                        const a=Math.min(modeMax[m.id],Math.max(lbs[m.id],lbs[m.id]+1));
+                        // v6.2.3.15: 手数固定点で従来下限より持ち上がった場合は、その新下限自体が
+                        // 強い証明境界なので最初に試す。従来下限のままなら従来どおり+1を先行。
+                        const qorder=(Number.isFinite(baseLbs[m.id])&&lbs[m.id]>baseLbs[m.id])?[lbs[m.id],a,a+1]:[a,lbs[m.id],a+1];
+                        qorder.forEach(h=>{if(h>=lbs[m.id]&&h<=modeMax[m.id]&&!tries.includes(h))tries.push(h);});
+                        for(const hands of tries){
+                            const qr=searchModeAcrossRyu(baseInfos,baseMap,m,hands,ryuOptions,modeCfg(qcfg,m));
+                            if(qr.found){
+                                const metrics=qr.found.metrics||solutionMetrics(qr.found.order,baseMap);
+                                const qCertified=(hands===lb);
+                                logs.push('暫定解先行探索: '+hands+'手 / '+m.label+' で成立。'+(qCertified?'手数別CT固定点を含む理論下限一致のため最小手数確定。':'最小証明は次パスから継続。'));
+                                logs.push(...metricLogLines(metrics));
+                                self.postMessage({type:'result',ok:true,order:qr.found.order,mode:qr.found.mode,searchModeLabel:m.label+(qCertified?'（下限一致）':'（暫定解先行）'),
+                                    certified:qCertified,secondaryCertified:false,metrics:metrics,logs:logs,globalLowerBound:lb,naturalMaxHands:naturalMax,
+                                    passId:cfg.passId||1,phase:cfg.phase,objectiveLabel:cfg.objectiveLabel,complete:false,saturationV7:saturationV7});
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                let shorterIncomplete=false;
+                const minHands=(cfg.targetHands&&cfg.targetHands>0)?cfg.targetHands:lb;
+                const maxHands=(cfg.targetHands&&cfg.targetHands>0)?Math.min(cfg.targetHands,hardMax):hardMax;
+                for(let hands=minHands;hands<=maxHands&&!cancelled;hands++){
+                    let incompleteAtHands=false;
+                    const solutionsAtHands=[];
+                    for(const m of modes){
+                        if(hands<lbs[m.id]||!Number.isFinite(lbs[m.id])||hands>modeMax[m.id])continue;
+                        const r=searchModeAcrossRyu(baseInfos,baseMap,m,hands,ryuOptions,modeCfg(cfg,m));
+                        const statusIncomplete=(!r.state.complete)||!!r.state.approximate;
+                        if(r.state.complete && !r.state.approximate && (r.state.candidateTotal||0)>0){r.state.candidateVisited=r.state.candidateTotal;r.state.candidateExact=true;}
+                        logs.push(hands+'手 / '+m.label+': '+(r.found?'成立':(statusIncomplete?'探索継続対象':'不成立'))+' [sel='+r.state.selectionNodes+', order='+r.state.orderEnumerated+'(実検証'+r.state.orderTests+'), rep='+r.state.repeatNodes+', cand='+Math.round(r.state.candidateVisited)+'/'+Math.round(r.state.candidateTotal)+', grp='+r.state.functionalGroups+', part='+r.state.partitionVisited+'/'+r.state.partitionTotal+', same='+Number(r.state.sameOrderFastPathHit||0)+'/'+Number(r.state.sameOrderFastPathTried||0)+(r.state.approximate?', perm=近似':'')+']');
+                        progress(r.state,r.state.label,true);
+                        if(r.found){
+                            const metrics=solutionMetrics(r.found.order,baseMap);
+                            solutionsAtHands.push({found:r.found,modeDef:m,metrics,state:r.state});
+                            logs.push('  候補評価 / '+m.label+': 実カード'+metrics.uniqueCards+'枚 / 周回供給'+metrics.totalRecovery+'分 / '+fmtNum(metrics.recoveryPerCard,1)+'分/カード'+(metrics.unknownCostCards?'':(' / C'+fmtNum(metrics.totalCost,1)+' / '+fmtNum(metrics.recoveryPerCost,1)+'分/C')));
+                        }
+                        if(!r.state.complete||r.state.approximate)incompleteAtHands=true;
+                    }
+                    if(solutionsAtHands.length){
+                        // 手数最小を最優先。その同じ手数の各モード先頭成立解を
+                        // V7: コスト→実カード枚数→CT余裕の辞書式目的で比較する。
+                        solutionsAtHands.sort((a,b)=>compareSolutionMetrics(a.metrics,b.metrics));
+                        const best=solutionsAtHands[0];
+                        logs.push('→ '+hands+'手の成立解 '+solutionsAtHands.length+'候補を V7辞書式目的（コスト→カード→CT余裕）で比較し、'+best.modeDef.label+'を採用');
+                        logs.push(...metricLogLines(best.metrics));
+                        const minCertified=(hands===lb)||!shorterIncomplete;
+                        if(incompleteAtHands){
+                            if(minCertified)logs.push('※最小手数は理論下限（手数別CT固定点を含む）一致で確定。最低コスト→カード枚数→CT余裕の証明は後続フェーズで継続。');
+                            else logs.push('※この手数の一部モードは探索上限到達。成立解は利用できるが、この探索目的の最適性は未確定。');
+                        }
+                        const secondaryCertified=!!cfg.optimizeSameHands && !incompleteAtHands;
+                        self.postMessage({
+                            type:'result',ok:true,order:best.found.order,mode:best.found.mode,searchModeLabel:best.modeDef.label,
+                            certified:minCertified,secondaryCertified:secondaryCertified,metrics:best.metrics,logs:logs,
+                            globalLowerBound:lb,naturalMaxHands:naturalMax,passId:cfg.passId||1,phase:cfg.phase,objectiveLabel:cfg.objectiveLabel,complete:!incompleteAtHands,
+                            saturationV7:saturationV7
+                        });return;
+                    }
+                    if(incompleteAtHands){shorterIncomplete=true;logs.push('→ '+hands+'手は探索上限到達を含むため最小確定対象外');}
+                }
+                if(cancelled){self.postMessage({type:'cancelled'});return;}
+                logs.push('候補から算出した自然最大手数 '+maxHands+'手まで成立なし');
+                self.postMessage({type:'result',ok:false,certified:false,complete:!shorterIncomplete,logs:logs,globalLowerBound:lb,naturalMaxHands:naturalMax,passId:cfg.passId||1,phase:cfg.phase,objectiveLabel:cfg.objectiveLabel});
+            };
+        }
+
+function runV7Worker(baseInfos,config,onProgress){
+  return new Promise((resolve,reject)=>{
+    const src='('+minSearchWorkerMainV6236.toString()+')();';
+    const blob=new Blob([src],{type:'text/javascript'});
+    const url=URL.createObjectURL(blob);
+    const worker=new Worker(url);
+    let done=false;
+    const finish=(v,err)=>{if(done)return;done=true;worker.terminate();URL.revokeObjectURL(url);err?reject(err):resolve(v);};
+    worker.onerror=e=>finish(null,new Error(e.message||'Worker error'));
+    worker.onmessage=e=>{
+      const m=e.data||{};
+      if(m.type==='progress'){onProgress&&onProgress(m);return;}
+      if(m.type==='result'){finish(m);return;}
+      if(m.type==='cancelled'){finish({cancelled:true});return;}
+    };
+    worker.postMessage({type:'start',baseInfos,config});
+  });
+}
+function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){const t=a%b;a=b;b=t;}return a;}
+function costQuantum(baseInfos){
+  const v=baseInfos.map(x=>Number(x.cost)||0).filter(x=>x>0).map(x=>Math.round(x*10));
+  if(!v.length)return .5;let g=v[0];for(let i=1;i<v.length;i++)g=gcd(g,v[i]);return Math.max(.1,g/10);
+}
+function standardCfg(phase='minHands'){
+  return {
+    selectionNodeBudget:5000000,repeatNodeBudget:1200000,orderTestBudget:500000,
+    maxPermutationsPerSelection:5000,maxGroupedPartitions:500000,maxHands:0,
+    optimizeSameHands:true,passId:1,phase,objectiveLabel:'最小手数探索',
+    targetHands:0,minUniqueCards:0,maxUniqueCards:0,maxTotalCost:-1,resumeOrderOffset:0,
+    scanOnly:false,quickSeed:false,exactRepeatedPermutationThreshold:8,proofStaticCyclic:true
+  };
+}
+function updateProgress(p){
+  document.getElementById('progressPanel').classList.remove('hidden');
+  const lab=p.objectiveLabel||p.label||'探索中';
+  document.getElementById('progressLabel').textContent=lab+(p.label?' / '+p.label:'');
+  const pct=Number.isFinite(p.candidatePct)?p.candidatePct:Math.min(100,Number(p.passBudgetPct)||0);
+  document.getElementById('progressBar').style.width=Math.max(0,Math.min(100,pct))+'%';
+  document.getElementById('progressDetail').textContent=
+    `候補選択=${(p.selectionNodes||0).toLocaleString()} / 実CT検証=${(p.orderTests||0).toLocaleString()} / 再使用候補=${(p.repeatNodes||0).toLocaleString()}`+
+    (p.candidateTotal?` / 候補空間=${Math.round(p.candidateVisited||0).toLocaleString()} / ${Math.round(p.candidateTotal).toLocaleString()}`:'');
+}
+
+function metricBetter(a,b){
+  if(!b)return true;if(!a)return false;
+  if((a.hands||0)!==(b.hands||0))return a.hands<b.hands;
+  if((a.unknownCostCards||0)!==(b.unknownCostCards||0))return a.unknownCostCards<b.unknownCostCards;
+  if(!(a.unknownCostCards||0)&&Math.abs((a.totalCost||0)-(b.totalCost||0))>1e-9)return a.totalCost<b.totalCost;
+  if((a.uniqueCards||9999)!==(b.uniqueCards||9999))return a.uniqueCards<b.uniqueCards;
+  if((a.minSupplyMargin||0)!==(b.minSupplyMargin||0))return a.minSupplyMargin>b.minSupplyMargin;
+  return (a.totalRecovery||0)>(b.totalRecovery||0);
+}
+
+async function solveV7(){
+  if(!parseAll()) throw new Error('施術ループ候補を取得できませんでした。カードファイル画面からコピーした内容を確認してください。');
+  const baseInfos=app.candidates.map(x=>({...x}));
+  if(baseInfos.some(x=>!(x.cost>0))) throw new Error('コストを取得できない回復候補カードがあります。入力文字列を確認してください。');
+
+  document.getElementById('resultPanel').classList.add('hidden');
+  document.getElementById('progressPanel').classList.remove('hidden');
+  const logs=[];
+
+  const cfg=standardCfg('minHands');
+  let res=await runV7Worker(baseInfos,cfg,updateProgress);
+  if(!res||!res.ok){
+    const reason=res&&res.logs?res.logs.join('\n'):'成立ループを取得できませんでした。';
+    throw new Error(reason);
+  }
+  logs.push(...(res.logs||[]));
+  let best=res;
+  let handsProof=!!res.certified, costProof=false, cardsProof=false, marginProof=false;
+
+  // Saturation certificate can prove all secondary objectives immediately.
+  const sat=res.saturationV7;
+  if(sat&&sat.complete&&sat.costKnown&&res.metrics){
+    if(Math.abs((sat.minCost||0)-(res.metrics.totalCost||0))<1e-9) costProof=true;
+    if(costProof && Number(sat.minCards)===Number(res.metrics.uniqueCards)) cardsProof=true;
+    if(cardsProof && Number(sat.maxMargin)===Number(res.metrics.minSupplyMargin)) marginProof=true;
+  }
+
+  // V7 objective 2: at fixed minimum hand count, prove no lower-cost usage survives.
+  if(handsProof && !costProof && best.metrics && !(best.metrics.unknownCostCards||0)){
+    const q=costQuantum(baseInfos);
+    for(let iter=0;iter<30;iter++){
+      const bound=(best.metrics.totalCost||0)-q;
+      if(bound<0)break;
+      let bc=standardCfg('minCostBound');
+      Object.assign(bc,{objectiveLabel:'最低デッキコスト: 1量子下の静的CT否定',targetHands:best.metrics.hands,
+        maxTotalCost:Math.max(0,bound),scanOnly:true,quickSeed:false,orderTestBudget:1,maxGroupedPartitions:1,
+        selectionNodeBudget:12000000,repeatNodeBudget:3000000});
+      const scan=await runV7Worker(baseInfos,bc,updateProgress);logs.push(...(scan.logs||[]));
+      if(scan.scanOnly && scan.scanComplete && !scan.scanMetrics){costProof=true;break;}
+      if(!scan.scanComplete)break;
+
+      let oc=standardCfg('minCostOrders');
+      Object.assign(oc,{objectiveLabel:'最低デッキコスト: CT順序探索',targetHands:best.metrics.hands,maxTotalCost:Math.max(0,bound)});
+      const low=await runV7Worker(baseInfos,oc,updateProgress);logs.push(...(low.logs||[]));
+      if(low.ok && low.metrics && metricBetter(low.metrics,best.metrics)){best=low;continue;}
+      if(low.complete && !low.approximate){costProof=true;break;}
+      break;
+    }
+  }
+
+  // Objective 3: among minimum-hand/minimum-cost solutions, minimize physical cards.
+  if(handsProof && costProof && best.metrics && best.metrics.uniqueCards>1){
+    for(let iter=0;iter<30;iter++){
+      const cardBound=best.metrics.uniqueCards-1;if(cardBound<1)break;
+      let sc=standardCfg('minCardsBound');
+      Object.assign(sc,{objectiveLabel:'同最小コスト内の最小カード枚数: 1枚下の静的CT否定',
+        targetHands:best.metrics.hands,maxUniqueCards:cardBound,maxTotalCost:best.metrics.totalCost,
+        scanOnly:true,quickSeed:false,orderTestBudget:1,maxGroupedPartitions:1,selectionNodeBudget:12000000,repeatNodeBudget:3000000});
+      const scan=await runV7Worker(baseInfos,sc,updateProgress);logs.push(...(scan.logs||[]));
+      if(scan.scanOnly&&scan.scanComplete&&!scan.scanMetrics){cardsProof=true;break;}
+      if(!scan.scanComplete)break;
+
+      let oc=standardCfg('minCardsOrders');
+      Object.assign(oc,{objectiveLabel:'同最小コスト内の最小カード枚数: CT順序探索',
+        targetHands:best.metrics.hands,maxUniqueCards:cardBound,maxTotalCost:best.metrics.totalCost});
+      const low=await runV7Worker(baseInfos,oc,updateProgress);logs.push(...(low.logs||[]));
+      if(low.ok&&low.metrics&&metricBetter(low.metrics,best.metrics)){best=low;continue;}
+      if(low.complete&&!low.approximate){cardsProof=true;break;}
+      break;
+    }
+  } else if(best.metrics&&best.metrics.uniqueCards<=1) cardsProof=true;
+
+  if(best.metrics&&sat&&sat.complete&&sat.costKnown&&Number(sat.maxMargin)===Number(best.metrics.minSupplyMargin)) marginProof=true;
+
+  const final={...best,proof:{hands:handsProof,cost:costProof,cards:cardsProof,margin:marginProof},logs};
+  const sim=physicalSim(final.order,baseInfos,50);
+  final.physicalSim=sim;
+  if(!sim.ok) throw new Error(`V7候補を独立CTシミュレータで検証したところ、${sim.round}周目 ${sim.step}手目で ${sim.skillName} のCTが ${sim.remaining}分残っていました。出力は採用しません。`);
+  app.lastResult=final;
+  renderResult(final);
+  document.getElementById('progressBar').style.width='100%';
+  document.getElementById('progressLabel').textContent='完了';
+}
+
+function isSelfExcludedInfo(x){
+  return x.skillId.startsWith('sd063')||x.skillId.startsWith('sd011')||x.skillId.startsWith('sd018')||x.scope==='wait';
+}
+function physicalSim(order,baseInfos,rounds){
+  const map=Object.fromEntries(baseInfos.map(x=>[x.baseUid,x]));
+  const selected=[...new Set((order||[]).map(x=>x.baseUid))];
+  const ct=Object.fromEntries(selected.map(x=>[x,0]));
+  for(let r=1;r<=rounds;r++){
+    for(let si=0;si<order.length;si++){
+      const ev=order[si],src=map[ev.baseUid];if(!src)continue;
+      if((ct[src.baseUid]||0)>0)return {ok:false,round:r,step:si+1,skillName:src.skillName,remaining:ct[src.baseUid]};
+      ct[src.baseUid]=(ct[src.baseUid]||0)+src.ctCost;
+      for(const tb of selected){
+        const tgt=map[tb];
+        if(src.baseShorten){
+          if(isSelfExcludedInfo(src)){
+            if(tgt.ownerKey!==src.ownerKey)ct[tb]=Math.max(0,ct[tb]-src.baseShorten);
+          }else if(tb!==src.baseUid)ct[tb]=Math.max(0,ct[tb]-src.baseShorten);
+        }
+      }
+      for(const v of [src.mainMirrorShorten||0,src.subMirrorShorten||0]){
+        if(!v)continue;
+        for(const tb of selected){
+          const tgt=map[tb];
+          if(isSelfExcludedInfo(src)){
+            if(tgt.ownerKey!==src.ownerKey)ct[tb]=Math.max(0,ct[tb]-v);
+          }else ct[tb]=Math.max(0,ct[tb]-v);
+        }
+      }
+    }
+  }
+  return {ok:true,rounds,ct};
+}
+
+function currentCardForCandidate(cand){
+  return app.cards.find(c=>c.ownerKey===cand.ownerKey);
+}
+function renderResult(r){
+  const m=r.metrics||{};
+  document.getElementById('resultPanel').classList.remove('hidden');
+  document.getElementById('handsOut').textContent=(m.hands||r.order?.length||0)+'手';
+  document.getElementById('costOut').textContent=(m.unknownCostCards?'不明':Number(m.totalCost||0).toFixed(1)+'C');
+  document.getElementById('cardsOut').textContent=(m.uniqueCards||0)+'枚';
+
+  const p=r.proof||{};
+  const badges=[
+    `<span class="badge ${p.hands?'ok':'warn'}">手数=${p.hands?'確定':'未証明'}</span>`,
+    `<span class="badge ${p.cost?'ok':'warn'}">コスト=${p.cost?'確定':'未証明'}</span>`,
+    `<span class="badge ${p.cards?'ok':'warn'}">カード=${p.cards?'確定':'未証明'}</span>`
+  ];
+  document.getElementById('proofLine').innerHTML=badges.join(' ');
+
+  const byBase=Object.fromEntries(app.candidates.map(x=>[x.baseUid,x]));
+  const usedOwners=new Map();
+  const counts={};
+  for(const ev of r.order||[]){
+    counts[ev.baseUid]=(counts[ev.baseUid]||0)+1;
+    const x=byBase[ev.baseUid];if(!x)continue;
+    if(!usedOwners.has(x.ownerKey))usedOwners.set(x.ownerKey,{card:currentCardForCandidate(x),skills:new Map()});
+    const ent=usedOwners.get(x.ownerKey);
+    ent.skills.set(x.baseUid,{x,count:counts[ev.baseUid]});
+  }
+  // recount cleanly
+  for(const ent of usedOwners.values())for(const v of ent.skills.values())v.count=counts[v.x.baseUid]||0;
+
+  let totalCost=0;
+  for(const ent of usedOwners.values()) totalCost+=(ent.card?.cost||0);
+  const totalCostText=m.unknownCostCards?'不明':totalCost.toFixed(1)+'C';
+
+  const ob=document.getElementById('orderBody');ob.innerHTML='';const seen={};const txt=[];
+  (r.order||[]).forEach((ev,i)=>{
+    const x=byBase[ev.baseUid];if(!x)return;
+    seen[ev.baseUid]=(seen[ev.baseUid]||0)+1;
+    const c=currentCardForCandidate(x);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="num">${i+1}</td><td>${esc(c?.name||x.cardName)}</td><td>${esc(c?.cardNo||x.cardNo||'')}</td><td>${esc(x.skillName)}</td><td class="num">${seen[ev.baseUid]}</td>`;
+    ob.appendChild(tr);
+    txt.push(`${i+1}\t${c?.name||x.cardName}\tNo${c?.cardNo||x.cardNo||''}\tC${Number(c?.cost||x.cost||0).toFixed(1)}\t${x.skillName}`);
+  });
+  app.lastOrderText=txt.join('\n');
+  document.getElementById('totalsLine').textContent=`使用枚数 ${usedOwners.size}枚 / 使用コスト ${totalCostText} / 1周 ${(r.order||[]).length}手`;
+}
+
+document.getElementById('parseBtn').addEventListener('click',()=>{try{parseAll();}catch(e){alert(e.message);}});
+document.getElementById('solveBtn').addEventListener('click',async()=>{
+  const b=document.getElementById('solveBtn');b.disabled=true;
+  try{await solveV7();}catch(e){
+    document.getElementById('progressPanel').classList.add('hidden');
+    alert(e.message||String(e));
+    console.error(e);
+  }finally{b.disabled=false;}
+});
+document.getElementById('clearBtn').addEventListener('click',()=>{
+  if(!confirm('入力と結果をクリアしますか？'))return;
+  document.getElementById('fileInput').value='';
+  app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:''};
+  ['parsedPanel','progressPanel','resultPanel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('parseSummary').textContent='';
+});
+document.getElementById('copyOrderBtn').addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText(app.lastOrderText||'');}catch(e){
+    const ta=document.createElement('textarea');ta.value=app.lastOrderText||'';document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+  }
+});
+
+</script>
+</body>
+</html>
