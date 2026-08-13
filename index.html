@@ -34,6 +34,7 @@ button:hover{filter:brightness(.97)}button:disabled{opacity:.55;cursor:wait}
 tr.card-excluded td{background:#f3f0e9;color:#8a8175}
 .selection-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}
 .selection-summary{font-size:12px;font-weight:bold;color:#5b2c12}
+.solve-status{font-size:14px;font-weight:700;margin-left:4px}.solve-status.bad{color:var(--bad)}
 .selection-summary.has-missing-rarity{color:var(--bad)}
 .rarity-col{min-width:170px}
 .deputy-rarity-select{min-width:78px;border:1px solid #9b8b70;border-radius:3px;padding:4px 5px;background:#fff;color:var(--text);font-family:inherit;font-size:11px}
@@ -102,6 +103,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <div id="rarityPrompt" class="notice badbox hidden" style="margin-top:10px"></div>
     <div class="actions" style="margin-top:12px">
       <button id="solveBtn">3. 施術ループを探索</button>
+      <span id="solveStatus" class="solve-status" role="status" aria-live="polite"></span>
       <span class="small">チェック済みカードだけを使って探索します。</span>
     </div>
   </section>
@@ -144,7 +146,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 </main>
 
 <script>
-// 施術ループ探索（仮） v7.0.13
+// 施術ループ探索（仮） v7.0.15
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -501,6 +503,7 @@ function parseAll(){
   }
   renderParsed();
   document.getElementById('parseSummary').textContent=`解析: ${app.cards.length}枚 / 回復候補 ${app.candidates.length}件`;
+  setSolveStatus('','');
   document.getElementById('resultPanel').classList.add('hidden');
   document.getElementById('progressPanel').classList.add('hidden');
   return app.candidates.length>0;
@@ -625,6 +628,7 @@ function updateSelectionSummary(){
 function setAllCardSelections(checked){
   document.querySelectorAll('.card-select').forEach(cb=>{cb.checked=checked;});
   updateSelectionSummary();
+  setSolveStatus('','');
   document.getElementById('resultPanel').classList.add('hidden');
 }
 function renderParsed(){
@@ -640,10 +644,12 @@ function renderParsed(){
   });
   body.querySelectorAll('.card-select').forEach(cb=>cb.addEventListener('change',()=>{
     updateSelectionSummary();
+    setSolveStatus('','');
     document.getElementById('resultPanel').classList.add('hidden');
     const box=document.getElementById('rarityPrompt');if(box&&selectedCardsMissingDeputyRarity().length===0)box.classList.add('hidden');
   }));
   body.querySelectorAll('.deputy-rarity-select').forEach(sel=>sel.addEventListener('change',()=>{
+    setSolveStatus('','');
     const card=app.cards.find(c=>c.ownerKey===sel.dataset.ownerKey);
     if(!card)return;
     card.deputyRarity=String(sel.value||'');
@@ -2431,7 +2437,15 @@ function metricBetter(a,b){
   return (a.totalRecovery||0)>(b.totalRecovery||0);
 }
 
+function setSolveStatus(text,type){
+  const el=document.getElementById('solveStatus');
+  if(!el)return;
+  el.textContent=text||'';
+  el.className='solve-status'+(type?' '+type:'');
+}
+
 async function solveV7(){
+  setSolveStatus('','');
   if(!app.parsed) throw new Error('先に「カードを解析」を押してください。');
   if(!ensureDeputyRarityInputs()) throw new Error('副将鏡/錬鏡を計算するための副将レアリティが未入力です。赤く強調されたカードでレアリティを指定してください。');
   const chosenCards=selectedCards();
@@ -2447,8 +2461,12 @@ async function solveV7(){
   const cfg=standardCfg('minHands');
   let res=await runV7Worker(baseInfos,cfg,updateProgress);
   if(!res||!res.ok){
-    const reason=res&&res.logs?res.logs.join('\n'):'成立ループを取得できませんでした。';
-    throw new Error(reason);
+    setSolveStatus('成立なし','bad');
+    document.getElementById('progressPanel').classList.add('hidden');
+    document.getElementById('resultPanel').classList.add('hidden');
+    app.lastResult=null;
+    app.lastOrderText='';
+    return false;
   }
   logs.push(...(res.logs||[]));
   let best=res;
@@ -2514,6 +2532,7 @@ async function solveV7(){
   final.physicalSim=sim;
   if(!sim.ok) throw new Error(`V7候補を独立CTシミュレータで検証したところ、${sim.round}周目 ${sim.step}手目で ${sim.skillName} のCTが ${sim.remaining}分残っていました。出力は採用しません。`);
   app.lastResult=final;
+  setSolveStatus('','');
   renderResult(final);
   document.getElementById('progressBar').style.width='100%';
   document.getElementById('progressLabel').textContent='完了';
@@ -2618,6 +2637,7 @@ document.getElementById('fileInput').addEventListener('input',()=>{
   app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:'',parsed:false};
   ['parsedPanel','progressPanel','resultPanel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   const rp=document.getElementById('rarityPrompt');if(rp){rp.classList.add('hidden');rp.innerHTML='';}
+  setSolveStatus('','');
   document.getElementById('parseSummary').textContent='入力内容が変更されました。再解析してください。';
 });
 document.getElementById('clearBtn').addEventListener('click',()=>{
@@ -2626,6 +2646,7 @@ document.getElementById('clearBtn').addEventListener('click',()=>{
   app={cards:[],candidates:[],warnings:[],lastResult:null,lastOrderText:'',parsed:false};
   ['parsedPanel','progressPanel','resultPanel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   const rp=document.getElementById('rarityPrompt');if(rp){rp.classList.add('hidden');rp.innerHTML='';}
+  setSolveStatus('','');
   document.getElementById('parseSummary').textContent='';
 });
 document.getElementById('copyOrderBtn').addEventListener('click',async()=>{
