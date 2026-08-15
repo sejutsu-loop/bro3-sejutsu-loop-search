@@ -34,7 +34,11 @@ button:hover{filter:brightness(.97)}button:disabled{opacity:.55;cursor:wait}
 tr.card-excluded td{background:#f3f0e9;color:#8a8175}
 .selection-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}
 .selection-summary{font-size:12px;font-weight:bold;color:#5b2c12}
-.solve-status{font-size:14px;font-weight:700;margin-left:4px}.solve-status.bad{color:var(--bad)}
+.solve-status{font-size:14px;font-weight:700;margin-left:4px}.solve-status.bad{color:var(--bad)}.solve-status.warn{color:var(--warn)}
+.search-controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.search-state{font-size:12px;font-weight:bold;color:var(--muted)}
+.search-state.paused{color:var(--warn)}
+.search-state.cancelled{color:var(--bad)}
 .selection-summary.has-missing-rarity{color:var(--bad)}
 .rarity-col{min-width:170px}
 .deputy-rarity-select{min-width:78px;border:1px solid #9b8b70;border-radius:3px;padding:4px 5px;background:#fff;color:var(--text);font-family:inherit;font-size:11px}
@@ -89,7 +93,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 
   <section id="parsedPanel" class="panel hidden">
     <h2>2. 探索対象カードを選択</h2>
-    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。副将鏡/錬鏡が主将1枠目の回復スキルに影響するカードは「副将レアリティ（主将と同一）」を指定してください。副将効果率は R40% / SR50% / UR60% / L70% / SL80% として計算し、鏡の対象主将レアリティと不一致なら鏡効果は0として扱います。</p>
+    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。副将鏡/錬鏡が主将1枠目の回復スキルに影響するカードは、鏡名から想定される「副将レアリティ（主将と同一）」を初期選択します。必要に応じて変更できます。副将効果率は R40% / SR50% / UR60% / L70% / SL80% として計算し、鏡の対象主将レアリティと不一致なら鏡効果は0として扱います。龍肝の湯薬はゲーム仕様に合わせ、主将鏡・副将鏡・錬鏡によるコピー効果を一切加算しません。</p>
     <div class="selection-tools">
       <button id="selectAllBtn" class="secondary" type="button">すべて選択</button>
       <button id="selectNoneBtn" class="secondary" type="button">すべて解除</button>
@@ -113,6 +117,12 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <div id="progressLabel">準備中</div>
     <div class="progress" style="margin:10px 0"><div id="progressBar"></div></div>
     <div id="progressDetail" class="small"></div>
+    <div class="search-controls">
+      <button id="pauseSearchBtn" class="secondary" type="button" disabled>一時停止</button>
+      <button id="resumeSearchBtn" class="secondary" type="button" disabled>再開</button>
+      <button id="cancelSearchBtn" class="secondary" type="button" disabled>中止</button>
+      <span id="searchState" class="search-state"></span>
+    </div>
   </section>
 
   <section id="resultPanel" class="panel hidden">
@@ -146,7 +156,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 </main>
 
 <script>
-// 施術ループ探索（仮） v7.0.15
+// 施術ループ探索（仮） v7.0.16
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -242,6 +252,7 @@ function buildCandidatesForCard(card){
 // deck.php裏面と同じ「実効短縮量」を復元する。
 // 副将鏡/錬鏡は「鏡が要求する主将レアリティ」と手入力した副将レアリティが一致するときだけ有効。
 // 回復スキルはコスト非依存のため、明鏡=副将コスト / 錬鏡=主将コストの差は本計算では考慮不要。
+// 龍肝の湯薬はゲーム仕様上、主将鏡・副将鏡・錬鏡によるコピー効果を受けない。
 const CARD_FILE_BASE_TABLE = {
   '優雅な調べ':[20,25,30,35,40,45,50,60,70,80],
   '神医の施術':[20,25,30,35,40,45,50,60,70,80],
@@ -306,6 +317,16 @@ function deputyMirrorLevelRate(level){
   const lv=Math.max(1,Math.min(10,Math.floor(Number(level)||0)));
   return lv/10;
 }
+function inferredDeputyRarityForEntries(entries){
+  const raw=entries||[];
+  const slot1=raw.find(e=>e.slot===1);
+  const fam=slot1?familyFor(slot1.rawName):null;
+  // 龍肝は鏡・副将コピー不可なので副将レアリティ指定自体が不要。
+  if(!fam || fam[0]==='龍肝の湯薬')return '';
+  const req=[...new Set(raw.filter(e=>isDeputyEntry(e)&&isMirrorLikeName(e.rawName))
+    .map(e=>deputyMirrorTargetRarity(e.rawName)).filter(Boolean))];
+  return req.length===1?req[0]:'';
+}
 function cardNeedsDeputyRarity(card){
   return !!(card && card.hasRelevantDeputyMirror);
 }
@@ -325,6 +346,7 @@ function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnin
       }
     }
   }
+  const dragonCopyBlocked=primaryFamily==='龍肝の湯薬';
 
   const requiredRarities=new Set();
   let relevantDeputyMirrorCount=0;
@@ -335,6 +357,7 @@ function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnin
     e.mirrorRarityRate=0;
     e.mirrorActive=false;
     e.mirrorShorten=0;
+    e.mirrorBlockedReason='';
 
     const fam=familyFor(e.rawName);
     if(fam){
@@ -349,9 +372,11 @@ function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnin
       continue;
     }
 
-    // 主将側の明鏡/明鑑は従来どおりSKILL1の実効短縮量を100%複製する。
+    // 龍肝の湯薬はゲーム仕様上、主将鏡・副将鏡・錬鏡によるコピー対象外。
     if(isMainMirrorEntry(e)){
-      if(primaryBase>0){
+      if(dragonCopyBlocked){
+        e.mirrorBlockedReason='龍肝は鏡・副将コピー不可';
+      }else if(primaryBase>0){
         e.effect=cardFileScopeText(primaryScope)+'スキル回復時間を'+primaryBase+'分0秒短縮する';
         e.mirrorActive=true;
         e.mirrorLevelRate=1;
@@ -371,7 +396,12 @@ function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnin
       e.mirrorLevelRate=deputyMirrorLevelRate(e.level);
       e.mirrorRarityRate=DEPUTY_RARITY_RATE[deputyRarity]||0;
 
-      // SKILL1が本ツール対象の回復スキルなら、副将レアリティ入力が計算に必要。
+      if(dragonCopyBlocked){
+        e.mirrorBlockedReason='龍肝は鏡・副将コピー不可';
+        continue;
+      }
+
+      // SKILL1が本ツール対象の回復スキルなら、副将レアリティが計算に必要。
       if(primaryBase>0){
         relevantDeputyMirrorCount++;
         requiredRarities.add(required);
@@ -386,7 +416,7 @@ function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnin
     }
   }
   return {
-    primaryBase,primaryScope,primaryFamily,
+    primaryBase,primaryScope,primaryFamily,dragonCopyBlocked,
     hasRelevantDeputyMirror:relevantDeputyMirrorCount>0,
     relevantDeputyMirrorCount,
     requiredRarities:Array.from(requiredRarities)
@@ -468,10 +498,15 @@ function parseCardFile(text){
     let bonusPct=0;
     for(const line of block){const m=line.match(/^(\d+(?:\.\d+)?)%$/);if(m) bonusPct=Math.max(bonusPct,Number(m[1])||0);}
     const ownerKey='file-'+(cards.length+1);
-    const card={ownerKey,deckKey:'file',index:cards.length,name,cardNo:no,cost,frontRaw:block.join('\n'),backRaw:'',skills:[],candidates:[],bonusPct,deputyRarity:''};
+    const card={ownerKey,deckKey:'file',index:cards.length,name,cardNo:no,cost,frontRaw:block.join('\n'),backRaw:'',skills:[],candidates:[],bonusPct,deputyRarity:'',deputyRarityAuto:false};
     card.skillEntries=parseCardFileSkillEntries(block);
     if(!card.skillEntries.length && block.some(line=>/^(?:\[使用\]|スキル\s*\d+|副将スキル)/.test(normalizeCardFileLine(line)))){
       warnings.push('スキル行を解析できません: '+name+' / No'+no+'。コピー形式に未対応の可能性があります。');
+    }
+    const inferredRarity=inferredDeputyRarityForEntries(card.skillEntries);
+    if(inferredRarity){
+      card.deputyRarity=inferredRarity;
+      card.deputyRarityAuto=true;
     }
     refreshCardFromDeputyRarity(card,warnings);
     cards.push(card);
@@ -529,14 +564,18 @@ function rarityOptionsHtml(selected){
   return opts.join('');
 }
 function deputyMirrorStatusForCard(card){
+  const blocked=(card.skillEntries||[]).filter(e=>e.mirrorBlockedReason);
+  if(blocked.length && card.primaryRecoveryFamily==='龍肝の湯薬'){
+    return {kind:'warn',text:'龍肝は鏡・副将コピー不可 → 鏡効果0'};
+  }
   if(!cardNeedsDeputyRarity(card))return {kind:'none',text:'—'};
   const entries=(card.skillEntries||[]).filter(e=>isDeputyMirrorEntry(e) && card.primaryBaseShorten>0);
   const req=[...new Set(entries.map(e=>e.mirrorRequiredRarity||deputyMirrorTargetRarity(e.rawName)).filter(Boolean))];
   if(!card.deputyRarity)return {kind:'bad',text:'入力必須 / 対象主将: '+(req.join('/')||'要確認')};
   const active=entries.filter(e=>e.mirrorActive);
   if(active.length){
-    const mins=active.map(e=>e.mirrorShorten||shortenFrom(e.effect)||0);
-    return {kind:'ok',text:'有効: '+active.map(e=>e.label+' +'+(e.mirrorShorten||0)+'分').join(' / ')};
+    const prefix=card.deputyRarityAuto?'想定'+card.deputyRarity+'を初期選択 / ':'';
+    return {kind:'ok',text:prefix+'有効: '+active.map(e=>e.label+' +'+(e.mirrorShorten||0)+'分').join(' / ')};
   }
   return {kind:'warn',text:'指定 '+card.deputyRarity+' / 鏡対象 '+(req.join('/')||'要確認')+' → 鏡効果0'};
 }
@@ -548,11 +587,13 @@ function skillSummaryForCard(card){
     const fam=familyFor(s.rawName);
     if(fam && /スキル回復時間/.test(s.effect)){
       t+=' → '+shortenFrom(s.effect)+'分';
-    }else if(isMainMirrorEntry(s) && /スキル回復時間/.test(s.effect)){
-      t+=' → 鏡 '+shortenFrom(s.effect)+'分';
+    }else if(isMainMirrorEntry(s)){
+      if(s.mirrorBlockedReason)t+=' → '+s.mirrorBlockedReason+' / 効果0';
+      else if(/スキル回復時間/.test(s.effect))t+=' → 鏡 '+shortenFrom(s.effect)+'分';
     }else if(isDeputyMirrorEntry(s)){
       const req=s.mirrorRequiredRarity||deputyMirrorTargetRarity(s.rawName)||'?';
-      if(!card.deputyRarity)t+=' → 要副将'+req;
+      if(s.mirrorBlockedReason)t+=' → '+s.mirrorBlockedReason+' / 効果0';
+      else if(!card.deputyRarity)t+=' → 要副将'+req;
       else if(s.mirrorActive)t+=' → '+(s.mirrorShorten||shortenFrom(s.effect))+'分';
       else t+=' → 対象'+req+' / 効果0';
     }
@@ -653,6 +694,7 @@ function renderParsed(){
     const card=app.cards.find(c=>c.ownerKey===sel.dataset.ownerKey);
     if(!card)return;
     card.deputyRarity=String(sel.value||'');
+    card.deputyRarityAuto=false;
     rebuildAllCandidatesAfterRarityChange();
     updateSelectionSummary();
     document.getElementById('resultPanel').classList.add('hidden');
@@ -2384,23 +2426,123 @@ function minSearchWorkerMainV6236() {
             };
         }
 
-function runV7Worker(baseInfos,config,onProgress){
+const searchControl={
+  mode:'idle',
+  activeRun:null,
+  cancelRequested:false,
+  waiters:[],
+  lastProgress:null,
+  begin(){
+    this.mode='running';this.activeRun=null;this.cancelRequested=false;this.waiters=[];this.lastProgress=null;
+    updateSearchControlUi();
+  },
+  pause(){
+    if(this.mode!=='running')return;
+    this.mode='paused';
+    if(this.activeRun&&typeof this.activeRun.stop==='function')this.activeRun.stop('pause');
+    updateSearchControlUi();
+    const lab=document.getElementById('progressLabel');
+    if(lab)lab.textContent='一時停止中';
+  },
+  resume(){
+    if(this.mode!=='paused')return;
+    this.mode='running';
+    const ws=this.waiters.splice(0);
+    ws.forEach(fn=>fn('resume'));
+    updateSearchControlUi();
+    const lab=document.getElementById('progressLabel');
+    if(lab)lab.textContent='再開中（現在の探索段階を再実行）';
+  },
+  cancel(){
+    if(this.mode!=='running'&&this.mode!=='paused')return;
+    this.cancelRequested=true;
+    this.mode='cancelled';
+    if(this.activeRun&&typeof this.activeRun.stop==='function')this.activeRun.stop('cancel');
+    const ws=this.waiters.splice(0);
+    ws.forEach(fn=>fn('cancel'));
+    updateSearchControlUi();
+  },
+  finish(){
+    this.activeRun=null;this.waiters.splice(0).forEach(fn=>fn('cancel'));
+    this.mode='idle';this.cancelRequested=false;this.lastProgress=null;
+    updateSearchControlUi();
+  }
+};
+function updateSearchControlUi(){
+  const mode=searchControl.mode;
+  const pause=document.getElementById('pauseSearchBtn');
+  const resume=document.getElementById('resumeSearchBtn');
+  const cancel=document.getElementById('cancelSearchBtn');
+  if(pause)pause.disabled=mode!=='running';
+  if(resume)resume.disabled=mode!=='paused';
+  if(cancel)cancel.disabled=!(mode==='running'||mode==='paused');
+  const st=document.getElementById('searchState');
+  if(st){
+    st.className='search-state'+(mode==='paused'?' paused':mode==='cancelled'?' cancelled':'');
+    st.textContent=mode==='paused'?'一時停止中':mode==='cancelled'?'中止処理中':mode==='running'?'探索実行中':'';
+  }
+}
+function waitForSearchResumeOrCancel(){
+  if(searchControl.cancelRequested||searchControl.mode==='cancelled')return Promise.resolve('cancel');
+  if(searchControl.mode!=='paused')return Promise.resolve('resume');
+  return new Promise(resolve=>searchControl.waiters.push(resolve));
+}
+function userCancelledSearchError(){
+  const e=new Error('探索を中止しました。');
+  e.userCancelled=true;
+  return e;
+}
+function runV7WorkerOnce(baseInfos,config,onProgress){
   return new Promise((resolve,reject)=>{
     const src='('+minSearchWorkerMainV6236.toString()+')();';
     const blob=new Blob([src],{type:'text/javascript'});
     const url=URL.createObjectURL(blob);
     const worker=new Worker(url);
-    let done=false;
-    const finish=(v,err)=>{if(done)return;done=true;worker.terminate();URL.revokeObjectURL(url);err?reject(err):resolve(v);};
+    let done=false,lastProgress=null,session=null;
+    const finish=(v,err)=>{
+      if(done)return;
+      done=true;
+      try{worker.terminate();}catch(_){}
+      URL.revokeObjectURL(url);
+      if(searchControl.activeRun===session)searchControl.activeRun=null;
+      err?reject(err):resolve(v);
+    };
+    session={
+      stop(kind){
+        if(done)return;
+        finish({interrupted:true,interruptKind:kind,lastProgress});
+      }
+    };
+    searchControl.activeRun=session;
     worker.onerror=e=>finish(null,new Error(e.message||'Worker error'));
     worker.onmessage=e=>{
       const m=e.data||{};
-      if(m.type==='progress'){onProgress&&onProgress(m);return;}
+      if(m.type==='progress'){
+        lastProgress=m;searchControl.lastProgress=m;
+        onProgress&&onProgress(m);return;
+      }
       if(m.type==='result'){finish(m);return;}
       if(m.type==='cancelled'){finish({cancelled:true});return;}
     };
     worker.postMessage({type:'start',baseInfos,config});
   });
+}
+async function runV7Worker(baseInfos,config,onProgress){
+  while(true){
+    if(searchControl.cancelRequested||searchControl.mode==='cancelled')throw userCancelledSearchError();
+    if(searchControl.mode==='paused'){
+      const action=await waitForSearchResumeOrCancel();
+      if(action==='cancel')throw userCancelledSearchError();
+    }
+    const r=await runV7WorkerOnce(baseInfos,config,onProgress);
+    if(r&&r.interrupted&&r.interruptKind==='pause'){
+      const action=await waitForSearchResumeOrCancel();
+      if(action==='cancel')throw userCancelledSearchError();
+      continue; // 完了済みの上位段階は保持し、現在のWorker段階だけ先頭から再実行。
+    }
+    if(r&&((r.interrupted&&r.interruptKind==='cancel')||r.cancelled))throw userCancelledSearchError();
+    return r;
+  }
 }
 function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){const t=a%b;a=b;b=t;}return a;}
 function costQuantum(baseInfos){
@@ -2417,9 +2559,10 @@ function standardCfg(phase='minHands'){
   };
 }
 function updateProgress(p){
+  searchControl.lastProgress=p||null;
   document.getElementById('progressPanel').classList.remove('hidden');
   const lab=p.objectiveLabel||p.label||'探索中';
-  document.getElementById('progressLabel').textContent=lab+(p.label?' / '+p.label:'');
+  if(searchControl.mode!=='paused')document.getElementById('progressLabel').textContent=lab+(p.label?' / '+p.label:'');
   const pct=Number.isFinite(p.candidatePct)?p.candidatePct:Math.min(100,Number(p.passBudgetPct)||0);
   document.getElementById('progressBar').style.width=Math.max(0,Math.min(100,pct))+'%';
   document.getElementById('progressDetail').textContent=
@@ -2442,6 +2585,11 @@ function setSolveStatus(text,type){
   if(!el)return;
   el.textContent=text||'';
   el.className='solve-status'+(type?' '+type:'');
+}
+function setSearchInputsLocked(locked){
+  ['parseBtn','clearBtn','selectAllBtn','selectNoneBtn'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!!locked;});
+  const fi=document.getElementById('fileInput');if(fi)fi.disabled=!!locked;
+  document.querySelectorAll('.card-select,.deputy-rarity-select').forEach(el=>{el.disabled=!!locked;});
 }
 
 async function solveV7(){
@@ -2624,13 +2772,31 @@ function renderResult(r){
 document.getElementById('parseBtn').addEventListener('click',()=>{try{parseAll();}catch(e){alert(e.message);}});
 document.getElementById('selectAllBtn').addEventListener('click',()=>setAllCardSelections(true));
 document.getElementById('selectNoneBtn').addEventListener('click',()=>setAllCardSelections(false));
+document.getElementById('pauseSearchBtn').addEventListener('click',()=>searchControl.pause());
+document.getElementById('resumeSearchBtn').addEventListener('click',()=>searchControl.resume());
+document.getElementById('cancelSearchBtn').addEventListener('click',()=>searchControl.cancel());
 document.getElementById('solveBtn').addEventListener('click',async()=>{
-  const b=document.getElementById('solveBtn');b.disabled=true;
-  try{await solveV7();}catch(e){
+  const b=document.getElementById('solveBtn');
+  b.disabled=true;
+  setSearchInputsLocked(true);
+  searchControl.begin();
+  try{
+    await solveV7();
+  }catch(e){
     document.getElementById('progressPanel').classList.add('hidden');
-    alert(e.message||String(e));
-    console.error(e);
-  }finally{b.disabled=false;}
+    if(e&&e.userCancelled){
+      setSolveStatus('中止','warn');
+      app.lastResult=null;
+      app.lastOrderText='';
+    }else{
+      alert(e.message||String(e));
+      console.error(e);
+    }
+  }finally{
+    searchControl.finish();
+    setSearchInputsLocked(false);
+    b.disabled=false;
+  }
 });
 document.getElementById('fileInput').addEventListener('input',()=>{
   if(!app.parsed)return;
