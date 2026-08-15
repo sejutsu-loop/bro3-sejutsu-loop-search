@@ -78,7 +78,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <h2>1. カードファイルからコピーした内容を貼り付け</h2>
     <div class="notice">
       <b>カードファイル画面で「小15枚表示」または「小60枚表示」にして、対象カードをまとめてコピーし、そのまま貼り付けてください。</b><br>
-      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡を自動解析します。カードファイルでスキル名末尾に付く「(T)」にも対応しています。副将鏡が回復スキルに影響するカードは、解析後に副将レアリティを指定してください。スキル回復以外のスキルも貼り付けたままで構いません。
+      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡を自動解析します。カード境界はNo行で判定するため「デッキコスト不足」のカードも個別に解析します。カードファイルでスキル名末尾に付く「(T)」にも対応しています。副将鏡が回復スキルに影響するカードは、解析後に副将レアリティを指定してください。スキル回復以外のスキルも貼り付けたままで構いません。
     </div>
     <div style="margin-top:10px">
       <h3>カードファイル</h3>
@@ -156,7 +156,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 </main>
 
 <script>
-// 施術ループ探索（仮） v7.0.16
+// 施術ループ探索（仮） v7.0.17
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -433,7 +433,7 @@ function refreshCardFromDeputyRarity(card,warnings){
   if(warnings&&ws&&ws.length)warnings.push(...ws);
 }
 function cardFileIgnoreNameLine(s){
-  return !s || /^(?:ステータス強化|副将スロット|未解放|変更|ラベル名|合成|カードの保護を解除|副将を設定中|ポイント.*|充足予定|exp|スコア)$/.test(s);
+  return !s || /^(?:ステータス強化|このカードをデッキにセットします|デッキコスト不足|副将スロット|未解放|変更|ラベル名|合成|カードの保護を解除|カードを保護する|副将を設定中|ポイント.*|充足予定|exp|スコア)$/.test(s);
 }
 function normalizeCardFileLine(src){
   return String(src||'')
@@ -471,46 +471,75 @@ function parseCardFileSkillEntries(blockLines){
   return raw;
 }
 
+function cardFileNameBeforeNo(lines,ni){
+  for(let j=ni-1;j>=Math.max(0,ni-14);j--){
+    const v=String(lines[j]||'').trim();
+    if(cardFileIgnoreNameLine(v))continue;
+    if(/^No\s+\d+/.test(v))continue;
+    if(/^(?:勢力|知力|レベル|コスト|兵科|HP|討伐|職位|スロット|超覇|速度|攻撃|歩防|槍防|弓防|騎防|斧防|双防|錘防)\b/.test(v))continue;
+    if(/^\d+(?:\.\d+)?%$/.test(v)||/^\d+\/\d+$/.test(v)||/^\d+(?:\.\d+)?cost$/i.test(v))continue;
+    return v;
+  }
+  return '';
+}
+
 function parseCardFile(text){
   const lines=normText(text).split('\n').map(x=>x.trim());
-  const setIdx=[];
-  for(let i=0;i<lines.length;i++) if(lines[i]==='このカードをデッキにセットします') setIdx.push(i);
+
+  // v7.0.17: 各カードに必ず存在する No 行をカード境界として使う。
+  // 「デッキコスト不足」時に「このカードをデッキにセットします」が出ないケースも分離可能。
+  const noIdx=[];
+  for(let i=0;i<lines.length;i++){
+    const m=lines[i].match(/^No\s+(\d+)/);
+    if(m)noIdx.push({index:i,no:m[1]});
+  }
+
   const cards=[], warnings=[];
-  for(let ci=0;ci<setIdx.length;ci++){
-    const si=setIdx[ci], end=(ci+1<setIdx.length?setIdx[ci+1]:lines.length);
-    let ni=-1,no='';
-    for(let j=si+1;j<Math.min(end,si+10);j++){
-      const m=lines[j].match(/^No\s+(\d+)/); if(m){ni=j;no=m[1];break;}
-    }
-    if(ni<0) continue;
-    let name='';
-    for(let j=si-1;j>=Math.max(0,si-10);j--){
-      const v=lines[j].trim();
-      if(cardFileIgnoreNameLine(v)) continue;
-      if(/^\d+(?:\.\d+)?%$/.test(v)||/^\d+\/\d+$/.test(v)||/^\d+(?:\.\d+)?cost$/i.test(v)) continue;
-      name=v; break;
-    }
+  for(let ci=0;ci<noIdx.length;ci++){
+    const ni=noIdx[ci].index;
+    const no=noIdx[ci].no;
+    const end=(ci+1<noIdx.length?noIdx[ci+1].index:lines.length);
+
+    let name=cardFileNameBeforeNo(lines,ni);
     if(!name){warnings.push('カード名を取得できません: No'+no);name='No'+no;}
+
     const block=lines.slice(ni,end);
+
     let cost=0;
-    for(const line of block){const m=line.match(/^コスト\s+(\d+(?:\.\d+)?)/);if(m){cost=Number(m[1]);break;}}
+    for(const line of block){
+      const m=line.match(/^コスト\s+(\d+(?:\.\d+)?)/);
+      if(m){cost=Number(m[1]);break;}
+    }
     if(!cost) warnings.push('コストを取得できません: '+name+' / No'+no);
+
     let bonusPct=0;
-    for(const line of block){const m=line.match(/^(\d+(?:\.\d+)?)%$/);if(m) bonusPct=Math.max(bonusPct,Number(m[1])||0);}
+    for(const line of block){
+      const m=line.match(/^(\d+(?:\.\d+)?)%$/);
+      if(m)bonusPct=Math.max(bonusPct,Number(m[1])||0);
+    }
+
     const ownerKey='file-'+(cards.length+1);
-    const card={ownerKey,deckKey:'file',index:cards.length,name,cardNo:no,cost,frontRaw:block.join('\n'),backRaw:'',skills:[],candidates:[],bonusPct,deputyRarity:'',deputyRarityAuto:false};
+    const card={
+      ownerKey,deckKey:'file',index:cards.length,name,cardNo:no,cost,
+      frontRaw:block.join('\n'),backRaw:'',skills:[],candidates:[],
+      bonusPct,deputyRarity:'',deputyRarityAuto:false
+    };
+
     card.skillEntries=parseCardFileSkillEntries(block);
     if(!card.skillEntries.length && block.some(line=>/^(?:\[使用\]|スキル\s*\d+|副将スキル)/.test(normalizeCardFileLine(line)))){
       warnings.push('スキル行を解析できません: '+name+' / No'+no+'。コピー形式に未対応の可能性があります。');
     }
+
     const inferredRarity=inferredDeputyRarityForEntries(card.skillEntries);
     if(inferredRarity){
       card.deputyRarity=inferredRarity;
       card.deputyRarityAuto=true;
     }
+
     refreshCardFromDeputyRarity(card,warnings);
     cards.push(card);
   }
+
   if(!cards.length && normText(text).trim()) warnings.push('カードファイル形式のカードを検出できませんでした。');
   return {cards,warnings,frontCount:cards.length,backCount:cards.length};
 }
