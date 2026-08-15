@@ -156,7 +156,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 </main>
 
 <script>
-// 施術ループ探索（仮） v7.0.17
+// 施術ループ探索（仮） v7.0.18
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -238,7 +238,8 @@ function buildCandidatesForCard(card){
       deckKey:card.deckKey,skillId,skillName:familyName+'LV'+e.level,skillSlot:e.slot,ctCost,scope,
       selfShorten,othersShorten,isSupport:isYuga,isYuga,strongYuga:isYuga&&(othersShorten*normFactor>=160),
       normSelf:selfShorten*normFactor,normOthers:othersShorten*normFactor,
-      rNeed:ctCost+baseShorten-(mm+sm),isToki,allowMultiUse,isHolyWater,
+      // 自己除外型（優雅・勇姫・龍肝）は鏡コピー分も本人のCTには戻らない。
+      rNeed:Math.max(0,ctCost-((fd.selfExcluded||scope==='wait')?0:(mm+sm))),isToki,allowMultiUse,isHolyWater,
       mainMirrorShorten:mm,subMirrorShorten:sm,baseShorten,
       isStrong1800:(ctCost<=2400 && othersShorten*normFactor>=160)
     });
@@ -974,7 +975,10 @@ function minSearchWorkerMainV6236() {
                 return Object.keys(usage||{}).filter(b=>(usage[b]||0)>0).sort().map(b=>[b,Math.floor(Number(usage[b])||0)]);
             }
             function need(info) {
-                return Math.max(0, (info.ctCost || 0) - ((info.mainMirrorShorten || 0) + (info.subMirrorShorten || 0)));
+                // 通常スキルは発動直後に鏡コピー分が自分自身のCTにも入るため、その分だけ必要量を減らせる。
+                // 優雅・勇姫督励・龍肝（および wait scope）は同一ownerを短縮しないので、鏡分も本人のCTから差し引かない。
+                const selfMirror = isSelfExcluded(info) ? 0 : ((info.mainMirrorShorten || 0) + (info.subMirrorShorten || 0));
+                return Math.max(0, (info.ctCost || 0) - selfMirror);
             }
             function makeBaseMap(baseInfos) {
                 const m = Object.create(null);
