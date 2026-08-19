@@ -200,7 +200,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <div class="actions" style="margin-top:12px">
       <button id="solveBtn">3. 施術ループを探索</button>
       <span id="solveStatus" class="solve-status" role="status" aria-live="polite"></span>
-      <span class="small">チェック済みカードだけを使って探索します。判定は「成立 / 不成立証明 / 未確定」の3状態です。exactに否定できた場合だけ「不成立証明」とし、未完走・近似・順序未証明は必ず「未確定」とします。成立解確保後は「1手少ない手数 → 最小コスト → 最小カード枚数」を各最大10分で検証し、各工程は個別にスキップできます。探索中は基準・主要進捗を常時表示し、詳細ログは初期状態で折り畳みます。詳細を開閉しても下の暫定結果欄の位置は変わりません。スキップ・時間切れは未証明のまま現在値を採用して次工程へ進みます。</span>
+      <span class="small">チェック済みカードだけを使って探索します。判定は「成立 / 不成立証明 / 未確定」の3状態です。exactに否定できた場合だけ「不成立証明」とし、未完走・近似・順序未証明は必ず「未確定」とします。成立解確保後は「1手少ない手数」を最大10分で全候補Exact検証します。工程2は現在の成立解を同等以上の機能を持つ低コストカードへ差し替え、工程3は現在解の2～3枚分の使用機能を1枚へ統合できないかを確認します。各工程は個別にスキップできます。探索中は基準・主要進捗を常時表示し、詳細ログは初期状態で折り畳みます。詳細を開閉しても下の暫定結果欄の位置は変わりません。スキップ・時間切れは未証明のまま現在値を採用して次工程へ進みます。</span>
     </div>
   </section>
 
@@ -263,7 +263,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 </main>
 
 <script>
-// 施術ループ探索（仮） v8.3.6 MirrorMode Hybrid
+// 施術ループ探索（仮） v8.3.7 MirrorMode Hybrid
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -1917,7 +1917,7 @@ function minSearchWorkerMainV6236() {
                     for(let c=0;c<eqMembers.length;c++){let ok=true;for(const j of eqMembers[c])if(!exchangeable(i,j)){ok=false;break;}if(ok){found=c;break;}}
                     if(found<0){found=eqN++;eqMembers.push([]);}eqClass[i]=found;eqMembers[found].push(i);
                 }
-                // V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact:
+                // V8.3.8 LocalRefine UI Fix MirrorMode:
                 // exchangeable() が証明したクラス内では target label の置換は問題全体の自己同型。
                 // そこで prefix 状態を「各targetの動的状態 + これまでのslot所属履歴」で正準ラベル化し、
                 // labelを入れ替えただけの状態を同一memo状態として扱う。履歴まで含めるため、入れ子/交差の
@@ -2156,7 +2156,7 @@ function minSearchWorkerMainV6236() {
                     return allDead;
                 }
                 // anchorの1回目を先頭へ固定。anchor event自身はself寄与0、他の未登場targetにはwrap gap2として入る。
-                // V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact:
+                // V8.3.8 LocalRefine UI Fix MirrorMode:
                 // leaf上限だけに当たった場合は、その問題を離れず deadMemo を保持したまま上限を段階拡張する。
                 // 既に完全deadと証明済みの部分木は次passでmemo hitになるため、同じ証明済み領域を総当たりし直さない。
                 let rootDead=false;
@@ -3550,7 +3550,7 @@ function minSearchWorkerMainV6236() {
                 }
                 dfs(0,1);return bestFound;
             }
-            // V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact core: owner-pattern integer constraint solver + optional WASM exact static solver.
+            // V8.3.8 LocalRefine UI Fix MirrorMode exact core: owner-pattern integer constraint solver + optional WASM exact static solver.
             // JS solver is a CP-SAT/IP style finite-domain branch-and-bound: each physical card(owner) chooses
             // exactly one local usage pattern, with exact hand count, cardNo exclusion, cost/card bounds,
             // repeat-mode requirements, and all aggregate CT inequalities propagated directly.
@@ -4326,25 +4326,25 @@ function minSearchWorkerMainV6236() {
                     'V7 Effect Matrix: '+effectN+'×'+effectN+'（数理探索用。最終物理CTシミュレータとは独立実装）',
                     'V7.2 通常効果量DP: 1周1回モードを 手数/総供給/局所必要閾値/コスト/カード枚数 のPareto状態で厳密圧縮',
                     'V7.2 再使用区間DP: singleのtarget別寄与ベクトルを多次元DPでmiddle/tailへ分割',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 全区間Gap: 再使用4種以下は循環topology完全列挙＋single全slot配置DP。入れ子/交差/周回境界も同一モデルで検証',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 事前固定点: H手内で各再使用targetの2区間へ自由配分してもCT不足なら2回使用不可へ降格し、供給上界を固定点再計算',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode 全区間Gap: 再使用4種以下は循環topology完全列挙＋single全slot配置DP。入れ子/交差/周回境界も同一モデルで検証',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode 事前固定点: H手内で各再使用targetの2区間へ自由配分してもCT不足なら2回使用不可へ降格し、供給上界を固定点再計算',
                     'V7.2 Checkpoint/Pareto: owner境界または使用構成+順序offsetから再開 / 成立確認済みPareto解を後続最適化へ再利用',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact 使用構成: owner-pattern整数制約(JS)で 手数/CT不等式/cardNo/コスト/カード数/再使用条件 を直接解く',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Bundle圧縮: コスト・カード全体機能・pattern domain・相互寄与が完全交換可能なowner群はpattern割当を正準化し、同じ使用pattern個数構成を1回だけExact検証。mandatory/CardNo排他は個別保持、判定不能時は従来V8へfallback',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Topology圧縮: need・再使用相互寄与・single寄与が完全交換可能な再使用target群について、動的gap状態とslot所属履歴を含むlabel置換正準memo＋同一orbit action代表化を行う。入れ子/交差など非同値topologyは保持し、判定不能時は従来label付きTopologyへfallback',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 段階leaf再開: ManyTopologyがleaf上限だけに到達した場合、同一問題・同一dead-state memoを保持したまま 12k→24k→48k→96k→192k と段階拡張。途中上限は未完走に数えず、最終上限でも未完走の問題だけ未証明として残す',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact メモリ保護: 長時間の全モードExactは1 Workerで順次実行。ManyTopology memoは1問題5万/全体9万/6問題、供給上界6000、deck-pack 3万、不成立problem 1000を上限に古い再利用cacheを破棄。cache破棄は再計算を増やすだけで証明条件は不変',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 3工程UI: 成立解確保後、短手数・固定手数コスト・条件内カード枚数を各最大10分。現在工程/残り時間/工程別スキップボタンを表示。一時停止中は工程時間も停止',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 条件付き証明: 手数またはコストを未証明/スキップでも後工程へ進み、固定した採用手数・採用コスト上限の範囲で証明できた副目的だけを条件付き確定として表示',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 証明フロー: Discoveryで成立解を確保後、短手数→固定手数コスト→条件内カード枚数を各最大10分。前工程が未証明/スキップでも採用値を固定して次工程へ進み、証明できた範囲だけ条件付き確定とする',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 副目的証明: コスト/カード境界scanにも強制伝播を適用し、scan未完走時も循環Exactへ継続。任意の8/30回反復上限は撤廃',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact H手強制伝播: 静的成立Witnessに含まれるイベントだけを不使用/1回以下で再検証し、緩和問題でも不成立なら1回必須/2回必須/カード必須としてdomain固定',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact endpoint B&B: 再使用5〜18種を未登場/開区間/閉区間で構築し、閉区間single subset上界・完全同値target対称性で枝刈り',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 支配memo: 同じ残使用状態で、gap供給が全成分以上かつ利用可能slot型が上位集合のdead-stateを証明安全に再利用',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact LRU: 複数Topology問題のdead-stateを全体上限付きで保持し、3問題超の往復でも証明済み枝を再利用',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact fallback: JS上限時のみ埋込WASM exact solverで静的使用構成の存在/不存在を独立検証',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 判定: 成立=独立CT実検証済 / 不成立証明=全対象をexactに否定 / 未確定=静的構成あり順序未証明またはexact上限',
-                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Repeated: 4種以下は全循環topology列挙 / 5〜18種はendpoint Branch-and-Bound＋single全slot Gap DPでexact確認。予算超過だけ未確定',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode exact 使用構成: owner-pattern整数制約(JS)で 手数/CT不等式/cardNo/コスト/カード数/再使用条件 を直接解く',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode Bundle圧縮: コスト・カード全体機能・pattern domain・相互寄与が完全交換可能なowner群はpattern割当を正準化し、同じ使用pattern個数構成を1回だけExact検証。mandatory/CardNo排他は個別保持、判定不能時は従来V8へfallback',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode Topology圧縮: need・再使用相互寄与・single寄与が完全交換可能な再使用target群について、動的gap状態とslot所属履歴を含むlabel置換正準memo＋同一orbit action代表化を行う。入れ子/交差など非同値topologyは保持し、判定不能時は従来label付きTopologyへfallback',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode 段階leaf再開: ManyTopologyがleaf上限だけに到達した場合、同一問題・同一dead-state memoを保持したまま 12k→24k→48k→96k→192k と段階拡張。途中上限は未完走に数えず、最終上限でも未完走の問題だけ未証明として残す',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode メモリ保護: 長時間の全モードExactは1 Workerで順次実行。ManyTopology memoは1問題5万/全体9万/6問題、供給上界6000、deck-pack 3万、不成立problem 1000を上限に古い再利用cacheを破棄。cache破棄は再計算を増やすだけで証明条件は不変',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode 3工程UI: 成立解確保後、①短手数Exact ②現在解の1対1低C置換 ③現在解の2～3枚→1枚統合を実行。現在工程/進捗/工程別スキップボタンを表示し、未完走を確認済み扱いしない',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode 局所最適化: 工程2・3は全H手構成の証明ではなく、現在成立解からの同等機能置換/カード統合範囲を完走した場合だけ「確認済み」と表示',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode フロー: Discovery後、短手数だけ全候補Exact。工程2は1owner→1owner最小費用割当、工程3は2/3owner→1owner統合列挙＋50周physicalSimで現在解を軽量改善',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode 副目的証明: コスト/カード境界scanにも強制伝播を適用し、scan未完走時も循環Exactへ継続。任意の8/30回反復上限は撤廃',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode H手強制伝播: 静的成立Witnessに含まれるイベントだけを不使用/1回以下で再検証し、緩和問題でも不成立なら1回必須/2回必須/カード必須としてdomain固定',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode endpoint B&B: 再使用5〜18種を未登場/開区間/閉区間で構築し、閉区間single subset上界・完全同値target対称性で枝刈り',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode 支配memo: 同じ残使用状態で、gap供給が全成分以上かつ利用可能slot型が上位集合のdead-stateを証明安全に再利用',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode LRU: 複数Topology問題のdead-stateを全体上限付きで保持し、3問題超の往復でも証明済み枝を再利用',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode exact fallback: JS上限時のみ埋込WASM exact solverで静的使用構成の存在/不存在を独立検証',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode 判定: 成立=独立CT実検証済 / 不成立証明=全対象をexactに否定 / 未確定=静的構成あり順序未証明またはexact上限',
+                    'V8.3.8 LocalRefine UI Fix MirrorMode Repeated: 4種以下は全循環topology列挙 / 5〜18種はendpoint Branch-and-Bound＋single全slot Gap DPでexact確認。予算超過だけ未確定',
                     '現在の探索目的: '+(cfg.objectiveLabel||cfg.phase)+(cfg.targetHands?(' / '+cfg.targetHands+'手固定'):'')+(cfg.maxUniqueCards>0?(' / '+cfg.maxUniqueCards+'枚以下'):'' )+(cfg.maxTotalCost>=0?(' / '+fmtNum(cfg.maxTotalCost,1)+'C以下'):''),
                     '機能等価グループ: '+baseInfos.length+'候補 → '+allGroups.length+'群（安全に圧縮できる単一候補ownerのみ / owner構成 '+ownerProfileKinds+'種）',
                     '理論下限: '+runModes.map(m=>m.label+'='+(Number.isFinite(lbs[m.id])?lbs[m.id]+'手':'不可')+' / 最大'+modeMax[m.id]+'手').join(' | '),
@@ -4724,7 +4724,7 @@ function runV7WorkerOnce(baseInfos,config,onProgress){
 }
 function mergeParallelMinHandsResults(items){
   const results=items.map(x=>x.result).filter(Boolean);
-  const logs=['V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact マルチWorker: '+items.map(x=>x.modeId).join(' / ')+' を並列探索'];
+  const logs=['V8.3.8 LocalRefine UI Fix MirrorMode exact マルチWorker: '+items.map(x=>x.modeId).join(' / ')+' を並列探索'];
   for(const x of items){
     logs.push('['+x.modeId+'] '+(x.result&&x.result.ok?'成立候補':'成立解なし/未完走'));
     if(x.result&&Array.isArray(x.result.logs))logs.push(...x.result.logs.map(v=>'['+x.modeId+'] '+v));
@@ -4849,7 +4849,7 @@ function costQuantum(baseInfos){
   const v=baseInfos.map(x=>Number(x.cost)||0).filter(x=>x>0).map(x=>Math.round(x*10));
   if(!v.length)return .5;let g=v[0];for(let i=1;i<v.length;i++)g=gcd(g,v[i]);return Math.max(.1,g/10);
 }
-// V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact: 数学的な不存在証明として副目的の確定に使ってよい結果を一元判定する。
+// V8.3.8 LocalRefine UI Fix MirrorMode: 数学的な不存在証明として副目的の確定に使ってよい結果を一元判定する。
 // complete/secondaryCertified 単独では最低コスト・最少カードの証明に使わない。
 function isSafeInfeasibleProof(r){
   return !!r && r.proofStatus==='infeasible-proof' && r.complete===true && r.approximate!==true;
@@ -4880,8 +4880,8 @@ function buildProgressSummary(p){
   const h=Number(inc.hands)||0,c=Number(inc.totalCost)||0,k=Number(inc.uniqueCards)||0;
   let basis='探索条件を確認中';
   if(ph.key==='hands'&&h>0)basis=`基準：暫定${h}手 → ${Math.max(1,h-1)}手以下の成立/不存在を検証`;
-  else if(ph.key==='cost'&&h>0)basis=`基準：${h}手固定 / 現在${c.toFixed(1)}C → より低コストを検証`;
-  else if(ph.key==='cards'&&h>0)basis=`基準：${h}手・${c.toFixed(1)}C以下 / 現在${k}枚 → より少ない枚数を検証`;
+  else if(ph.key==='cost'&&h>0)basis=`基準：現在の${h}手成立解 / ${c.toFixed(1)}C → 同等機能の低Cカードへ差し替え`;
+  else if(ph.key==='cards'&&h>0)basis=`基準：現在の${h}手成立解 / ${k}枚 → 2～3枚分の機能を1枚へ統合`;
   else if(h>0)basis=`基準：現在の成立上界 ${h}手 / ${c.toFixed(1)}C / ${k}枚`;
 
   const now=[];
@@ -4986,7 +4986,8 @@ function updateProgress(p){
     ?`${proofPrefix} ${Number(inc.hands)}手 / ${inc.unknownCostCards?'コスト不明':Number(inc.totalCost||0).toFixed(1)+'C'} / ${Number(inc.uniqueCards||0)}枚を保持 ｜ `
     :'';
   if(searchControl.mode!=='paused')document.getElementById('progressLabel').textContent=incText+lab+(p.label?' / '+p.label:'');
-  const pct=Number.isFinite(p.candidatePct)?p.candidatePct:Math.min(100,Number(p.passBudgetPct)||0);
+  const pct=Number.isFinite(p.candidatePct)?p.candidatePct:
+    ((Number(p.candidateTotal)||0)>0?Math.max(0,Math.min(100,(Number(p.candidateVisited)||0)*100/Number(p.candidateTotal))):Math.min(100,Number(p.passBudgetPct)||0));
   document.getElementById('progressBar').style.width=Math.max(0,Math.min(100,pct))+'%';
   const sm=document.getElementById('progressSummary');if(sm)sm.textContent=buildProgressSummary(p);
   document.getElementById('progressDetail').textContent=buildProgressDetail(p);
@@ -5139,11 +5140,11 @@ function setLiveStage(stage,type='warn'){
 }
 async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
   const defs=hybridEngineConfigs().map(d=>Object.assign({},d,{cfg:Object.assign({},d.cfg)}));
-  const completed=[];const logs=['V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Hybrid discovery: '+defs.map(x=>x.label).join(' | '),
+  const completed=[];const logs=['V8.3.8 LocalRefine UI Fix MirrorMode Hybrid discovery: '+defs.map(x=>x.label).join(' | '),
     'Discoveryでは初回成立解を早く出すため全H下限走査のGap固定点を省略。各実HのGap固定点と、成立後のexact証明ではGap固定点を有効化。'];
   let liveBest=null, incumbentHands=Infinity;
 
-  // V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact:
+  // V8.3.8 LocalRefine UI Fix MirrorMode:
   // 成立解 H は「探索上界」としてだけ使う。H を見つけても、すでに H 未満を探索中の
   // 他Workerは止めない。各Workerは自身の数学的下限から上へ探索しているため、
   // その進捗を保持したまま H 未満を探させ、H 以上へ到達した時点でだけ停止する。
@@ -5157,12 +5158,12 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
     // これは探索を省略するのではなく、同じH以下をproof-safeなexactフェーズで再評価するための役割分担。
     if(Number.isFinite(incumbentHands) && p&&p.workStage==='lower-bound'){
       const ss=sessionById.get(id);
-      if(ss){logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Discovery→exact引継ぎ: '+id+' は理論下限前処理中のため停止。'+Math.max(0,incumbentHands-1)+'手以下は次段exactで全モード確認。');ss.stop('bound');return;}
+      if(ss){logs.push('V8.3.8 LocalRefine UI Fix MirrorMode Discovery→exact引継ぎ: '+id+' は理論下限前処理中のため停止。'+Math.max(0,incumbentHands-1)+'手以下は次段exactで全モード確認。');ss.stop('bound');return;}
     }
     if(Number.isFinite(incumbentHands) && Number(p&&p.hands)>0 && Number(p.hands)>=incumbentHands){
       const ss=sessionById.get(id);
       if(ss){
-        logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 動的上界停止: '+id+' は '+Number(p.hands)+'手へ到達。暫定成立 '+incumbentHands+'手以上は改善不能のため停止。');
+        logs.push('V8.3.8 LocalRefine UI Fix MirrorMode 動的上界停止: '+id+' は '+Number(p.hands)+'手へ到達。暫定成立 '+incumbentHands+'手以上は改善不能のため停止。');
         ss.stop('bound');
       }
     }
@@ -5170,7 +5171,7 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
     const total=sum('candidateTotal'),visited=sum('candidateVisited');
     const capText=Number.isFinite(incumbentHands)?(' / 暫定'+incumbentHands+'手を保持・'+Math.max(0,incumbentHands-1)+'手以下だけ継続'):'';
     const def=defs.find(x=>x.id===id)||{};
-    const agg={objectiveLabel:'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Hybrid 成立解探索（最大4 Worker）'+capText,label:(def.label||id)+' / '+(p&&p.label||''),phase:'minHands',
+    const agg={objectiveLabel:'V8.3.8 LocalRefine UI Fix MirrorMode Hybrid 成立解探索（最大4 Worker）'+capText,label:(def.label||id)+' / '+(p&&p.label||''),phase:'minHands',
       workStage:p&&p.workStage||'',hands:Number(p&&p.hands)||0,modeId:p&&p.modeId||'',
       selectionNodes:sum('selectionNodes'),orderTests:sum('orderTests'),orderEnumerated:sum('orderEnumerated'),repeatNodes:sum('repeatNodes'),
       candidateVisited:visited,candidateTotal:total,candidatePct:total>0?Math.max(0,Math.min(100,visited*100/total)):null,
@@ -5202,7 +5203,7 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
         if(!liveBest||metricBetter(v.result.metrics,liveBest.metrics))liveBest=v.result;
         if(h<incumbentHands){
           const old=incumbentHands;incumbentHands=h;
-          logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact incumbent更新: '+(Number.isFinite(old)?old+'手 → ':'')+h+'手。成立解は画面に保持し、他Workerの '+(h-1)+'手以下探索は停止せず継続。');
+          logs.push('V8.3.8 LocalRefine UI Fix MirrorMode incumbent更新: '+(Number.isFinite(old)?old+'手 → ':'')+h+'手。成立解は画面に保持し、他Workerの '+(h-1)+'手以下探索は停止せず継続。');
           onIncumbent&&onIncumbent(liveBest,{engine:v.label,stage:v.label+' が '+h+'手の成立解を発見。暫定成立解として表示したまま探索を継続します。他モードは43→42…のようには探さず、それぞれの数学的下限から '+Math.max(0,h-1)+'手以下の範囲を探索します。'});
         }else{
           onIncumbent&&onIncumbent(liveBest,{engine:v.label,stage:v.label+' が '+h+'手の成立解を確認。現在保持中の暫定最良 '+incumbentHands+'手より短くないため、成立上界は変更しません。'});
@@ -5213,8 +5214,8 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
       const merged=mergeHybridDiscoveryResults(completed,logs);
       if(Number.isFinite(incumbentHands) && liveBest && liveBest.metrics){
         const verifyMax=Math.max(0,incumbentHands-1);
-        logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Discovery短手数探索終了: 各Workerは暫定'+incumbentHands+'手未満で新しい成立解を発見せず終了/上界到達。暫定解を保持し、次段で'+verifyMax+'手以下のexact不存在確認へ移行。');
-        onIncumbent&&onIncumbent(liveBest,{engine:'hybrid',stage:'暫定成立 '+incumbentHands+'手を保持。他Workerからこれより短い成立解は見つからなかったため、次に工程1/3として最大10分で '+verifyMax+'手以下をExact検証します。未証明またはスキップでも '+incumbentHands+'手を採用して工程2/3のコスト探索へ進みます。'});
+        logs.push('V8.3.8 LocalRefine UI Fix MirrorMode Discovery短手数探索終了: 各Workerは暫定'+incumbentHands+'手未満で新しい成立解を発見せず終了/上界到達。暫定解を保持し、次段で'+verifyMax+'手以下のexact不存在確認へ移行。');
+        onIncumbent&&onIncumbent(liveBest,{engine:'hybrid',stage:'暫定成立 '+incumbentHands+'手を保持。他Workerからこれより短い成立解は見つからなかったため、次に工程1/3として最大10分で '+verifyMax+'手以下をExact検証します。未証明またはスキップでも '+incumbentHands+'手を採用して工程2/3の低コスト差し替え確認へ進みます。'});
         merged.discoveryShorterSearchFinished=true;
         merged.discoveryVerifyMaxHands=verifyMax;
       }
@@ -5236,10 +5237,15 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
 
 function phaseOutcomeReason(ph){
   if(!ph)return '未実施';
-  if(ph.outcome==='proved')return '確定';
+  if(ph.outcome==='proved')return '全体範囲で確定';
+  if(ph.outcome==='local-proved'){
+    if(ph.key==='cost')return '現在解基準の1対1低C置換範囲を確認済み';
+    if(ph.key==='cards')return '現在解基準の2～3枚→1枚統合範囲を確認済み';
+    return '現在解基準の局所最適化範囲を確認済み';
+  }
   if(ph.outcome==='skipped')return 'ユーザーがスキップ';
   if(ph.outcome==='timeout')return '10分上限で打切り';
-  if(ph.outcome==='unproven')return '現行Exactで未証明';
+  if(ph.outcome==='unproven')return '全体最適性は未証明';
   if(ph.outcome==='trivial')return '境界なしで確定';
   return ph.outcome||'未証明';
 }
@@ -5253,28 +5259,219 @@ async function hybridProveOrImproveBelow(baseInfos,incumbent,onProgress,logs,onU
     const h=Number(best&&best.metrics&&best.metrics.hands)||0;if(h<=1)return {best,handsProof:true,phaseOutcome:'proved'};
     searchControl.updatePhase('1手少ない手数の探索（'+Math.max(0,h-1)+'手以下をExact検証）','採用中 '+h+'手 / 最小性を検証');
     onUpdate&&onUpdate(best,{handsProof:false,stage:h+'手の成立は確認済み。最大10分で '+(h-1)+'手以下の成立/不存在をV8 exactで検証中。スキップして '+h+'手固定のコスト探索へ進むこともできます。'});
-    logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact: 短手数証明は工程全体で最大10分。長時間ExactはOut of Memory回避のため1 Worker内で全モード順次検証。');
+    logs.push('V8.3.8 LocalRefine UI Fix MirrorMode: 短手数証明は工程全体で最大10分。長時間ExactはOut of Memory回避のため1 Worker内で全モード順次検証。');
     let pcfg=standardCfg('minHands');
-    Object.assign(pcfg,{objectiveLabel:'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact: '+(h-1)+'手以下の成立/不存在証明（工程最大10分）',maxHands:h-1,parallelModes:false,v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,cardPatternSearch:true,normalEffectDP:true});
+    Object.assign(pcfg,{objectiveLabel:'V8.3.8 LocalRefine UI Fix MirrorMode: '+(h-1)+'手以下の成立/不存在証明（工程最大10分）',maxHands:h-1,parallelModes:false,v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,cardPatternSearch:true,normalEffectDP:true});
     const r=await runV7Worker(baseInfos,pcfg,onProgress);
     if(r&&Array.isArray(r.logs))logs.push(...r.logs);
     if(isPhaseInterrupt(r)||currentPhaseAbortOutcome()){
       const out=currentPhaseAbortOutcome()||(r.interruptKind==='phase-skip'?'skipped':'timeout');
-      logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 短手数工程: '+(out==='skipped'?'ユーザーがスキップ':'10分上限に到達')+'。'+h+'手を採用値として次工程へ。');
+      logs.push('V8.3.8 LocalRefine UI Fix MirrorMode 短手数工程: '+(out==='skipped'?'ユーザーがスキップ':'10分上限に到達')+'。'+h+'手を採用値として次工程へ。');
       return {best,handsProof:false,phaseOutcome:out};
     }
     if(r.ok&&r.metrics&&Number(r.metrics.hands)<h){
-      best=r;logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact が incumbent を '+h+'手 → '+r.metrics.hands+'手へ改善');
+      best=r;logs.push('V8.3.8 LocalRefine UI Fix MirrorMode exact が incumbent を '+h+'手 → '+r.metrics.hands+'手へ改善');
       onUpdate&&onUpdate(best,{handsProof:false,stage:r.metrics.hands+'手へ改善。同じ10分工程の残り時間でさらに短い手数を検証中。'});
       continue;
     }
     if(r.proofStatus==='infeasible-proof'){
-      logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact: '+(h-1)+'手以下を不成立証明 → '+h+'手を最小確定');
+      logs.push('V8.3.8 LocalRefine UI Fix MirrorMode exact: '+(h-1)+'手以下を不成立証明 → '+h+'手を最小確定');
       onUpdate&&onUpdate(best,{handsProof:true,stage:(h-1)+'手以下を不成立証明。最小手数 '+h+'手を確定。続いて '+h+'手固定で最小コストを最大10分探索します。'});
       return {best,handsProof:true,phaseOutcome:'proved'};
     }
-    logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact: '+(h-1)+'手以下は未確定。'+h+'手を採用値として次工程へ。');
+    logs.push('V8.3.8 LocalRefine UI Fix MirrorMode exact: '+(h-1)+'手以下は未確定。'+h+'手を採用値として次工程へ。');
     return {best,handsProof:false,phaseOutcome:'unproven'};
+  }
+}
+
+
+// V8.3.8 LocalRefine: 工程2/3は全候補からH手解を再構築せず、成立済みorderを基準に置換する。
+// 工程2は owner bundle 1対1の機能等価/上位互換割当をCardNo容量1の最小費用flowで厳密化。
+// 工程3は現在解の2枚/3枚bundleを1枚へ統合できる候補を全列挙し、必ずphysicalSimで成立確認する。
+function localOwnerGroupKey(x){
+  const no=String(x&&x.cardNo||'').trim();
+  return no?('no:'+no):('owner:'+String(x&&x.ownerKey||''));
+}
+function localOwnerCatalog(baseInfos){
+  const m=new Map();
+  for(const x of (baseInfos||[])){
+    const o=String(x&&x.ownerKey||'');if(!o)continue;
+    if(!m.has(o))m.set(o,{ownerKey:o,cardNo:String(x.cardNo||''),cost:Number(x.cost)||0,members:[]});
+    m.get(o).members.push(x);
+  }
+  return [...m.values()];
+}
+function localUsedBundles(order,baseInfos){
+  const map=Object.fromEntries((baseInfos||[]).map(x=>[x.baseUid,x]));
+  const byOwner=new Map();
+  for(const ev of (order||[])){
+    const x=map[ev.baseUid];if(!x)continue;
+    const o=String(x.ownerKey||'');
+    if(!byOwner.has(o))byOwner.set(o,{ownerKey:o,cardNo:String(x.cardNo||''),cost:Number(x.cost)||0,entries:new Map()});
+    const b=byOwner.get(o),k=String(x.baseUid);
+    if(!b.entries.has(k))b.entries.set(k,{src:x,count:0});
+    b.entries.get(k).count++;
+  }
+  return [...byOwner.values()].map(b=>({...b,entries:[...b.entries.values()]}));
+}
+function localRoleKey(x,strictFamily){
+  if(strictFamily)return hybridCandidateSemanticKey(x);
+  const role=x.isHolyWater?'H':x.isToki?'T':x.isYuga?'Y':'N';
+  return [role,isSelfExcludedInfo(x)?'X':'N',String(x.scope||'')].join('|');
+}
+function localEffectTuple(x){
+  const mirror=(Number(x.mainMirrorShorten)||0)+(Number(x.subMirrorShorten)||0);
+  const base=Number(x.baseShorten)||0;
+  const ex=isSelfExcludedInfo(x);
+  return {self:ex?0:mirror,sameOwner:ex?0:base+mirror,other:base+mirror,need:hybridCandidateNeed(x)};
+}
+function localCandidateCanReplace(src,tgt,strictFamily){
+  if(!src||!tgt)return false;
+  if(localRoleKey(src,strictFamily)!==localRoleKey(tgt,strictFamily))return false;
+  const a=localEffectTuple(src),b=localEffectTuple(tgt);
+  if(b.self+1e-9<a.self||b.sameOwner+1e-9<a.sameOwner||b.other+1e-9<a.other)return false;
+  if(b.need>a.need+1e-9)return false;
+  return true;
+}
+function localMatchEntriesToOwners(entries,targetOwners,strictFamily){
+  const pool=[];
+  for(const ow of (targetOwners||[]))for(const x of (ow.members||[]))pool.push({x,ownerKey:ow.ownerKey});
+  const req=(entries||[]).slice().sort((a,b)=>{
+    const ac=pool.filter(z=>localCandidateCanReplace(a.src,z.x,strictFamily)&&((a.count||0)<=1||z.x.allowMultiUse)).length;
+    const bc=pool.filter(z=>localCandidateCanReplace(b.src,z.x,strictFamily)&&((b.count||0)<=1||z.x.allowMultiUse)).length;
+    return ac-bc;
+  });
+  const used=new Set(),mapping=new Map();
+  function dfs(i){
+    if(i>=req.length)return true;
+    const r=req[i];
+    const opts=pool.filter(z=>!used.has(z.x.baseUid)&&localCandidateCanReplace(r.src,z.x,strictFamily)&&((r.count||0)<=1||z.x.allowMultiUse));
+    opts.sort((a,b)=>hybridCandidateNeed(a.x)-hybridCandidateNeed(b.x)||(Number(b.x.othersShorten)||0)-(Number(a.x.othersShorten)||0));
+    for(const z of opts){
+      used.add(z.x.baseUid);mapping.set(r.src.baseUid,z.x.baseUid);
+      if(dfs(i+1))return true;
+      mapping.delete(r.src.baseUid);used.delete(z.x.baseUid);
+    }
+    return false;
+  }
+  return dfs(0)?mapping:null;
+}
+function localReplaceOrder(order,mapping){
+  return (order||[]).map(ev=>({baseUid:mapping.get(ev.baseUid)||ev.baseUid,useIndex:ev.useIndex||1}));
+}
+function localOrderResourceMetrics(order,baseInfos,oldMetrics){
+  const map=Object.fromEntries((baseInfos||[]).map(x=>[x.baseUid,x]));
+  const owners=new Map();
+  for(const ev of (order||[])){
+    const x=map[ev.baseUid];if(!x)continue;
+    const o=String(x.ownerKey||'');if(!owners.has(o))owners.set(o,{cost:Number(x.cost)||0,known:(Number(x.cost)||0)>0});
+  }
+  let totalCost=0,unknownCostCards=0;
+  for(const v of owners.values()){if(v.known)totalCost+=v.cost;else unknownCostCards++;}
+  return Object.assign({},oldMetrics||{},{hands:(order||[]).length,uniqueCards:owners.size,totalCost,unknownCostCards});
+}
+function localCandidateResult(base,newOrder,baseInfos,label){
+  const metrics=localOrderResourceMetrics(newOrder,baseInfos,base&&base.metrics);
+  return Object.assign({},base,{ok:true,order:newOrder,metrics,searchModeLabel:label||'V8.3.8 LocalRefine'});
+}
+function localMinCostAssignment(best,baseInfos){
+  const bundles=localUsedBundles(best.order,baseInfos), owners=localOwnerCatalog(baseInfos);
+  const groups=new Map();
+  for(const ow of owners){const g=localOwnerGroupKey(ow);if(!groups.has(g))groups.set(g,[]);groups.get(g).push(ow);}
+  const groupList=[...groups.entries()].map(([key,vars])=>({key,vars}));
+  const n=bundles.length,m=groupList.length;
+  const S=0,B0=1,G0=B0+n,T=G0+m,N=T+1;
+  const gr=Array.from({length:N},()=>[]);
+  function add(u,v,cap,cost,meta){const a={to:v,rev:gr[v].length,cap,cost,meta},b={to:u,rev:gr[u].length,cap:0,cost:-cost,meta:null};gr[u].push(a);gr[v].push(b);return a;}
+  for(let i=0;i<n;i++)add(S,B0+i,1,0,null);
+  for(let j=0;j<m;j++)add(G0+j,T,1,0,null);
+  const refs=Array.from({length:n},()=>[]);let compat=0;
+  for(let i=0;i<n;i++){
+    const b=bundles[i];
+    for(let j=0;j<m;j++){
+      let bestAlt=null;
+      for(const ow of groupList[j].vars){
+        const mp=localMatchEntriesToOwners(b.entries,[ow],true);if(!mp)continue;
+        const alt={target:ow,mapping:mp,cost10:Math.round((Number(ow.cost)||0)*10),groupKey:groupList[j].key};
+        if(!bestAlt||alt.cost10<bestAlt.cost10)bestAlt=alt;
+      }
+      if(bestAlt){const edge=add(B0+i,G0+j,1,bestAlt.cost10,bestAlt);refs[i].push({edge,alt:bestAlt});compat++;}
+    }
+  }
+  let flow=0,cost=0;
+  while(flow<n){
+    const dist=Array(N).fill(Infinity),pv=Array(N).fill(-1),pe=Array(N).fill(-1),inq=Array(N).fill(false),q=[S];dist[S]=0;inq[S]=true;
+    for(let qi=0;qi<q.length;qi++){
+      const u=q[qi];inq[u]=false;
+      for(let ei=0;ei<gr[u].length;ei++){const e=gr[u][ei];if(e.cap<=0)continue;const nd=dist[u]+e.cost;if(nd<dist[e.to]){dist[e.to]=nd;pv[e.to]=u;pe[e.to]=ei;if(!inq[e.to]){inq[e.to]=true;q.push(e.to);}}}
+    }
+    if(!Number.isFinite(dist[T]))break;
+    for(let v=T;v!==S;v=pv[v]){const e=gr[pv[v]][pe[v]];e.cap--;gr[v][e.rev].cap++;}
+    cost+=dist[T];flow++;
+  }
+  if(flow<n)return {ok:false,compat};
+  const globalMap=new Map(),chosen=[];
+  for(let i=0;i<n;i++){
+    const hit=refs[i].find(r=>r.edge.cap===0);if(!hit)return {ok:false,compat};
+    chosen.push({source:bundles[i],...hit.alt});
+    for(const [a,b] of hit.alt.mapping)globalMap.set(a,b);
+  }
+  const order=localReplaceOrder(best.order,globalMap),cand=localCandidateResult(best,order,baseInfos,'V8.3.8 LocalRefine / 同等機能低C割当');
+  const sim=physicalSim(order,baseInfos,50);
+  if(!sim.ok)return {ok:false,compat,sim,chosen};
+  cand.physicalSim=sim;
+  return {ok:true,result:cand,compat,chosen};
+}
+function localCombinations(arr,k){
+  const out=[];function rec(st,p){if(p.length===k){out.push(p.slice());return;}for(let i=st;i<=arr.length-(k-p.length);i++){p.push(arr[i]);rec(i+1,p);p.pop();}}rec(0,[]);return out;
+}
+async function localCompressCards(best,baseInfos,costCeiling,onProgress){
+  let cur=best,totalChecked=0,improvements=0;
+  while(true){
+    const abort=currentPhaseAbortOutcome();if(abort)return {best:cur,checked:totalChecked,improvements,aborted:abort,complete:false};
+    const bundles=localUsedBundles(cur.order,baseInfos),owners=localOwnerCatalog(baseInfos),usedGroups=new Map();
+    for(const b of bundles)usedGroups.set(localOwnerGroupKey(b),b.ownerKey);
+    let bestHit=null,iterationChecked=0;
+    // 現在owner構成に対する全候補数。改善採用でowner構成が変わった場合は次周で再計算する。
+    const plans=[3,2].map(size=>({size,subsets:localCombinations(bundles,size)}));
+    const iterationTotal=Math.max(1,plans.reduce((z,p)=>z+p.subsets.length*owners.length,0));
+    // 3→1を先に、次に2→1。1回の改善後はowner構成を作り直す。
+    for(const plan of plans){
+      const size=plan.size,subsets=plan.subsets;
+      for(let si=0;si<subsets.length;si++){
+        const subset=subsets[si],sourceOwners=new Set(subset.map(x=>x.ownerKey)),entries=subset.flatMap(x=>x.entries);
+        const sourceCost=subset.reduce((z,x)=>z+(Number(x.cost)||0),0);
+        for(const target of owners){
+          totalChecked++;iterationChecked++;
+          if((iterationChecked&511)===0){
+            onProgress&&onProgress({objectiveLabel:'工程3/3 現在解のカード統合確認',workStage:'local-card-compress',candidateVisited:iterationChecked,candidateTotal:iterationTotal,candidatePct:iterationChecked*100/iterationTotal,hands:cur.metrics.hands,label:`${size}枚→1枚候補 / 今回${iterationChecked.toLocaleString()}/${iterationTotal.toLocaleString()}・累計${totalChecked.toLocaleString()}検査`});
+            await new Promise(r=>setTimeout(r,0));
+            const ab=currentPhaseAbortOutcome();if(ab)return {best:cur,checked:totalChecked,improvements,aborted:ab,complete:false};
+          }
+          const tg=localOwnerGroupKey(target),outside=usedGroups.get(tg);
+          if(outside&&!sourceOwners.has(outside))continue;
+          const newTotal=Number(cur.metrics.totalCost||0)-sourceCost+(Number(target.cost)||0);
+          if(newTotal>Number(costCeiling)+1e-9)continue;
+          const mp=localMatchEntriesToOwners(entries,[target],false);if(!mp)continue;
+          const order=localReplaceOrder(cur.order,mp),cand=localCandidateResult(cur,order,baseInfos,`V8.3.8 LocalRefine / ${size}枚→1枚統合`);
+          if(cand.metrics.uniqueCards>=cur.metrics.uniqueCards)continue;
+          if(Number(cand.metrics.totalCost)>Number(costCeiling)+1e-9)continue;
+          const sim=physicalSim(order,baseInfos,50);if(!sim.ok)continue;
+          cand.physicalSim=sim;
+          if(!bestHit||cand.metrics.uniqueCards<bestHit.result.metrics.uniqueCards||(cand.metrics.uniqueCards===bestHit.result.metrics.uniqueCards&&cand.metrics.totalCost<bestHit.result.metrics.totalCost-1e-9))bestHit={result:cand,size,target,subset};
+        }
+      }
+      // 3→1が見つかった場合、2→1よりカード削減量が大きいので採用して新構成から再探索する。
+      if(bestHit)break;
+    }
+    if(!bestHit){
+      // 完走を明示。512件単位の最終途中表示が残らないよう100%へ更新する。
+      onProgress&&onProgress({objectiveLabel:'工程3/3 現在解のカード統合確認',workStage:'local-card-compress-done',candidateVisited:iterationChecked,candidateTotal:iterationChecked,candidatePct:100,hands:cur.metrics.hands,label:`統合候補確認完了 / 今回${iterationChecked.toLocaleString()}・累計${totalChecked.toLocaleString()}検査 / 改善${improvements}回`});
+      return {best:cur,checked:totalChecked,improvements,complete:true};
+    }
+    cur=bestHit.result;improvements++;
+    onProgress&&onProgress({objectiveLabel:'工程3/3 現在解のカード統合確認',workStage:'local-card-compress',candidateVisited:iterationChecked,candidateTotal:Math.max(1,iterationChecked),candidatePct:100,hands:cur.metrics.hands,label:`${bestHit.size}枚→1枚を採用 / ${cur.metrics.uniqueCards}枚 / 累計${totalChecked.toLocaleString()}検査`});
+    await new Promise(r=>setTimeout(r,0));
   }
 }
 
@@ -5291,8 +5488,8 @@ async function solveV7(){
   const rsl=document.getElementById('resultStageLine');if(rsl){rsl.textContent='';rsl.className='result-stage small warn';}
   document.getElementById('progressPanel').classList.remove('hidden');
   const logs=[];
-  logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
-  logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact: 成立解確保後は ①短手数 ②固定手数コスト ③固定手数+採用コスト条件カード枚数 を各最大10分。各工程はユーザーがスキップ可能。未証明を確定扱いしない。');
+  logs.push('V8.3.8 LocalRefine UI Fix MirrorMode CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
+  logs.push('V8.3.8 LocalRefine UI Fix MirrorMode: 成立解確保後は ①短手数を全候補Exact ②現在解の1対1低C置換 ③現在解の2～3枚→1枚統合。工程2・3は局所範囲の完走のみを確認済みとし、全体最適確定とは表示しない。');
 
   let liveBest=null;
   const publishDiscovery=(cand,meta)=>{if(!cand||!cand.metrics)return;if(!liveBest||metricBetter(cand.metrics,liveBest.metrics))liveBest=cand;publishLiveResult(liveBest,baseInfos,liveProof(false,false,false,false),meta&&meta.stage||'成立解を発見。より良い解を探索中。','成立解あり・探索継続中','warn');};
@@ -5317,7 +5514,7 @@ async function solveV7(){
   const phaseOutcomes={hands:null,cost:null,cards:null};
   const savedPareto=(res.paretoFrontier||[]).filter(q=>q&&q.metrics&&Number(q.metrics.hands)===Number(res.metrics&&res.metrics.hands));
   for(const q of savedPareto){if(metricBetter(q.metrics,best.metrics))best=Object.assign({},res,{order:q.order,mode:q.mode||res.mode,metrics:q.metrics,searchModeLabel:(res.searchModeLabel||'')+' / Pareto再利用'});}
-  if(savedPareto.length)logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Pareto frontier再利用: 成立確認済み '+savedPareto.length+'解から現在値を改善');
+  if(savedPareto.length)logs.push('V8.3.8 LocalRefine UI Fix MirrorMode Pareto frontier再利用: 成立確認済み '+savedPareto.length+'解から現在値を改善');
 
   // 工程1/3: 1手少ない手数の探索。
   if(handsProof){
@@ -5332,86 +5529,82 @@ async function solveV7(){
   }
   res=best;
 
-  // 工程2/3: 現在採用している手数を固定してコストを最適化する。手数の最小性は不要。
-  searchControl.beginPhase('cost','最小コストの探索（'+best.metrics.hands+'手固定）','最小コストの探索をスキップ',2,3,PHASE_LIMIT_MS,handsProof?'最小手数確定済み':'手数最小性は未証明');
-  let costOutcome='unproven';
+  // 工程2/3: 現在成立解を基準に、同等以上の機能を持つownerへ1対1で差し替えて低C化する。
+  // 全候補からH手構成を再構築するManyTopology Exactは行わない。
+  searchControl.beginPhase('cost','現在解の低コスト差し替え（'+best.metrics.hands+'手を維持）','低コスト差し替え確認をスキップ',2,3,PHASE_LIMIT_MS,handsProof?'最小手数確定済み':'手数最小性は未証明');
+  let costOutcome='local-proved',localCostChecked=false;
   const sat=res.saturationV7;
   if(handsProof&&sat&&sat.complete&&sat.costKnown&&sat.coversAllModes===true&&Number(sat.hands)===Number(best.metrics&&best.metrics.hands)&&best.metrics&&Math.abs((sat.minCost||0)-(best.metrics.totalCost||0))<1e-9){
-    costProof=true;costOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 全モードSaturation証明を固定手数コストへ適用。');
+    costProof=true;costOutcome='proved';logs.push('V8.3.8 LocalRefine 全モードSaturation証明を固定手数コストへ適用。');
   }
-  if(!costProof&&best.metrics&&!(best.metrics.unknownCostCards||0)){
-    const q=costQuantum(baseInfos);
-    while(true){
-      const abort=currentPhaseAbortOutcome();if(abort){costOutcome=abort;break;}
-      const currentCost=Number(best.metrics.totalCost||0),bound=currentCost-q;
-      searchControl.updatePhase('最小コストの探索（'+best.metrics.hands+'手固定）','現在最良 '+currentCost.toFixed(1)+'C'+(handsProof?'':' / 手数最小性未証明'));
-      if(bound<0){costProof=true;costOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: 非負の下位境界なし → '+currentCost.toFixed(1)+'C確定。');break;}
-      publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),'工程2/3：'+best.metrics.hands+'手固定で現在 '+currentCost.toFixed(1)+'C。最大10分で '+Math.max(0,bound).toFixed(1)+'C以下を検証中。','成立（工程2/3・コスト探索中）','warn');
-      let bc=standardCfg('minCostBound');Object.assign(bc,{objectiveLabel:'工程2/3 最小コスト: 静的境界検証',targetHands:best.metrics.hands,maxTotalCost:Math.max(0,bound),scanOnly:true,forcedPropagationInScan:true,quickSeed:false,orderTestBudget:1,maxGroupedPartitions:1,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:12000000,repeatNodeBudget:3000000});
-      const scan=await runV7Worker(baseInfos,bc,updateProgress);if(scan&&Array.isArray(scan.logs))logs.push(...scan.logs);
-      if(isPhaseInterrupt(scan)||currentPhaseAbortOutcome()){costOutcome=currentPhaseAbortOutcome()||(scan.interruptKind==='phase-skip'?'skipped':'timeout');break;}
-      if(isSafeInfeasibleProof(scan)&&!scan.scanMetrics){costProof=true;costOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: '+Math.max(0,bound).toFixed(1)+'C以下を安全に否定。');break;}
-      let oc=standardCfg('minCostOrders');Object.assign(oc,{objectiveLabel:'工程2/3 最小コスト: 循環Exact',targetHands:best.metrics.hands,maxTotalCost:Math.max(0,bound),ipStopOnFirst:false,directObjectiveBound:true,optimizeSameHands:true,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:20000000,repeatNodeBudget:5000000,orderTestBudget:1000000});
-      const low=await runV7Worker(baseInfos,oc,updateProgress);if(low&&Array.isArray(low.logs))logs.push(...low.logs);
-      if(isPhaseInterrupt(low)||currentPhaseAbortOutcome()){costOutcome=currentPhaseAbortOutcome()||(low.interruptKind==='phase-skip'?'skipped':'timeout');break;}
-      const sameHands=low&&low.ok&&low.metrics&&Number(low.metrics.hands)===Number(best.metrics.hands);
-      const lowerCost=sameHands&&Number(low.metrics.totalCost)<currentCost-1e-9&&Number(low.metrics.totalCost)<=bound+1e-9;
-      if(lowerCost){best=low;costProof=false;cardsProof=false;publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),'工程2/3：より低コストの '+Number(best.metrics.totalCost||0).toFixed(1)+'C を発見。残り時間でさらに下を検証します。','成立（工程2/3・コスト改善）','warn');continue;}
-      if(isSafeInfeasibleProof(low)){costProof=true;costOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: 循環Exactで '+Math.max(0,bound).toFixed(1)+'C以下を否定。');break;}
-      costOutcome='unproven';break;
+  if(!currentPhaseAbortOutcome()&&best.metrics&&!(best.metrics.unknownCostCards||0)){
+    const beforeCost=Number(best.metrics.totalCost||0);
+    searchControl.updatePhase('現在解の低コスト差し替え（'+best.metrics.hands+'手を維持）','同じ使用機能を1owner→1ownerで置換 / CardNo排他込み最小費用割当');
+    publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程2/3：現在の成立順序を固定し、各使用カードの機能を同等以上に保てる低コストカードへの置換だけを全候補から確認しています。57手構成そのものの作り直しは行いません。','成立（工程2/3・低コスト差し替え）','warn');
+    updateProgress({objectiveLabel:'工程2/3 現在解の低コスト差し替え',workStage:'local-cost-assignment',candidateVisited:0,candidateTotal:1,hands:best.metrics.hands,label:'CardNo容量1の最小費用割当'});
+    await new Promise(r=>setTimeout(r,0));
+    if(!currentPhaseAbortOutcome()){
+      const lc=localMinCostAssignment(best,baseInfos);localCostChecked=true;
+      if(lc.ok&&Number(lc.result.metrics.totalCost)<beforeCost-1e-9){
+        best=lc.result;cardsProof=false;
+        logs.push('V8.3.8 LocalRefine 工程2: 同等機能owner割当で '+beforeCost.toFixed(1)+'C → '+Number(best.metrics.totalCost).toFixed(1)+'C / compatibility '+lc.compat);
+        publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程2/3：現在解と同等以上の機能を維持したまま '+beforeCost.toFixed(1)+'C → '+Number(best.metrics.totalCost).toFixed(1)+'C へ低コスト化しました。','成立（工程2/3・差し替え改善）','warn');
+      }else{
+        logs.push('V8.3.8 LocalRefine 工程2: 現在解の1owner→1owner同等機能置換範囲ではこれ以上の低C化なし'+(lc.ok?'':'（最小費用割当の最終sim不成立）')+'。');
+      }
+      updateProgress({objectiveLabel:'工程2/3 現在解の低コスト差し替え',workStage:'local-cost-done',candidateVisited:1,candidateTotal:1,hands:best.metrics.hands,label:`置換範囲確認完了 / ${Number(best.metrics.totalCost||0).toFixed(1)}C`});
     }
-  }else if(!best.metrics||best.metrics.unknownCostCards){costOutcome='unproven';}
+  }
   if(currentPhaseAbortOutcome())costOutcome=currentPhaseAbortOutcome();
-  phaseOutcomes.cost=searchControl.finishPhase(costProof?'proved':costOutcome);
-  if(costProof)publishLiveResult(best,baseInfos,liveProof(handsProof,true,false,false),best.metrics.hands+'手固定で最低使用コスト '+Number(best.metrics.totalCost||0).toFixed(1)+'C を確定。工程3/3へ進みます。','成立（工程2/3完了・カード探索へ）','ok');
-  else publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),best.metrics.hands+'手固定で現在最良 '+Number(best.metrics.totalCost||0).toFixed(1)+'C。コスト最小性は'+phaseOutcomeReason(phaseOutcomes.cost)+'のため未証明ですが、この条件でカード枚数探索へ進みます。','成立（工程2/3終了・コスト未証明）','warn');
+  phaseOutcomes.cost=searchControl.finishPhase(costProof?'proved':(localCostChecked?'local-proved':costOutcome));
+  if(costProof)publishLiveResult(best,baseInfos,liveProof(handsProof,true,false,false),best.metrics.hands+'手全体で最低使用コスト '+Number(best.metrics.totalCost||0).toFixed(1)+'C を既存証明から確定。続いて現在解のカード統合確認へ進みます。','成立（工程2/3完了・カード統合へ）','ok');
+  else publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),'工程2/3完了。現在解の同等機能1対1置換範囲では '+Number(best.metrics.totalCost||0).toFixed(1)+'C が最良です。別構成を含む '+best.metrics.hands+'手全体の最低コストは証明していません。','成立（工程2/3・置換範囲確認済み）','warn');
 
-  // 工程3/3: 採用手数と工程開始時の採用コスト以下を条件に、カード枚数を最小化。
+  // 工程3/3: 現在解の2～3owner分の使用機能を1ownerへ統合できる候補だけを列挙する。
+  // 各候補は50周physicalSimで成立確認。全H手構成のカード枚数Exactではない。
   const cardCostCeiling=Number(best.metrics.totalCost||0);
-  searchControl.beginPhase('cards','最小カード枚数の探索（'+best.metrics.hands+'手・'+cardCostCeiling.toFixed(1)+'C以下）','最小カード枚数の探索をスキップ',3,3,PHASE_LIMIT_MS,costProof?'最低コスト確定済み':'コスト最小性は未証明');
-  let cardsOutcome='unproven';
-  if(Number(best.metrics.uniqueCards)<=1){cardsProof=true;cardsOutcome='proved';}
-  while(!cardsProof){
-    const abort=currentPhaseAbortOutcome();if(abort){cardsOutcome=abort;break;}
-    const currentCards=Number(best.metrics.uniqueCards)||0,cardBound=currentCards-1;
-    if(cardBound<1){cardsProof=true;cardsOutcome='proved';break;}
-    searchControl.updatePhase('最小カード枚数の探索（'+best.metrics.hands+'手・'+cardCostCeiling.toFixed(1)+'C以下）','現在 '+currentCards+'枚'+(costProof?' / 最低コスト確定済み':' / コスト最小性未証明'));
-    publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程3/3：'+best.metrics.hands+'手・'+cardCostCeiling.toFixed(1)+'C以下の条件で現在 '+currentCards+'枚。最大10分で '+cardBound+'枚以下を検証中。','成立（工程3/3・カード探索中）','warn');
-    let sc=standardCfg('minCardsBound');Object.assign(sc,{objectiveLabel:'工程3/3 最小カード枚数: 静的境界検証',targetHands:best.metrics.hands,maxUniqueCards:cardBound,maxTotalCost:cardCostCeiling,scanOnly:true,forcedPropagationInScan:true,quickSeed:false,orderTestBudget:1,maxGroupedPartitions:1,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:12000000,repeatNodeBudget:3000000});
-    const scan=await runV7Worker(baseInfos,sc,updateProgress);if(scan&&Array.isArray(scan.logs))logs.push(...scan.logs);
-    if(isPhaseInterrupt(scan)||currentPhaseAbortOutcome()){cardsOutcome=currentPhaseAbortOutcome()||(scan.interruptKind==='phase-skip'?'skipped':'timeout');break;}
-    if(isSafeInfeasibleProof(scan)&&!scan.scanMetrics){cardsProof=true;cardsOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 条件内カード枚数: '+cardBound+'枚以下を安全に否定。');break;}
-    let oc=standardCfg('minCardsOrders');Object.assign(oc,{objectiveLabel:'工程3/3 最小カード枚数: 循環Exact',targetHands:best.metrics.hands,maxUniqueCards:cardBound,maxTotalCost:cardCostCeiling,ipStopOnFirst:false,directObjectiveBound:!!costProof,optimizeSameHands:true,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:20000000,repeatNodeBudget:5000000,orderTestBudget:1000000});
-    const low=await runV7Worker(baseInfos,oc,updateProgress);if(low&&Array.isArray(low.logs))logs.push(...low.logs);
-    if(isPhaseInterrupt(low)||currentPhaseAbortOutcome()){cardsOutcome=currentPhaseAbortOutcome()||(low.interruptKind==='phase-skip'?'skipped':'timeout');break;}
-    const sameHands=low&&low.ok&&low.metrics&&Number(low.metrics.hands)===Number(best.metrics.hands),lc=Number(low&&low.metrics&&low.metrics.totalCost);
-    const fewer=sameHands&&Number.isFinite(lc)&&lc<=cardCostCeiling+1e-9&&Number(low.metrics.uniqueCards)<currentCards&&Number(low.metrics.uniqueCards)<=cardBound;
-    if(fewer){best=low;cardsProof=false;publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程3/3：条件内でより少ない '+best.metrics.uniqueCards+'枚の成立解を発見。残り時間でさらに1枚少ない境界を検証します。','成立（工程3/3・カード枚数改善）','warn');continue;}
-    if(isSafeInfeasibleProof(low)){cardsProof=true;cardsOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 条件内カード枚数: 循環Exactで '+cardBound+'枚以下を否定。');break;}
-    cardsOutcome='unproven';break;
+  searchControl.beginPhase('cards','現在解のカード枚数圧縮（2～3枚→1枚）','カード統合確認をスキップ',3,3,PHASE_LIMIT_MS,costProof?'全体最低コスト確定済み':'現在解の採用コスト '+cardCostCeiling.toFixed(1)+'C');
+  let cardsOutcome='local-proved',localCardsChecked=false;
+  if(!currentPhaseAbortOutcome()){
+    const beforeCards=Number(best.metrics.uniqueCards)||0,beforeCost=Number(best.metrics.totalCost)||0;
+    searchControl.updatePhase('現在解のカード枚数圧縮（2～3枚→1枚）','未採用候補も含め、現在解の複数owner機能を1枚に統合できるか確認');
+    publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程3/3：現在の成立解を基準に、2枚または3枚で担当している使用スキルを1枚で代替できる候補がないか全列挙しています。候補は50周CTシミュレータで成立確認します。','成立（工程3/3・カード統合確認）','warn');
+    const cc=await localCompressCards(best,baseInfos,cardCostCeiling,updateProgress);best=cc.best;
+    localCardsChecked=cc.complete===true&&!cc.aborted;
+    if(cc.aborted)cardsOutcome=cc.aborted;
+    logs.push('V8.3.8 LocalRefine 工程3: 2/3owner→1owner候補 '+Number(cc.checked||0).toLocaleString()+'検査 / 改善 '+Number(cc.improvements||0)+'回 / '+beforeCards+'枚→'+Number(best.metrics.uniqueCards||0)+'枚 / '+beforeCost.toFixed(1)+'C→'+Number(best.metrics.totalCost||0).toFixed(1)+'C'+(localCardsChecked?' / 統合範囲完走':' / 未完走'));
+    if(Number(best.metrics.uniqueCards)<beforeCards){
+      publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程3/3：現在解基準の統合で '+beforeCards+'枚 → '+best.metrics.uniqueCards+'枚へ圧縮しました。採用コストは '+Number(best.metrics.totalCost||0).toFixed(1)+'C です。','成立（工程3/3・カード圧縮）','warn');
+    }
   }
   if(currentPhaseAbortOutcome())cardsOutcome=currentPhaseAbortOutcome();
-  phaseOutcomes.cards=searchControl.finishPhase(cardsProof?'proved':cardsOutcome);
-
+  phaseOutcomes.cards=searchControl.finishPhase(cardsProof?'proved':(localCardsChecked&&!currentPhaseAbortOutcome()?'local-proved':cardsOutcome));
   if(handsProof&&costProof&&cardsProof&&best.metrics&&sat&&sat.complete&&sat.costKnown&&sat.coversAllModes===true&&Number(sat.hands)===Number(best.metrics.hands)&&Number(sat.maxMargin)===Number(best.metrics.minSupplyMargin))marginProof=true;
   searchControl.finalPhaseSummary={line:'現在の工程：完了（3/3）',time:`手数: ${phaseOutcomeReason(phaseOutcomes.hands)} ｜ コスト: ${phaseOutcomeReason(phaseOutcomes.cost)} ｜ カード: ${phaseOutcomeReason(phaseOutcomes.cards)}`};
   searchControl.clearPhase();
 
-  const final={...best,proof:{hands:handsProof,cost:costProof,cards:cardsProof,margin:marginProof,cardCostCeiling,phaseOutcomes},logs};
+  const final={...best,proof:{hands:handsProof,cost:costProof,cards:cardsProof,margin:marginProof,cardCostCeiling,phaseOutcomes,localCostChecked:!!localCostChecked,localCardsChecked:!!localCardsChecked,localCostScope:'現在解の1owner→1owner同等機能置換',localCardsScope:'現在解の2～3owner→1owner統合'},logs};
   const sim=physicalSim(final.order,baseInfos,50);final.physicalSim=sim;if(!sim.ok)throw new Error(`V8候補を独立CTシミュレータで検証したところ、${sim.round}周目 ${sim.step}手目で ${sim.skillName} のCTが ${sim.remaining}分残っていました。出力は採用しません。`);
   app.lastResult=final;
 
   const hText=handsProof?'最小手数確定':('採用手数 '+best.metrics.hands+'手・最小性未証明');
-  const cText=costProof?(best.metrics.hands+'手内最低コスト確定'): (best.metrics.hands+'手内コスト最小性未証明');
-  const kScope=best.metrics.hands+'手・'+cardCostCeiling.toFixed(1)+'C以下';
-  const kText=cardsProof?(kScope+'で最少カード確定'):(kScope+'でカード最少性未証明');
+  const cText=costProof?(best.metrics.hands+'手全体の最低コスト確定'):(localCostChecked?'現在解の同等機能置換範囲で低コスト化確認済み':'コスト確認未完了');
+  const kText=cardsProof?'全体の最少カード枚数確定':(localCardsChecked?'現在解の2～3枚→1枚統合範囲を確認済み':'カード圧縮確認未完了');
   const allGlobal=handsProof&&costProof&&cardsProof;
-  const finalStatus=allGlobal?'成立（手数・コスト・カード確定）':'成立（時間制限付き最適化完了）';
-  const finalStage=`探索完了。${hText}。${cText}。${kText}。工程結果: 手数=${phaseOutcomeReason(phaseOutcomes.hands)} / コスト=${phaseOutcomeReason(phaseOutcomes.cost)} / カード=${phaseOutcomeReason(phaseOutcomes.cards)}。`;
+  const localDone=!!localCostChecked&&!!localCardsChecked;
+  const finalStatus=allGlobal?'成立（手数・コスト・カード確定）':(handsProof&&localDone?'成立（最小手数確定・現在解最適化完了）':localDone?'成立（現在解最適化完了・手数未証明）':'成立（時間制限付き探索終了）');
+  const finalStage=`探索完了。${hText}。${cText}。${kText}。工程結果: 手数=${phaseOutcomeReason(phaseOutcomes.hands)} / コスト=${phaseOutcomeReason(phaseOutcomes.cost)} / カード=${phaseOutcomeReason(phaseOutcomes.cards)}。工程2・3の「確認済み」は現在成立解からの局所置換範囲を意味し、別の${best.metrics.hands}手構成すべてに対する全体最適性は表しません。`;
   final.liveStage=finalStage;final.liveStageType=allGlobal?'ok':'warn';setSolveStatus(finalStatus,allGlobal?'ok':'warn');renderResult(final);
   document.getElementById('progressBar').style.width='100%';document.getElementById('progressLabel').textContent='完了：3工程終了';
   updateCurrentPhaseUi();
-  if(searchControl.lastProgress){const fp=Object.assign({},searchControl.lastProgress,{workStage:'完了',label:'',generalGapCurrentStates:0,generalGapCurrentLimit:0,gapFixedPointCurrentStates:0,gapFixedPointCurrentLimit:0,forcedPropagationCurrentNodes:0,forcedPropagationCurrentLimit:0,manyTopologyCurrentLeaf:0,manyTopologyCurrentRepeated:0,manyTopologyCurrentLeafLimit:0,manyTopologyCurrentLeafPass:0,manyTopologyTargetClassCurrentCanonical:0,manyTopologyTargetClassCurrentOrbitPruned:0,manyTopologyTargetClassCurrentClasses:0,manyTopologyTargetClassCurrentMembers:0,manyTopologyTargetClassCurrentCompressed:0});searchControl.lastProgress=fp;const de=document.getElementById('progressDetail');if(de)de.textContent=buildProgressDetail(fp);const hb=document.getElementById('progressHeartbeat');if(hb)hb.textContent=buildProgressHeartbeat(fp);}
+  if(searchControl.lastProgress){
+    const fp=Object.assign({},searchControl.lastProgress,{workStage:'完了',label:'',generalGapCurrentStates:0,generalGapCurrentLimit:0,gapFixedPointCurrentStates:0,gapFixedPointCurrentLimit:0,forcedPropagationCurrentNodes:0,forcedPropagationCurrentLimit:0,manyTopologyCurrentLeaf:0,manyTopologyCurrentRepeated:0,manyTopologyCurrentLeafLimit:0,manyTopologyCurrentLeafPass:0,manyTopologyTargetClassCurrentCanonical:0,manyTopologyTargetClassCurrentOrbitPruned:0,manyTopologyTargetClassCurrentClasses:0,manyTopologyTargetClassCurrentMembers:0,manyTopologyTargetClassCurrentCompressed:0});
+    if((Number(fp.candidateTotal)||0)>0&&localCardsChecked){fp.candidateVisited=fp.candidateTotal;fp.candidatePct=100;}
+    searchControl.lastProgress=fp;
+    const sm=document.getElementById('progressSummary');if(sm)sm.textContent=buildProgressSummary(fp);
+    const de=document.getElementById('progressDetail');if(de)de.textContent=buildProgressDetail(fp);
+    const hb=document.getElementById('progressHeartbeat');if(hb)hb.textContent=buildProgressHeartbeat(fp);
+  }
 }
 
 function isSelfExcludedInfo(x){
@@ -5464,16 +5657,16 @@ function renderResult(r){
   const nLabel=document.getElementById('cardsOut')?.parentElement?.querySelector('.k');
   const h=Number(m.hands||r.order?.length||0),ceiling=Number(p.cardCostCeiling!=null?p.cardCostCeiling:m.totalCost||0);
   if(hLabel)hLabel.textContent=p.hands?'最小手数':'採用手数（最小性未証明）';
-  if(cLabel)cLabel.textContent=p.cost?`${h}手内最低使用コスト`:`${h}手内現在最良コスト`;
-  if(nLabel)nLabel.textContent=p.cards?`${h}手・${ceiling.toFixed(1)}C以下で最少カード枚数`:`${h}手・${ceiling.toFixed(1)}C以下で現在カード枚数`;
+  if(cLabel)cLabel.textContent=p.cost?`${h}手全体の最低使用コスト`:(p.localCostChecked?'現在解の置換後コスト':`${h}手内現在最良コスト`);
+  if(nLabel)nLabel.textContent=p.cards?`全体の最少使用カード枚数`:(p.localCardsChecked?'現在解の局所圧縮後カード枚数':`${h}手・${ceiling.toFixed(1)}C以下で現在カード枚数`);
   const po=p.phaseOutcomes||{};
   const hs=p.hands?'確定':('未証明'+(po.hands?'（'+phaseOutcomeReason(po.hands)+'）':''));
-  const cs=p.cost?`${h}手内確定`:`${h}手内未証明${po.cost?'（'+phaseOutcomeReason(po.cost)+'）':''}`;
-  const ks=p.cards?'条件内確定':`条件内未証明${po.cards?'（'+phaseOutcomeReason(po.cards)+'）':''}`;
+  const cs=p.cost?`${h}手全体で確定`:(p.localCostChecked?'現在解の同等機能置換範囲を確認済み':`${h}手全体では未証明${po.cost?'（'+phaseOutcomeReason(po.cost)+'）':''}`);
+  const ks=p.cards?'全体で確定':(p.localCardsChecked?'現在解の2～3枚→1枚統合範囲を確認済み':`全体では未証明${po.cards?'（'+phaseOutcomeReason(po.cards)+'）':''}`);
   const badges=[
     `<span class="badge ${p.hands?'ok':'warn'}">手数=${hs}</span>`,
-    `<span class="badge ${p.cost?'ok':'warn'}">コスト=${cs}</span>`,
-    `<span class="badge ${p.cards?'ok':'warn'}">カード=${ks}</span>`
+    `<span class="badge ${(p.cost||p.localCostChecked)?'ok':'warn'}">コスト=${cs}</span>`,
+    `<span class="badge ${(p.cards||p.localCardsChecked)?'ok':'warn'}">カード=${ks}</span>`
   ];
   document.getElementById('proofLine').innerHTML=badges.join(' ');
   const stageEl=document.getElementById('resultStageLine');
