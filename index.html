@@ -40,37 +40,90 @@ tr.card-excluded td{background:#f3f0e9;color:#8a8175}
 .search-state.paused{color:var(--warn)}
 .search-state.cancelled{color:var(--bad)}
 
-/* 狭いブログ表示も想定し、探索中の可変テキストは常に合計10行分を確保して下部ブロックを上下させない。 */
+/* V8.3.5: 探索中パネルは詳細ログの開閉で高さを変えない。暫定結果欄の位置を固定する。 */
 #progressLabel{
-  line-height:1.55;
-  height:6.20em;
-  min-height:6.20em;
-  max-height:6.20em;
+  line-height:1.45;
+  height:4.35em;
+  min-height:4.35em;
+  max-height:4.35em;
   overflow:hidden;
   display:-webkit-box;
   -webkit-box-orient:vertical;
-  -webkit-line-clamp:4;
-  line-clamp:4;
+  -webkit-line-clamp:3;
+  line-clamp:3;
   word-break:break-word;
+}
+#progressSummary{
+  margin:8px 0 8px;
+  padding:7px 9px;
+  border:1px solid #d2c29f;
+  border-radius:4px;
+  background:#fffdf4;
+  color:#493722;
+  font-size:12px;
+  line-height:1.5;
+  height:4.5em;
+  min-height:4.5em;
+  max-height:4.5em;
+  overflow:hidden;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+  line-clamp:3;
+  word-break:break-word;
+  font-variant-numeric:tabular-nums;
+}
+#progressDetailSlot{
+  height:12.8em;
+  min-height:12.8em;
+  max-height:12.8em;
+  margin-top:8px;
+}
+#progressDetails{
+  margin:0;
+  height:100%;
+  min-height:100%;
+  max-height:100%;
+  overflow:hidden;
+  background:#fff;
+}
+#progressDetails>summary{
+  height:35px;
+  line-height:18px;
+  padding:8px 10px;
+  user-select:none;
+}
+#progressDetails:not([open])::after{
+  content:'詳細ログは折り畳み中です。主要な探索基準と進捗は上に表示しています。';
+  display:block;
+  padding:14px 10px;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.5;
+}
+#progressDetails .progress-detail-scroll{
+  height:calc(100% - 35px);
+  overflow:auto;
+  padding:6px 9px 8px;
+  border-top:1px solid var(--line-soft);
 }
 #progressDetail{
   line-height:1.55;
-  height:9.30em;
-  min-height:9.30em;
-  max-height:9.30em;
-  overflow:hidden;
-  display:-webkit-box;
-  -webkit-box-orient:vertical;
-  -webkit-line-clamp:6;
-  line-clamp:6;
   word-break:break-word;
 }
 #progressHeartbeat{
+  margin-top:7px;
+  padding-top:7px;
+  border-top:1px dashed #d2c29f;
+}
+.phase-box{margin:8px 0 10px;padding:9px 10px;border:1px solid #c9b894;background:#fffaf0;border-radius:5px;line-height:1.55;min-height:4.8em}
+.phase-box .phase-title{font-weight:700;color:#5c3a20}
+.phase-box .phase-time{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.phase-box.timeout{border-color:#d0aa6b;background:#fff9eb}
+.phase-box.skipped{border-color:#c6a27a;background:#fff8ee}
+#skipPhaseBtn{min-width:210px}
+#progressHeartbeat{
   line-height:1.55;
-  height:3.10em;
-  min-height:3.10em;
-  max-height:3.10em;
-  overflow:hidden;
   word-break:break-word;
   font-variant-numeric:tabular-nums;
   font-weight:700;
@@ -146,19 +199,32 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <div class="actions" style="margin-top:12px">
       <button id="solveBtn">3. 施術ループを探索</button>
       <span id="solveStatus" class="solve-status" role="status" aria-live="polite"></span>
-      <span class="small">チェック済みカードだけを使って探索します。判定は「成立 / 不成立証明 / 未確定」の3状態です。exactに否定できた場合だけ「不成立証明」とし、未完走・近似・順序未証明は必ず「未確定」とします。</span>
+      <span class="small">チェック済みカードだけを使って探索します。判定は「成立 / 不成立証明 / 未確定」の3状態です。exactに否定できた場合だけ「不成立証明」とし、未完走・近似・順序未証明は必ず「未確定」とします。成立解確保後は「1手少ない手数 → 最小コスト → 最小カード枚数」を各最大10分で検証し、各工程は個別にスキップできます。探索中は基準・主要進捗を常時表示し、詳細ログは初期状態で折り畳みます。詳細を開閉しても下の暫定結果欄の位置は変わりません。スキップ・時間切れは未証明のまま現在値を採用して次工程へ進みます。</span>
     </div>
   </section>
 
   <section id="progressPanel" class="panel hidden">
     <h2>探索中</h2>
     <div id="progressLabel">準備中</div>
+    <div id="phaseBox" class="phase-box">
+      <div id="currentPhaseLine" class="phase-title">現在の工程：準備中</div>
+      <div id="phaseTimeLine" class="phase-time"></div>
+    </div>
     <div class="progress" style="margin:10px 0"><div id="progressBar"></div></div>
-    <div id="progressDetail" class="small"></div>
-    <div id="progressHeartbeat" class="small" aria-live="polite"></div>
+    <div id="progressSummary" aria-live="polite">探索基準と主要進捗を準備中</div>
+    <div id="progressDetailSlot">
+      <details id="progressDetails">
+        <summary id="progressDetailsSummary">探索の詳細を表示</summary>
+        <div class="progress-detail-scroll">
+          <div id="progressDetail" class="small"></div>
+          <div id="progressHeartbeat" class="small" aria-live="polite"></div>
+        </div>
+      </details>
+    </div>
     <div class="search-controls">
       <button id="pauseSearchBtn" class="secondary" type="button" disabled>一時停止</button>
       <button id="resumeSearchBtn" class="secondary" type="button" disabled>再開</button>
+      <button id="skipPhaseBtn" class="secondary hidden" type="button" disabled>この工程をスキップ</button>
       <button id="cancelSearchBtn" class="secondary" type="button" disabled>中止</button>
       <span id="searchState" class="search-state"></span>
     </div>
@@ -196,7 +262,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 </main>
 
 <script>
-// 施術ループ探索（仮） v8.2.9 AuditProofFlow Hybrid
+// 施術ループ探索（仮） v8.3.5 FixedProgressUI Hybrid
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -851,18 +917,81 @@ function minSearchWorkerMainV6236() {
                     multiDpStates: state.multiDpStates || 0,
                     multiDpGroups: state.multiDpGroups || 0,
                     generalGapStates: state.generalGapStates || 0,
+                    generalGapCurrentStates: state.generalGapCurrentStates || 0,
+                    generalGapCurrentLimit: state.generalGapCurrentLimit || 0,
                     gapFixedPointChecks: state.gapFixedPointChecks || 0,
                     gapFixedPointStates: state.gapFixedPointStates || 0,
                     gapFixedPointDowngraded: state.gapFixedPointDowngraded || 0,
                     gapFixedPointUnknown: state.gapFixedPointUnknown || 0,
+                    gapFixedPointCurrentStates: state.gapFixedPointCurrentStates || 0,
+                    gapFixedPointCurrentLimit: state.gapFixedPointCurrentLimit || 0,
+                    supplyBoundChecks: state.supplyBoundChecks || 0,
+                    supplyBoundGroups: state.supplyBoundGroups || 0,
                     repeatedTopologyVisited: state.repeatedTopologyVisited || 0,
                     manyTopologyNodes: state.manyTopologyNodes || 0,
                     manyTopologyLeaves: state.manyTopologyLeaves || 0,
                     manyTopologyPruned: state.manyTopologyPruned || 0,
                     manyTopologySymmetry: state.manyTopologySymmetry || 0,
+                    manyTopologyMemoHits: state.manyTopologyMemoHits || 0,
+                    manyTopologyMemoDominanceHits: state.manyTopologyMemoDominanceHits || 0,
+                    manyTopologyMemoStores: state.manyTopologyMemoStores || 0,
+                    manyTopologyMemoDominanceRemoved: state.manyTopologyMemoDominanceRemoved || 0,
+                    manyTopologyMemoResident: state.manyTopologyMemoResident || 0,
+                    manyTopologyMemoLimit: state.manyTopologyMemoLimit || 0,
+                    manyTopologyMemoProblems: state.manyTopologyMemoProblems || 0,
+                    manyTopologyMemoGlobalResident: state.manyTopologyMemoGlobalResident || 0,
+                    manyTopologyMemoGlobalLimit: state.manyTopologyMemoGlobalLimit || 0,
+                    manyTopologyMemoProblemEvictions: state.manyTopologyMemoProblemEvictions || 0,
+                    manyTopologyResumeHits: state.manyTopologyResumeHits || 0,
+                    manyTopologyProblemCacheHits: state.manyTopologyProblemCacheHits || 0,
+                    manyTopologyProblemCacheStores: state.manyTopologyProblemCacheStores || 0,
+                    manyTopologyCurrentLeaf: state.manyTopologyCurrentLeaf || 0,
+                    manyTopologyCurrentRepeated: state.manyTopologyCurrentRepeated || 0,
+                    manyTopologyTargetClassRuns: state.manyTopologyTargetClassRuns || 0,
+                    manyTopologyTargetClassMaxClasses: state.manyTopologyTargetClassMaxClasses || 0,
+                    manyTopologyTargetClassMaxMembers: state.manyTopologyTargetClassMaxMembers || 0,
+                    manyTopologyTargetClassMaxCompressed: state.manyTopologyTargetClassMaxCompressed || 0,
+                    manyTopologyTargetClassCanonicalStates: state.manyTopologyTargetClassCanonicalStates || 0,
+                    manyTopologyTargetClassOrbitPruned: state.manyTopologyTargetClassOrbitPruned || 0,
+                    manyTopologyTargetClassFallbacks: state.manyTopologyTargetClassFallbacks || 0,
+                    manyTopologyTargetClassCurrentCanonical: state.manyTopologyTargetClassCurrentCanonical || 0,
+                    manyTopologyTargetClassCurrentOrbitPruned: state.manyTopologyTargetClassCurrentOrbitPruned || 0,
+                    manyTopologyTargetClassCurrentClasses: state.manyTopologyTargetClassCurrentClasses || 0,
+                    manyTopologyTargetClassCurrentMembers: state.manyTopologyTargetClassCurrentMembers || 0,
+                    manyTopologyTargetClassCurrentCompressed: state.manyTopologyTargetClassCurrentCompressed || 0,
+                    manyTopologyBudgetHits: state.manyTopologyBudgetHits || 0,
+                    manyTopologyNodeBudgetHits: state.manyTopologyNodeBudgetHits || 0,
+                    manyTopologyLeafBudgetHits: state.manyTopologyLeafBudgetHits || 0,
+                    manyTopologyOuterIncompleteHits: state.manyTopologyOuterIncompleteHits || 0,
+                    memoryGuardCacheClears: state.memoryGuardCacheClears || 0,
+                    manyTopologyGapIncomplete: state.manyTopologyGapIncomplete || 0,
+                    manyTopologyLeafEscalations: state.manyTopologyLeafEscalations || 0,
+                    manyTopologyLeafEscalatedProblems: state.manyTopologyLeafEscalatedProblems || 0,
+                    manyTopologyLeafStageHits: state.manyTopologyLeafStageHits || 0,
+                    manyTopologyCurrentLeafLimit: state.manyTopologyCurrentLeafLimit || 0,
+                    manyTopologyCurrentLeafPass: state.manyTopologyCurrentLeafPass || 0,
+                    manyTopologyLeafCeiling: state.manyTopologyLeafCeiling || 0,
                     v8IpNodes: state.v8IpNodes || 0,
                     v8StaticFeasible: state.v8StaticFeasible || 0,
                     v8WasmNodes: state.v8WasmNodes || 0,
+                    v8BundleOwners: state.v8BundleOwners || 0,
+                    v8BundleClasses: state.v8BundleClasses || 0,
+                    v8BundleCompressedOwners: state.v8BundleCompressedOwners || 0,
+                    v8BundleClassMembers: state.v8BundleClassMembers || 0,
+                    v8BundleSymmetryPruned: state.v8BundleSymmetryPruned || 0,
+                    v8BundleFallbacks: state.v8BundleFallbacks || 0,
+                    forcedPropagationNodes: state.forcedPropagationNodes || 0,
+                    forcedPropagationTests: state.forcedPropagationTests || 0,
+                    forcedPropagationUnknown: state.forcedPropagationUnknown || 0,
+                    forcedPropagationForcedOne: state.forcedPropagationForcedOne || 0,
+                    forcedPropagationForcedTwo: state.forcedPropagationForcedTwo || 0,
+                    forcedPropagationForcedOwners: state.forcedPropagationForcedOwners || 0,
+                    forcedPropagationRounds: state.forcedPropagationRounds || 0,
+                    forcedPropagationPatternsBefore: state.forcedPropagationPatternsBefore || 0,
+                    forcedPropagationPatternsAfter: state.forcedPropagationPatternsAfter || 0,
+                    forcedPropagationWasmTests: state.forcedPropagationWasmTests || 0,
+                    forcedPropagationCurrentNodes: state.forcedPropagationCurrentNodes || 0,
+                    forcedPropagationCurrentLimit: state.forcedPropagationCurrentLimit || 0,
                     v8ProofStatus: state.v8ProofStatus || '',
                     candidateLeafOrdinal: state.candidateLeafOrdinal || 0,
                     checkpoint: (state.modeId && state.hands) ? {
@@ -1523,7 +1652,7 @@ function minSearchWorkerMainV6236() {
             }
 
 
-            // v8.2.9: 再使用イベント間の「全領域」へsingleを配置するGap DP。
+            // v8.3.4: 再使用イベント間の「全領域」へsingleを配置するGap DP。
             // middle/tailの2箱に限定せず、固定された再使用循環topologyの各隣接区間をslotとして扱う。
             // singleは1周1回なので、single同士のslot内順序は再使用targetのCTにも自身の周回CTにも影響しない。
             // よって固定topologyに対しては、DP完走時にsingle配置の存在/不存在を厳密判定できる。
@@ -1633,8 +1762,8 @@ function minSearchWorkerMainV6236() {
             }
 
 
-            // v8.2.9: 5種以上の再使用target向け exact topology Branch-and-Bound。
-            // V8.2.9では、完全に不成立まで探索し終えた部分状態だけをExact dead-state memoへ保存する。
+            // v8.3.4: 5種以上の再使用target向け exact topology Branch-and-Bound。
+            // V8.3.3では、完全に不成立まで探索し終えた部分状態だけをExact dead-state memoへ保存する。
             // 状態は cnt(0/1/2)・needでcapした各gap供給・既出slot class集合で定義。
             // この3要素が同一なら、残りsuffixとsingle配置で利用できる情報も同一。
             // 予算切れ/Gap未完走を含む祖先状態は保存しないため、proof-safeなまま同一問題の次候補へ持ち越せる。
@@ -1654,7 +1783,14 @@ function minSearchWorkerMainV6236() {
                 const maxR=Math.max(5,Math.floor(Number(cfg&&cfg.maxManyTopologyRepeated)||18));
                 if(R<5||R>maxR)return {supported:false,complete:false,found:false,reason:'repeated-count',nodes:0,leaves:0,pruned:0};
                 const maxNodes=Math.max(10000,Math.floor(Number(cfg&&cfg.maxManyTopologyNodes)||1200000));
-                const maxLeaves=Math.max(100,Math.floor(Number(cfg&&cfg.maxManyTopologyLeaves)||8000));
+                const baseMaxLeaves=Math.max(100,Math.floor(Number(cfg&&cfg.maxManyTopologyLeaves)||8000));
+                const adaptiveLeaf=(cfg&&cfg.manyTopologyAdaptiveLeaf!==false);
+                const leafGrowth=Math.max(2,Math.floor(Number(cfg&&cfg.manyTopologyLeafGrowth)||2));
+                const maxLeafPasses=Math.max(1,Math.floor(Number(cfg&&cfg.maxManyTopologyLeafPasses)||5));
+                const configuredLeafCeiling=Math.floor(Number(cfg&&cfg.maxManyTopologyLeafCeiling)||0);
+                const defaultLeafCeiling=Math.floor(baseMaxLeaves*Math.pow(leafGrowth,Math.max(0,maxLeafPasses-1)));
+                const maxLeafCeiling=Math.max(baseMaxLeaves,configuredLeafCeiling>0?configuredLeafCeiling:defaultLeafCeiling);
+                let currentMaxLeaves=baseMaxLeaves,leafPass=1;
                 const maxMemoStates=Math.max(10000,Math.floor(Number(cfg&&cfg.maxManyTopologyMemoStates)||180000));
                 const maxMemoProblems=Math.max(1,Math.floor(Number(cfg&&cfg.maxManyTopologyMemoProblems)||12));
                 const maxMemoGlobalStates=Math.max(maxMemoStates,Math.floor(Number(cfg&&cfg.maxManyTopologyMemoGlobalStates)||300000));
@@ -1676,7 +1812,7 @@ function minSearchWorkerMainV6236() {
                     const sv=singles.map(x=>Array.from({length:R},(_,t)=>Math.max(0,Math.floor(Number(externalContribution(x,repeated[t]))||0))).join(',')).sort();
                     return String(mode||'')+'#'+rp+'#S'+sv.join(';');
                 }
-                const problemKey=topologyProblemKey();
+                const problemKey=topologyProblemKey()+'#TC'+((cfg&&cfg.targetClassExact!==false)?1:0);
                 if(manyTopologyInfeasibleCache.has(problemKey)){
                     if(state){state.manyTopologyProblemCacheHits=(state.manyTopologyProblemCacheHits||0)+1;state.workStage='many-topology-cache';state.manyTopologyCurrentRepeated=R;state.label=(state.hands||'')+'手 / Topology不成立cache再利用 '+R+'種';progress(state,state.label,true);}
                     return {supported:true,complete:true,found:false,reason:'cached-infeasible',nodes:0,leaves:0,pruned:0,symPruned:0,memoHits:0,memoStores:0,cacheHit:true};
@@ -1724,6 +1860,22 @@ function minSearchWorkerMainV6236() {
                     for(let c=0;c<eqMembers.length;c++){let ok=true;for(const j of eqMembers[c])if(!exchangeable(i,j)){ok=false;break;}if(ok){found=c;break;}}
                     if(found<0){found=eqN++;eqMembers.push([]);}eqClass[i]=found;eqMembers[found].push(i);
                 }
+                // V8.3.5 FixedProgressUI PhaseBudget Skip Exact:
+                // exchangeable() が証明したクラス内では target label の置換は問題全体の自己同型。
+                // そこで prefix 状態を「各targetの動的状態 + これまでのslot所属履歴」で正準ラベル化し、
+                // labelを入れ替えただけの状態を同一memo状態として扱う。履歴まで含めるため、入れ子/交差の
+                // 本質的に異なるtopologyは潰さない。同じ動的状態・履歴のclose候補も1 orbit代表だけ探索する。
+                let targetClassEnabled=(cfg&&cfg.targetClassExact!==false)&&eqMembers.some(xs=>xs.length>1);
+                const targetClassNonTrivial=eqMembers.filter(xs=>xs.length>1);
+                const targetClassMembers=targetClassNonTrivial.reduce((z,xs)=>z+xs.length,0);
+                const targetClassCompressed=Math.max(0,R-eqN);
+                let targetClassCanonicalStates=0,targetClassOrbitPruned=0,targetClassFallback=0;
+                if(state&&targetClassEnabled){
+                    state.manyTopologyTargetClassRuns=(state.manyTopologyTargetClassRuns||0)+1;
+                    state.manyTopologyTargetClassMaxClasses=Math.max(state.manyTopologyTargetClassMaxClasses||0,targetClassNonTrivial.length);
+                    state.manyTopologyTargetClassMaxMembers=Math.max(state.manyTopologyTargetClassMaxMembers||0,targetClassMembers);
+                    state.manyTopologyTargetClassMaxCompressed=Math.max(state.manyTopologyTargetClassMaxCompressed||0,targetClassCompressed);
+                }
                 // anchorはgap余裕が最も小さいtargetを選ぶ。任意の循環解はanchorの発動位置へ回転できるため完全性を失わない。
                 let anchor=0,bestSlack=Infinity;
                 for(let t=0;t<R;t++){
@@ -1735,21 +1887,71 @@ function minSearchWorkerMainV6236() {
                 for(let t=0;t<R;t++){let z=0;for(let j=0;j<R;j++)z+=2*C[j][t];remRep[t]=z;}
                 const seq=[],slotClassCounts=new Map(),seqSlotMasks=[];
                 let memoHits=0,memoDominanceHits=0,memoStores=0,memoDominanceRemoved=0,memoFull=false;
-                let nodes=0,leaves=0,pruned=0,symPruned=0,hit=false,gapIncompleteCount=0,foundOrder=false;
+                let nodes=0,leaves=0,pruned=0,symPruned=0,hit=false,hitKind='',gapIncompleteCount=0,foundOrder=false;
+                let leafEscalationsThisProblem=0;
+                function markTopologyHit(kind){
+                    if(hit)return;hit=true;hitKind=kind||'budget';
+                }
+                function recordFinalTopologyHit(kind){
+                    if(!state)return;
+                    state.manyTopologyBudgetHits=(state.manyTopologyBudgetHits||0)+1;
+                    if(kind==='node')state.manyTopologyNodeBudgetHits=(state.manyTopologyNodeBudgetHits||0)+1;
+                    else if(kind==='leaf')state.manyTopologyLeafBudgetHits=(state.manyTopologyLeafBudgetHits||0)+1;
+                    else if(kind==='outer')state.manyTopologyOuterIncompleteHits=(state.manyTopologyOuterIncompleteHits||0)+1;
+                }
                 const nodeBase=Number(state&&state.manyTopologyNodes)||0,leafBase=Number(state&&state.manyTopologyLeaves)||0,pruneBase=Number(state&&state.manyTopologyPruned)||0,symBase=Number(state&&state.manyTopologySymmetry)||0;
                 const memoHitBase=Number(state&&state.manyTopologyMemoHits)||0,memoStoreBase=Number(state&&state.manyTopologyMemoStores)||0,domHitBase=Number(state&&state.manyTopologyMemoDominanceHits)||0,domRemovedBase=Number(state&&state.manyTopologyMemoDominanceRemoved)||0;
                 function currentOpenMask(){let m=0;for(let t=0;t<R;t++)if(cnt[t]===1)m|=(1<<t);return m>>>0;}
                 function addSlotMask(){const m=currentOpenMask();seqSlotMasks.push(m);slotClassCounts.set(m,(slotClassCounts.get(m)||0)+1);}
                 function removeSlotMask(){const m=seqSlotMasks.pop();if(m==null)return;const n=(slotClassCounts.get(m)||0)-1;if(n<=0)slotClassCounts.delete(m);else slotClassCounts.set(m,n);}
+                function targetHistorySignature(t){
+                    // seqSlotMasks は prefix 上のslot順。target label置換では各bit列だけが置換されるため、
+                    // この履歴を動的状態と一緒にsortすればクラス内置換に不変な正準順序になる。
+                    let h='';for(let i=0;i<seqSlotMasks.length;i++)h+=((seqSlotMasks[i]>>>t)&1)?'1':'0';
+                    return h;
+                }
+                function targetDynamicSignature(t){
+                    return cnt[t]+'|'+Math.min(needs[t],g1[t])+'|'+Math.min(needs[t],g2[t])+'|'+remRep[t]+'|'+targetHistorySignature(t);
+                }
+                function canonicalTargetPermutation(){
+                    const map=new Int16Array(R);for(let i=0;i<R;i++)map[i]=i;
+                    for(const members0 of eqMembers){
+                        if(members0.length<=1)continue;
+                        const slots=members0.slice().sort((a,b)=>a-b);
+                        const recs=members0.map(t=>({t,sig:targetDynamicSignature(t)})).sort((a,b)=>a.sig.localeCompare(b.sig)||a.t-b.t);
+                        for(let k=0;k<slots.length;k++)map[recs[k].t]=slots[k];
+                    }
+                    return map;
+                }
+                function transformMask(mask,map){
+                    let z=0;for(let t=0;t<R;t++)if((mask>>>t)&1)z|=(1<<map[t]);return z>>>0;
+                }
                 function memoState(){
                     let cc=0,mul=1;const gs=new Int32Array(R*2);
-                    for(let t=0;t<R;t++){
-                        cc+=cnt[t]*mul;mul*=3;
-                        gs[t*2]=Math.min(needs[t],g1[t]);gs[t*2+1]=Math.min(needs[t],g2[t]);
+                    if(!targetClassEnabled){
+                        for(let t=0;t<R;t++){
+                            cc+=cnt[t]*mul;mul*=3;
+                            gs[t*2]=Math.min(needs[t],g1[t]);gs[t*2+1]=Math.min(needs[t],g2[t]);
+                        }
+                        const cls=Array.from(slotClassCounts.keys()).sort((a,b)=>a-b);
+                        const exact=cc+'|'+Array.from(gs).join(',')+'|'+cls.join('.');
+                        return {cc,gs,cls,exact};
                     }
-                    const cls=Array.from(slotClassCounts.keys()).sort((a,b)=>a-b);
+                    let map;
+                    try{map=canonicalTargetPermutation();}
+                    catch(_){targetClassEnabled=false;targetClassFallback++;return memoState();}
+                    const ccArr=new Uint8Array(R);
+                    for(let old=0;old<R;old++){const t=map[old];ccArr[t]=cnt[old];gs[t*2]=Math.min(needs[old],g1[old]);gs[t*2+1]=Math.min(needs[old],g2[old]);}
+                    for(let t=0;t<R;t++){cc+=ccArr[t]*mul;mul*=3;}
+                    const cls=Array.from(new Set(Array.from(slotClassCounts.keys()).map(m=>transformMask(m,map)))).sort((a,b)=>a-b);
                     const exact=cc+'|'+Array.from(gs).join(',')+'|'+cls.join('.');
+                    targetClassCanonicalStates++;
                     return {cc,gs,cls,exact};
+                }
+                function actionOrbitSignature(j){
+                    // 同一class内でこのsignatureが同じtargetは、prefix全体をlabel交換して互いに写せる。
+                    // close/openどちらも1代表だけ残してよい。
+                    return eqClass[j]+'|'+targetDynamicSignature(j);
                 }
                 function clsSuperset(a,b){
                     // sorted a が sorted b の上位集合か。
@@ -1829,9 +2031,19 @@ function minSearchWorkerMainV6236() {
                     state.manyTopologyMemoHits=memoHitBase+memoHits;state.manyTopologyMemoDominanceHits=domHitBase+memoDominanceHits;state.manyTopologyMemoStores=memoStoreBase+memoStores;
                     state.manyTopologyMemoDominanceRemoved=domRemovedBase+memoDominanceRemoved;
                     state.manyTopologyMemoResident=deadMemo.size;state.manyTopologyMemoLimit=maxMemoStates;state.manyTopologyMemoProblems=manyTopologyDeadStateCache.size;state.manyTopologyMemoGlobalResident=manyTopologyDeadStateGlobalStates;state.manyTopologyMemoGlobalLimit=maxMemoGlobalStates;
+                    state.manyTopologyTargetClassCanonicalStates=(state.manyTopologyTargetClassCanonicalStates||0)+0;
+                    // 現runの値は累積counterへ直接足さず、表示用currentとして分離。
+                    state.manyTopologyTargetClassCurrentCanonical=targetClassCanonicalStates;
+                    state.manyTopologyTargetClassCurrentOrbitPruned=targetClassOrbitPruned;
+                    state.manyTopologyTargetClassCurrentClasses=targetClassNonTrivial.length;
+                    state.manyTopologyTargetClassCurrentMembers=targetClassMembers;
+                    state.manyTopologyTargetClassCurrentCompressed=targetClassCompressed;
                     state.workStage='many-topology-exact';
                     state.manyTopologyCurrentRepeated=R;
-                    state.label=(state.hands||'')+'手 / '+((state.modeId&&({holy2:'聖水2回使用',normal:'通常',toki2:'吐息2回使用',mixed2:'聖水2回＋吐息2回（混合）'}[state.modeId]))||'')+' / 多数Topology '+R+'種 / '+(nodeBase+nodes).toLocaleString()+'節点 / leaf '+(leafBase+leaves).toLocaleString()+' / memo '+(memoHitBase+memoHits).toLocaleString()+'exact+'+memoDominanceHits.toLocaleString()+'支配hit・保持'+deadMemo.size.toLocaleString();
+                    state.manyTopologyCurrentLeafLimit=currentMaxLeaves;
+                    state.manyTopologyCurrentLeafPass=leafPass;
+                    state.manyTopologyLeafCeiling=maxLeafCeiling;
+                    state.label=(state.hands||'')+'手 / '+((state.modeId&&({holy2:'聖水2回使用',normal:'通常',toki2:'吐息2回使用',mixed2:'聖水2回＋吐息2回（混合）'}[state.modeId]))||'')+' / 多数Topology '+R+'種'+(targetClassEnabled&&targetClassNonTrivial.length?' / TargetClass '+targetClassMembers+'target→'+targetClassNonTrivial.length+'class（次元-'+targetClassCompressed+'）':'')+' / '+(nodeBase+nodes).toLocaleString()+'節点 / leaf '+leaves.toLocaleString()+'/'+currentMaxLeaves.toLocaleString()+(adaptiveLeaf?'（段階'+leafPass+'/'+maxLeafPasses+'・上限'+maxLeafCeiling.toLocaleString()+'）':'')+' / memo '+(memoHitBase+memoHits).toLocaleString()+'exact+'+memoDominanceHits.toLocaleString()+'支配hit・保持'+deadMemo.size.toLocaleString();
                     progress(state,state.label,!!force);
                 }
                 function actionScore(j){
@@ -1840,14 +2052,14 @@ function minSearchWorkerMainV6236() {
                 }
                 function dfs(){
                     if(foundOrder||hit||cancelled)return false;
-                    if(state&&state.complete===false){hit=true;return false;}
+                    if(state&&state.complete===false){markTopologyHit('outer');return false;}
                     nodes++;if((nodes%512)===0)progressMany(false);
-                    if(nodes>maxNodes){hit=true;return false;}
+                    if(nodes>maxNodes){markTopologyHit('node');return false;}
                     const ms=memoState();
                     if(memoDead(ms)){pruned++;return true;}
                     if(!globallyPossible()){pruned++;storeDead(ms);return true;}
                     if(seq.length===R*2){
-                        leaves++;if(leaves>maxLeaves){hit=true;return false;}
+                        leaves++;if(leaves>currentMaxLeaves){markTopologyHit('leaf');return false;}
                         if(state){state.manyTopologyCurrentLeaf=leafBase+leaves;state.manyTopologyCurrentRepeated=R;}
                         progressMany(true);
                         const occ=new Uint8Array(R),full=[];
@@ -1855,22 +2067,25 @@ function minSearchWorkerMainV6236() {
                         const gp=generalGapPlacementForSeq(repeated,singles,full,baseMap,cfg,state);
                         state.repeatedTopologyVisited=(state.repeatedTopologyVisited||0)+1;
                         progressMany(true);
-                        if(!gp.complete){gapIncompleteCount++;return false;}
+                        if(!gp.complete){gapIncompleteCount++;if(state)state.manyTopologyGapIncomplete=(state.manyTopologyGapIncomplete||0)+1;return false;}
                         if(gp.order&&test(gp.order)){foundOrder=true;return false;}
-                        if(state&&state.complete===false){hit=true;return false;}
+                        if(state&&state.complete===false){markTopologyHit('outer');return false;}
                         storeDead(ms);return true;
                     }
                     const close=[],open=[];
                     for(let j=0;j<R;j++){if(cnt[j]===1)close.push(j);else if(cnt[j]===0)open.push(j);}
                     close.sort((a,b)=>actionScore(b)-actionScore(a)||a-b);
                     open.sort((a,b)=>actionScore(b)-actionScore(a)||a-b);
-                    const acts=close.concat(open),seenOpen=new Set();
+                    const acts=close.concat(open),seenOpen=new Set(),seenClose=new Set();
                     let allDead=true;
                     for(const j of acts){
                         if(foundOrder||hit||cancelled)return false;
                         if(cnt[j]===0){
-                            const key=eqClass[j]+'|'+g2[j];
-                            if(seenOpen.has(key)){symPruned++;continue;}seenOpen.add(key);
+                            const key=targetClassEnabled?actionOrbitSignature(j):(eqClass[j]+'|'+g2[j]);
+                            if(seenOpen.has(key)){symPruned++;if(targetClassEnabled){targetClassOrbitPruned++;}continue;}seenOpen.add(key);
+                        }else if(cnt[j]===1&&targetClassEnabled){
+                            const key=actionOrbitSignature(j);
+                            if(seenClose.has(key)){symPruned++;targetClassOrbitPruned++;continue;}seenClose.add(key);
                         }
                         append(j);
                         let childDead=true;
@@ -1884,15 +2099,43 @@ function minSearchWorkerMainV6236() {
                     return allDead;
                 }
                 // anchorの1回目を先頭へ固定。anchor event自身はself寄与0、他の未登場targetにはwrap gap2として入る。
-                append(anchor);progressMany(true);const rootDead=dfs();undo(anchor);progressMany(true);
-                if(cancelled)return {supported:true,complete:false,found:false,reason:'cancelled',nodes,leaves,pruned,symPruned,memoHits,memoStores,memoFull};
+                // V8.3.5 FixedProgressUI PhaseBudget Skip Exact:
+                // leaf上限だけに当たった場合は、その問題を離れず deadMemo を保持したまま上限を段階拡張する。
+                // 既に完全deadと証明済みの部分木は次passでmemo hitになるため、同じ証明済み領域を総当たりし直さない。
+                let rootDead=false;
+                while(true){
+                    append(anchor);progressMany(true);rootDead=dfs();undo(anchor);progressMany(true);
+                    if(cancelled||foundOrder||!hit||hitKind!=='leaf'||!adaptiveLeaf)break;
+                    if(leafPass>=maxLeafPasses||currentMaxLeaves>=maxLeafCeiling)break;
+                    const nextLimit=Math.min(maxLeafCeiling,Math.max(currentMaxLeaves+1,Math.floor(currentMaxLeaves*leafGrowth)));
+                    if(nextLimit<=currentMaxLeaves)break;
+                    if(state){
+                        if(leafEscalationsThisProblem===0)state.manyTopologyLeafEscalatedProblems=(state.manyTopologyLeafEscalatedProblems||0)+1;
+                        state.manyTopologyLeafEscalations=(state.manyTopologyLeafEscalations||0)+1;
+                        state.manyTopologyLeafStageHits=(state.manyTopologyLeafStageHits||0)+1;
+                    }
+                    leafEscalationsThisProblem++;
+                    currentMaxLeaves=nextLimit;leafPass++;
+                    hit=false;hitKind='';
+                    progressMany(true);
+                }
+                if(hit)recordFinalTopologyHit(hitKind);
+                if(state){
+                    state.manyTopologyTargetClassCanonicalStates=(state.manyTopologyTargetClassCanonicalStates||0)+targetClassCanonicalStates;
+                    state.manyTopologyTargetClassOrbitPruned=(state.manyTopologyTargetClassOrbitPruned||0)+targetClassOrbitPruned;
+                    if(targetClassFallback)state.manyTopologyTargetClassFallbacks=(state.manyTopologyTargetClassFallbacks||0)+targetClassFallback;
+                    state.manyTopologyTargetClassCurrentCanonical=0;state.manyTopologyTargetClassCurrentOrbitPruned=0;
+                    state.manyTopologyCurrentLeafLimit=0;state.manyTopologyCurrentLeafPass=0;
+                    state.manyTopologyCurrentLeaf=0;state.manyTopologyCurrentRepeated=0;
+                }
+                if(cancelled)return {supported:true,complete:false,found:false,reason:'cancelled',nodes,leaves,pruned,symPruned,memoHits,memoStores,memoFull,targetClassEnabled,targetClassClasses:targetClassNonTrivial.length,targetClassMembers,targetClassCompressed,targetClassCanonicalStates,targetClassOrbitPruned,leafEscalations:leafEscalationsThisProblem,leafPass,currentMaxLeaves};
                 const complete=!!foundOrder || (!!rootDead&&!hit&&gapIncompleteCount===0);
                 if(rootDead&&!foundOrder&&!hit&&gapIncompleteCount===0){
-                    if(manyTopologyInfeasibleCache.size>4000)manyTopologyInfeasibleCache.clear();
+                    if(manyTopologyInfeasibleCache.size>1000){manyTopologyInfeasibleCache.clear();if(state)state.memoryGuardCacheClears=(state.memoryGuardCacheClears||0)+1;}
                     manyTopologyInfeasibleCache.set(problemKey,true);
                     if(state)state.manyTopologyProblemCacheStores=(state.manyTopologyProblemCacheStores||0)+1;
                 }
-                return {supported:true,complete,found:foundOrder,reason:foundOrder?'found':(hit?'budget':(gapIncompleteCount?'gap-incomplete':(rootDead?'exhausted':'unknown'))),nodes,leaves,pruned,symPruned,eqClasses:eqN,memoHits,memoStores,memoFull,resumedMemo,deadStates:deadMemo.size,memoDominanceHits,memoDominanceRemoved};
+                return {supported:true,complete,found:foundOrder,reason:foundOrder?'found':(hit?('budget-'+(hitKind||'unknown')):(gapIncompleteCount?'gap-incomplete':(rootDead?'exhausted':'unknown'))),nodes,leaves,pruned,symPruned,eqClasses:eqN,memoHits,memoStores,memoFull,resumedMemo,deadStates:deadMemo.size,memoDominanceHits,memoDominanceRemoved,targetClassEnabled,targetClassClasses:targetClassNonTrivial.length,targetClassMembers,targetClassCompressed,targetClassCanonicalStates,targetClassOrbitPruned,targetClassFallback,leafEscalations:leafEscalationsThisProblem,leafPass,currentMaxLeaves,leafCeiling:maxLeafCeiling};
             }
 
             function tryOrders(usage,baseMap,state,cfg) {
@@ -1974,7 +2217,7 @@ function minSearchWorkerMainV6236() {
                 }
                 state.sameOrderFastPathFallback=(state.sameOrderFastPathFallback||0)+1;
 
-                // v8.2.9: 4種類以下なら再使用イベントの循環topologyを完全列挙し、
+                // v8.3.4: 4種類以下なら再使用イベントの循環topologyを完全列挙し、
                 // 各topologyについてsingleを全隣接slotへ配置するGap DPを実行する。
                 // これで同順/逆順に加え A1-B1-B2-A2 等の入れ子・交差も漏らさない。
                 const exactTopologyThreshold=Math.max(1,Math.min(4,Number(cfg.exactRepeatedTopologyThreshold)||4));
@@ -1998,7 +2241,7 @@ function minSearchWorkerMainV6236() {
                     }
                     topologyExactIncomplete=true;
                 }else if(cfg.proofStaticCyclic && cfg.manyTopologyExact!==false){
-                    // v8.2.9: 5種以上は順列総当たりではなくendpoint B&Bでexact化。
+                    // v8.3.4: 5種以上は順列総当たりではなくendpoint B&Bでexact化。
                     const mt=manyRepeatedTopologyExact(repeated,singles,baseMap,cfg,state,test,mode);
                     if(mt.supported){
                         state.manyTopologyRuns=(state.manyTopologyRuns||0)+1;
@@ -2158,7 +2401,7 @@ function minSearchWorkerMainV6236() {
             // 最大回数の短縮イベントを「targetへの寄与が大きい順」に詰める。
             // 実際の同時成立・順序・区間分割を無視した楽観上界なので、これでもCT不足なら
             // そのtargetはH手ループには絶対に参加できず、安全に候補から除外できる。
-            // A(proof-safe) v8.2.9: H手上界のtarget最大供給。
+            // A(proof-safe) v8.3.4: H手上界のtarget最大供給。
             // 旧版の「全イベントを独立に上位H件」より強く、同一CardNoは1ownerしか採用できない制約を
             // owner-pattern DPで反映する。各group内ではtargetへの寄与が最大になるイベントだけを選ぶ
             // 楽観上界なので、ここでCT不足なら真の解も絶対に存在しない。
@@ -2231,7 +2474,7 @@ function minSearchWorkerMainV6236() {
                         const nd=new Int32Array(slots+1);nd.fill(-1);for(let h0=0;h0<=slots;h0++)if(dp[h0]>=0)for(const op of opts){const h=h0+op.h;if(h<=slots)nd[h]=Math.max(nd[h],dp[h0]+op.v);}dp=nd;
                     }
                     let best=0;for(let h=0;h<=slots;h++)best=Math.max(best,dp[h]);const ans=total+best;
-                    if(handSupplyBoundCache.size>12000)handSupplyBoundCache.clear();handSupplyBoundCache.set(ck,ans);return ans;
+                    if(handSupplyBoundCache.size>6000){handSupplyBoundCache.clear();if(progressState)progressState.memoryGuardCacheClears=(progressState.memoryGuardCacheClears||0)+1;}handSupplyBoundCache.set(ck,ans);return ans;
                 }
                 // B(objective-safe): C/Kが有限なら、その範囲内でtarget供給を最大化する疎DP。
                 // 4bin分割は無視する（楽観上界）ため、ここで不足した場合のみ証明枝刈りに使える。
@@ -2260,10 +2503,10 @@ function minSearchWorkerMainV6236() {
                     states=next;if(!states.length){handSupplyBoundCache.set(ck,-1);return -1;}
                 }
                 let best=0;for(const q of states)best=Math.max(best,q.v);const ans=total+best;
-                if(handSupplyBoundCache.size>12000)handSupplyBoundCache.clear();handSupplyBoundCache.set(ck,ans);return ans;
+                if(handSupplyBoundCache.size>6000){handSupplyBoundCache.clear();if(progressState)progressState.memoryGuardCacheClears=(progressState.memoryGuardCacheClears||0)+1;}handSupplyBoundCache.set(ck,ans);return ans;
             }
 
-            // A(proof-safe) v8.2.9: Gap-aware 楽観上界。
+            // A(proof-safe) v8.3.4: Gap-aware 楽観上界。
             // targetを2回使うとき、target自身の2手（＋必須龍肝1手）を予約し、残りH手以内の
             // 各イベントを「2つの再使用区間の好きな側へ自由配置」できる仮想問題を解く。
             // 実際の循環順序、CardNo排他、4bin、C/Kの一部を無視するため真の問題より有利。
@@ -2772,7 +3015,7 @@ function minSearchWorkerMainV6236() {
                     return false;
                 }
                 const ok=dfs(0,caps0);
-                if(deckPackCache.size>120000)deckPackCache.clear();deckPackCache.set(sig,ok);return ok;
+                if(deckPackCache.size>30000)deckPackCache.clear();deckPackCache.set(sig,ok);return ok;
             }
             function usageResourceStats(usage,baseMap){
                 const owners=Object.create(null);
@@ -3250,7 +3493,7 @@ function minSearchWorkerMainV6236() {
                 }
                 dfs(0,1);return bestFound;
             }
-            // V8.2.9 AuditProofFlow exact core: owner-pattern integer constraint solver + optional WASM exact static solver.
+            // V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact core: owner-pattern integer constraint solver + optional WASM exact static solver.
             // JS solver is a CP-SAT/IP style finite-domain branch-and-bound: each physical card(owner) chooses
             // exactly one local usage pattern, with exact hand count, cardNo exclusion, cost/card bounds,
             // repeat-mode requirements, and all aggregate CT inequalities propagated directly.
@@ -3333,7 +3576,7 @@ function minSearchWorkerMainV6236() {
                 if(totalPatterns>4096)return {supported:false,reason:'total-pattern-limit'};
                 const mandatoryTarget=ryu?(targetByUid[String(ryu.baseUid||'')]??-1):-1;
                 const needs=v8ModeNeeds(m);
-                return {supported:true,owners,targets,targetByUid,totalPatterns,hands,mode:m,mandatoryTarget,
+                return {supported:true,owners,targets,targetByUid,totalPatterns,hands,mode:m,mandatoryTarget,_cfgBundleClassExact:!(cfg&&cfg.bundleClassExact===false),
                     needHoly2:needs.holy2,needToki2:needs.toki2,
                     maxCost10:cfg.maxTotalCost>=0?Math.round(Number(cfg.maxTotalCost)*10):-1,
                     maxCards:cfg.maxUniqueCards>0?Math.floor(cfg.maxUniqueCards):0,
@@ -3361,9 +3604,116 @@ function minSearchWorkerMainV6236() {
                 }
                 return {hands:sh,holy:hh,toki:tt,contrib:sc};
             }
+            // V8.3.3 Bundle-Class Exact compression.
+            // 完全に交換可能な物理owner群について、ownerラベルの置換だけが異なるpattern割当を
+            // 1つの正準順序へ畳み込む。元問題の各解はクラス内owner置換で正準代表へ写せ、
+            // 正準代表はそのまま元問題の実owner解なので、成立/不成立ともExact性を失わない。
+            function v8LocalPatternSignature(p){
+                return Array.from(p&&p.uses||[]).map(x=>Math.max(0,Math.floor(Number(x)||0))).join(',')+'|'+
+                    Math.max(0,Math.floor(Number(p&&p.hands)||0))+'|'+(p&&p.active?1:0)+'|'+(p&&p.holy2?1:0)+'|'+(p&&p.toki2?1:0);
+            }
+            function v8OwnerBundleBaseSignature(o){
+                if(!o)return 'null';
+                const members=(o.members||[]).map(simpleFunctionalKey).join('||');
+                const pats=(o.patterns||[]).map(v8LocalPatternSignature).sort().join(';;');
+                return Number(o.cost||0).toFixed(6)+'#'+members+'#'+pats;
+            }
+            function v8BuildBundleClassSymmetry(model,state){
+                const O=(model&&model.owners||[]).length;
+                const classId=new Int16Array(O);classId.fill(-1);
+                if(model&&model._cfgBundleClassExact===false)return {classId,rankMaps:new Array(O),classSizes:[],classCount:0,compressedOwners:0};
+                const rankMaps=new Array(O);
+                const classSizes=[];
+                const candidate=new Map();
+                for(let oi=0;oi<O;oi++){
+                    const o=model.owners[oi];
+                    // CardNo排他群・龍肝等のmandatory ownerはラベル交換できないので個別のまま。
+                    if(!o||Number(o.cardGroup||0)>0||Number(o.mandatoryLocal)>=0)continue;
+                    const k=v8OwnerBundleBaseSignature(o);
+                    if(!candidate.has(k))candidate.set(k,[]);candidate.get(k).push(oi);
+                }
+                const flat=[];
+                for(let oi=0;oi<O;oi++)for(let li=0;li<(model.owners[oi].members||[]).length;li++)flat.push({oi,li,info:model.owners[oi].members[li]});
+                const mechCache=model._bundleExchangeCache||(model._bundleExchangeCache=new Map());
+                function swappedInfo(e,a,b){
+                    if(e.oi===a)return model.owners[b].members[e.li];
+                    if(e.oi===b)return model.owners[a].members[e.li];
+                    return e.info;
+                }
+                function exchangeableOwners(a,b){
+                    const ck=a<b?(a+'|'+b):(b+'|'+a);
+                    const A=model.owners[a],B=model.owners[b];
+                    if(!A||!B||a===b)return false;
+                    if(Number(A.cardGroup||0)>0||Number(B.cardGroup||0)>0)return false;
+                    if(Number(A.mandatoryLocal)>=0||Number(B.mandatoryLocal)>=0)return false;
+                    if(Math.abs(Number(A.cost||0)-Number(B.cost||0))>1e-9)return false;
+                    if((A.members||[]).length!==(B.members||[]).length)return false;
+                    for(let li=0;li<A.members.length;li++){
+                        if(simpleFunctionalKey(A.members[li])!==simpleFunctionalKey(B.members[li]))return false;
+                        if(Math.abs(Number(need(A.members[li]))-Number(need(B.members[li])))>1e-9)return false;
+                    }
+                    const ap=(A.patterns||[]).map(v8LocalPatternSignature).sort(),bp=(B.patterns||[]).map(v8LocalPatternSignature).sort();
+                    if(ap.length!==bp.length)return false;for(let i=0;i<ap.length;i++)if(ap[i]!==bp[i])return false;
+                    if(mechCache.has(ck))return mechCache.get(ck);
+                    // owner交換が全externalContribution行列の自己同型であることを実値で確認。
+                    // self-excluded / 同owner / 同一skillの例外もここで直接検証される。
+                    for(const se of flat){
+                        const sa=swappedInfo(se,a,b);
+                        for(const te of flat){
+                            const ta=swappedInfo(te,a,b);
+                            if(Number(externalContribution(se.info,te.info)||0)!==Number(externalContribution(sa,ta)||0)){mechCache.set(ck,false);return false;}
+                        }
+                    }
+                    mechCache.set(ck,true);return true;
+                }
+                const eqGroups=[];
+                for(const xs of candidate.values()){
+                    if(xs.length<2)continue;
+                    const local=[];
+                    for(const oi of xs){
+                        let placed=false;
+                        for(const g of local){
+                            let ok=true;for(const j of g)if(!exchangeableOwners(oi,j)){ok=false;break;}
+                            if(ok){g.push(oi);placed=true;break;}
+                        }
+                        if(!placed)local.push([oi]);
+                    }
+                    for(const g of local)if(g.length>1)eqGroups.push(g);
+                }
+                let cid=0,compressed=0;
+                for(const g of eqGroups){
+                    // pattern signature順を全owner共通の正準rankとする。
+                    const sigs=(model.owners[g[0]].patterns||[]).map(v8LocalPatternSignature).sort();
+                    const rank=new Map();sigs.forEach((x,i)=>rank.set(x,i));
+                    for(const oi of g){
+                        classId[oi]=cid;const rm=new Map();for(const p of model.owners[oi].patterns||[])rm.set(p,rank.get(v8LocalPatternSignature(p)));rankMaps[oi]=rm;
+                    }
+                    classSizes[cid]=g.length;compressed+=g.length-1;cid++;
+                }
+                if(state){
+                    state.v8BundleOwners=O;state.v8BundleClasses=cid;state.v8BundleCompressedOwners=compressed;
+                    state.v8BundleClassMembers=eqGroups.reduce((z,g)=>z+g.length,0);
+                }
+                return {classId,rankMaps,classSizes,classCount:cid,compressedOwners:compressed};
+            }
+            function v8BuildBundleClassSymmetrySafe(model,state){
+                try{return v8BuildBundleClassSymmetry(model,state);}
+                catch(err){
+                    if(state){state.v8BundleFallbacks=(state.v8BundleFallbacks||0)+1;state.v8BundleOwners=(model&&model.owners||[]).length;state.v8BundleClasses=0;state.v8BundleCompressedOwners=0;state.v8BundleClassMembers=0;}
+                    const O=(model&&model.owners||[]).length,c=new Int16Array(O);c.fill(-1);
+                    try{console.warn('Bundle-Class圧縮を安全側に無効化して従来V8へフォールバック',err);}catch(_){}
+                    return {classId:c,rankMaps:new Array(O),classSizes:[],classCount:0,compressedOwners:0,fallback:true};
+                }
+            }
+            function v8BundlePatternAllowed(sym,oi,p,lastRank){
+                const cid=sym&&sym.classId?Number(sym.classId[oi]):-1;if(cid<0)return {ok:true,cid:-1,old:-1,rank:-1};
+                const rm=sym.rankMaps[oi],r=rm&&rm.has(p)?Number(rm.get(p)):-1;if(r<0)return {ok:false,cid,old:lastRank[cid],rank:r};
+                const old=lastRank[cid];return {ok:old<0||r>=old,cid,old,rank:r};
+            }
             function v8JsIpSolve(model,baseMap,m,state,cfg){
                 const O=model.owners.length,T=model.targets.length,suf=v8BuildSuffix(model);
                 const contrib=new Int32Array(T),uses=new Int8Array(T),choices=new Array(O),groups=new Int16Array(98);
+                const bundleSym=v8BuildBundleClassSymmetrySafe(model,state),bundleLast=new Int16Array(Math.max(1,bundleSym.classCount));bundleLast.fill(-1);
                 const nodeBudget=Math.max(1,Math.floor(Number(cfg.ipNodeBudget)||1200000));
                 let nodes=0,hitBudget=false,staticFeasible=0,best=null,orderUnknown=false,stop=false,bestCost10=Number.POSITIVE_INFINITY,bestCards=Number.POSITIVE_INFINITY;
                 function prefixOk(depth,hands,cost10,cards,h2,t2){
@@ -3418,13 +3768,16 @@ function minSearchWorkerMainV6236() {
                     for(const p of o.patterns){
                         if(stop||hitBudget||cancelled)return;
                         if(model.mandatoryTarget>=0&&model.targets[model.mandatoryTarget].ownerIndex===depth){const loc=model.targets[model.mandatoryTarget].localIndex;if((p.uses[loc]||0)<=0)continue;}
-                        let setGroup=false;if(p.active&&g>0){if(groups[g]&&groups[g]!==depth+1)continue;if(!groups[g]){groups[g]=depth+1;setGroup=true;}}
+                        const bc=v8BundlePatternAllowed(bundleSym,depth,p,bundleLast);
+                        if(!bc.ok){state.v8BundleSymmetryPruned=(state.v8BundleSymmetryPruned||0)+1;continue;}
+                        if(bc.cid>=0)bundleLast[bc.cid]=bc.rank;
+                        let setGroup=false;if(p.active&&g>0){if(groups[g]&&groups[g]!==depth+1){if(bc.cid>=0)bundleLast[bc.cid]=bc.old;continue;}if(!groups[g]){groups[g]=depth+1;setGroup=true;}}
                         for(let li=0;li<o.members.length;li++){const u=p.uses[li]||0;if(u){const ti=model.targetByUid[o.members[li].baseUid];uses[ti]=u;}}
                         for(let ti=0;ti<T;ti++)contrib[ti]+=p.contrib[ti]||0;choices[depth]=p;
                         dfs(depth+1,hands+p.hands,cost10+(p.active?Math.round(o.cost*10):0),cards+(p.active?1:0),h2||p.holy2,t2||p.toki2);
                         for(let ti=0;ti<T;ti++)contrib[ti]-=p.contrib[ti]||0;
                         for(let li=0;li<o.members.length;li++)if((p.uses[li]||0)>0){const ti=model.targetByUid[o.members[li].baseUid];uses[ti]=0;}
-                        choices[depth]=null;if(setGroup)groups[g]=0;
+                        choices[depth]=null;if(setGroup)groups[g]=0;if(bc.cid>=0)bundleLast[bc.cid]=bc.old;
                     }
                 }
                 dfs(0,0,0,0,false,false);
@@ -3432,7 +3785,7 @@ function minSearchWorkerMainV6236() {
                 return {found:best,complete:!hitBudget&&!stop,exhausted:!hitBudget&&!stop,hitBudget,stoppedOnSolution:!!stop,staticFeasible,orderUnknown,nodes};
             }
 
-            // V8.2.9: H手固定の静的Support/強制伝播。
+            // V8.3.3: H手固定の静的Support/強制伝播。
             // 実循環問題より有利な「owner-pattern整数制約＋集約CT＋CardNo＋4bin」の静的問題だけを見る。
             // その静的緩和ですら「Xを使わない」解が存在しない場合、真の循環解でもXは必須。
             // 同様に「Xを1回以下」で静的解が存在しなければXは2回使用必須。
@@ -3457,6 +3810,7 @@ function minSearchWorkerMainV6236() {
                 for(const o of model.owners)if(!(o.patterns&&o.patterns.length))return {feasible:false,complete:true,hitBudget:false,nodes:0,usage:null,reason:'empty-domain'};
                 const suf=v8BuildSuffix(model);
                 const contrib=new Int32Array(T),uses=new Int8Array(T),choices=new Array(O),groups=new Int16Array(98);
+                const bundleSym=v8BuildBundleClassSymmetrySafe(model,state),bundleLast=new Int16Array(Math.max(1,bundleSym.classCount));bundleLast.fill(-1);
                 const budget=Math.max(20000,Math.floor(Number(cfg&&cfg.forcedPropagationNodeBudget)||250000));
                 let nodes=0,hitBudget=false,foundUsage=null;
                 const baseNodes=Number(state&&state.forcedPropagationNodes)||0;
@@ -3505,9 +3859,12 @@ function minSearchWorkerMainV6236() {
                             const loc=model.targets[model.mandatoryTarget].localIndex;
                             if((p.uses[loc]||0)<=0)continue;
                         }
+                        const bc=v8BundlePatternAllowed(bundleSym,depth,p,bundleLast);
+                        if(!bc.ok){if(state)state.v8BundleSymmetryPruned=(state.v8BundleSymmetryPruned||0)+1;continue;}
+                        if(bc.cid>=0)bundleLast[bc.cid]=bc.rank;
                         let setGroup=false;
                         if(p.active&&g>0){
-                            if(groups[g]&&groups[g]!==depth+1)continue;
+                            if(groups[g]&&groups[g]!==depth+1){if(bc.cid>=0)bundleLast[bc.cid]=bc.old;continue;}
                             if(!groups[g]){groups[g]=depth+1;setGroup=true;}
                         }
                         for(let li=0;li<o.members.length;li++){
@@ -3521,7 +3878,7 @@ function minSearchWorkerMainV6236() {
                         for(let li=0;li<o.members.length;li++)if((p.uses[li]||0)>0){
                             const ti=model.targetByUid[o.members[li].baseUid];uses[ti]=0;
                         }
-                        choices[depth]=null;if(setGroup)groups[g]=0;
+                        choices[depth]=null;if(setGroup)groups[g]=0;if(bc.cid>=0)bundleLast[bc.cid]=bc.old;
                     }
                 }
                 pulse(true);dfs(0,0,0,0,false,false);pulse(true);
@@ -3671,7 +4028,7 @@ function minSearchWorkerMainV6236() {
             function searchModeV8(baseInfos,baseMap,m,hands,ryu,state,cfg){
                 let model=buildV8IpModel(baseInfos,baseMap,m,hands,ryu,cfg);if(!model.supported)return {supported:false,reason:model.reason};
                 state.v8ProofStatus='forced-propagation';state.v8IpModelOwners=model.owners.length;state.v8IpModelPatterns=model.totalPatterns;
-                // V8.2.9: exact段階ではTopologyへ入る前に、H手静的緩和で証明できる必須イベント/2回目/カードを固定。
+                // V8.3.3: exact段階ではTopologyへ入る前に、H手静的緩和で証明できる必須イベント/2回目/カードを固定。
                 // Discoveryでは成立Witness発見を遅らせないため省略。副目的の境界scanでは forcedPropagationInScan=true のとき有効化。
                 if(cfg.forcedPropagation!==false && (!cfg.scanOnly || cfg.forcedPropagationInScan===true) && cfg.proofStaticCyclic!==false){
                     const fp=v8ForcedUsagePropagation(model,baseMap,m,state,cfg);
@@ -3682,7 +4039,7 @@ function minSearchWorkerMainV6236() {
                     model=fp.model||model;
                     state.v8IpModelPatterns=model.totalPatterns;
                 }
-                state.workStage='v8-ip';state.v8ProofStatus='js-ip';state.label=hands+'手 / '+(m&&m.label||'')+' / V8整数制約（強制伝播後）';progress(state,state.label,true);
+                state.workStage='v8-ip';state.v8ProofStatus='js-ip';state.label=hands+'手 / '+(m&&m.label||'')+' / V8整数制約（強制伝播後・Bundle同値圧縮）';progress(state,state.label,true);
                 const js=v8JsIpSolve(model,baseMap,m,state,cfg);
                 if(js.found&&!js.found.staticOnly){state.v8ProofStatus='成立';return {supported:true,found:js.found,proofStatus:'found',complete:js.exhausted&&!js.orderUnknown};}
                 if(cfg.scanOnly&&js.found&&js.found.staticOnly){state.v8ProofStatus='静的成立候補';return {supported:true,found:null,proofStatus:'static-feasible',complete:true};}
@@ -3725,7 +4082,7 @@ function minSearchWorkerMainV6236() {
                     bestSolution:cp&&cp.bestSolution?cp.bestSolution:null,solutionPareto:cp&&Array.isArray(cp.solutionPareto)?cp.solutionPareto.slice():[],_cfg:cfg,
                     planStage:cfg.cardPlanOnly?'静的使用構成全走査':'',planOwnerUniverse:Array.from(new Set((baseInfos||[]).map(i=>String(i.ownerKey||'')))),planOwnerChecked:0,planOwnerTotal:0,planRawPrefilter:0,planResourcePass:0,planAggregatePass:0,planCyclicPass:0,planShapeCount:0,planMinUnique:Infinity,planShapeMap:new Map(),planOmittedSets:new Map(),planShapeOverflow:false};
                 state.planOwnerTotal=state.planOwnerUniverse.length;
-                state.v8IpNodes=0;state.v8StaticFeasible=0;state.v8WasmNodes=0;state.v8ProofStatus='';state.forcedPropagationNodes=0;state.forcedPropagationTests=0;state.forcedPropagationUnknown=0;state.forcedPropagationForcedOne=0;state.forcedPropagationForcedTwo=0;state.forcedPropagationForcedOwners=0;state.forcedPropagationRounds=0;state.forcedPropagationPatternsBefore=0;state.forcedPropagationPatternsAfter=0;state.forcedPropagationWasmTests=0;
+                state.v8IpNodes=0;state.v8StaticFeasible=0;state.v8WasmNodes=0;state.memoryGuardCacheClears=0;state.v8ProofStatus='';state.v8BundleOwners=0;state.v8BundleClasses=0;state.v8BundleCompressedOwners=0;state.v8BundleClassMembers=0;state.v8BundleSymmetryPruned=0;state.v8BundleFallbacks=0;state.forcedPropagationNodes=0;state.forcedPropagationTests=0;state.forcedPropagationUnknown=0;state.forcedPropagationForcedOne=0;state.forcedPropagationForcedTwo=0;state.forcedPropagationForcedOwners=0;state.forcedPropagationRounds=0;state.forcedPropagationPatternsBefore=0;state.forcedPropagationPatternsAfter=0;state.forcedPropagationWasmTests=0;
                 // F(H,C,K) 共通のproof-safe固定点。手数固定に加え、C/K上限がある副目的探索でも
                 // その制約下でtargetが絶対に戻らないならexactへ入る前に不成立証明できる。
                 const bfp=handCappedModePotentiallyViable(baseInfos,m,ryu,hands,false,cfg,state);
@@ -3855,7 +4212,7 @@ function minSearchWorkerMainV6236() {
                 if(msg.type==='cancel'){cancelled=true;return;}
                 if(msg.type!=='start')return;
                 cancelled=false;
-                const baseInfos=msg.baseInfos||[], cfg=Object.assign({selectionNodeBudget:120000,repeatNodeBudget:30000,orderTestBudget:25000,maxPermutationsPerSelection:5000,maxGroupedPartitions:5000,maxHands:0,optimizeSameHands:true,passId:1,phase:'minHands',objectiveLabel:'最小手数探索',targetHands:0,minUniqueCards:0,maxUniqueCards:0,maxTotalCost:-1,resumeOrderOffset:0,scanOnly:false,incumbentMetrics:null,quickSeed:true,cardPlanOnly:false,maxPlanShapes:20000,usageCandidates:null,perShapeOrderBudget:2000,shapeStartIndex:0,shapeResumeOrderOffset:0,exactRepeatedPermutationThreshold:8,exactRepeatedTopologyThreshold:4,maxRepeatedTopologies:5000,maxGeneralGapStates:240000,maxManyTopologyRepeated:18,maxManyTopologyNodes:1200000,maxManyTopologyLeaves:8000,maxManyTopologyMemoStates:120000,maxManyTopologyMemoProblems:12,maxManyTopologyMemoGlobalStates:300000,manyTopologyExact:true,forcedPropagation:true,forcedPropagationInScan:false,maxForcedPropagationTests:72,maxForcedPropagationRounds:3,maxForcedPropagationOwnerTests:20,forcedPropagationNodeBudget:250000,maxForcedPropagationWasmTests:6,forcedPropagationWasmNodeBudget:5000000,maxGapFixedPointStates:320000,gapFixedPointLowerBound:true,proofStaticCyclic:false,modeIds:null,cardPatternSearch:true,normalEffectDP:true,maxNormalEffectDpStates:140000,maxMultiDpStates:180000,resumeCheckpoint:null,maxParetoSolutions:256,v8IpSearch:true,ipNodeBudget:1200000,wasmExact:true,wasmNodeBudget:50000000,ipStopOnFirst:true,directObjectiveBound:false},msg.config||{});
+                const baseInfos=msg.baseInfos||[], cfg=Object.assign({selectionNodeBudget:120000,repeatNodeBudget:30000,orderTestBudget:25000,maxPermutationsPerSelection:5000,maxGroupedPartitions:5000,maxHands:0,optimizeSameHands:true,passId:1,phase:'minHands',objectiveLabel:'最小手数探索',targetHands:0,minUniqueCards:0,maxUniqueCards:0,maxTotalCost:-1,resumeOrderOffset:0,scanOnly:false,incumbentMetrics:null,quickSeed:true,cardPlanOnly:false,maxPlanShapes:20000,usageCandidates:null,perShapeOrderBudget:2000,shapeStartIndex:0,shapeResumeOrderOffset:0,exactRepeatedPermutationThreshold:8,exactRepeatedTopologyThreshold:4,maxRepeatedTopologies:5000,maxGeneralGapStates:240000,maxManyTopologyRepeated:18,maxManyTopologyNodes:1200000,maxManyTopologyLeaves:8000,manyTopologyAdaptiveLeaf:true,maxManyTopologyLeafPasses:5,manyTopologyLeafGrowth:2,maxManyTopologyLeafCeiling:128000,maxManyTopologyMemoStates:50000,maxManyTopologyMemoProblems:6,maxManyTopologyMemoGlobalStates:90000,manyTopologyExact:true,bundleClassExact:true,targetClassExact:true,forcedPropagation:true,forcedPropagationInScan:false,maxForcedPropagationTests:72,maxForcedPropagationRounds:3,maxForcedPropagationOwnerTests:20,forcedPropagationNodeBudget:250000,maxForcedPropagationWasmTests:6,forcedPropagationWasmNodeBudget:5000000,maxGapFixedPointStates:320000,gapFixedPointLowerBound:true,proofStaticCyclic:false,modeIds:null,cardPatternSearch:true,normalEffectDP:true,maxNormalEffectDpStates:140000,maxMultiDpStates:180000,resumeCheckpoint:null,maxParetoSolutions:256,v8IpSearch:true,ipNodeBudget:1200000,wasmExact:true,wasmNodeBudget:50000000,ipStopOnFirst:true,directObjectiveBound:false},msg.config||{});
                 const runModes=(Array.isArray(cfg.modeIds)&&cfg.modeIds.length)?modes.filter(m=>cfg.modeIds.includes(m.id)):modes;
                 ownerCounts=buildOwnerCounts(baseInfos);
                 cardNoOwnerCounts=buildCardNoOwnerCounts(baseInfos);
@@ -3912,19 +4269,25 @@ function minSearchWorkerMainV6236() {
                     'V7 Effect Matrix: '+effectN+'×'+effectN+'（数理探索用。最終物理CTシミュレータとは独立実装）',
                     'V7.2 通常効果量DP: 1周1回モードを 手数/総供給/局所必要閾値/コスト/カード枚数 のPareto状態で厳密圧縮',
                     'V7.2 再使用区間DP: singleのtarget別寄与ベクトルを多次元DPでmiddle/tailへ分割',
-                    'V8.2.9 AuditProofFlow 全区間Gap: 再使用4種以下は循環topology完全列挙＋single全slot配置DP。入れ子/交差/周回境界も同一モデルで検証',
-                    'V8.2.9 AuditProofFlow 事前固定点: H手内で各再使用targetの2区間へ自由配分してもCT不足なら2回使用不可へ降格し、供給上界を固定点再計算',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 全区間Gap: 再使用4種以下は循環topology完全列挙＋single全slot配置DP。入れ子/交差/周回境界も同一モデルで検証',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 事前固定点: H手内で各再使用targetの2区間へ自由配分してもCT不足なら2回使用不可へ降格し、供給上界を固定点再計算',
                     'V7.2 Checkpoint/Pareto: owner境界または使用構成+順序offsetから再開 / 成立確認済みPareto解を後続最適化へ再利用',
-                    'V8.2.9 AuditProofFlow exact 使用構成: owner-pattern整数制約(JS)で 手数/CT不等式/cardNo/コスト/カード数/再使用条件 を直接解く',
-                    'V8.2.9 AuditProofFlow 証明フロー: Discoveryは成立解発見に限定し、全モード証明なしの下限一致を手数確定へ昇格しない。手数確定後は最低コスト→同コスト内最少カードを辞書式に証明',
-                    'V8.2.9 AuditProofFlow 副目的証明: コスト/カード境界scanにも強制伝播を適用し、scan未完走時も循環Exactへ継続。任意の8/30回反復上限は撤廃',
-                    'V8.2.9 AuditProofFlow H手強制伝播: 静的成立Witnessに含まれるイベントだけを不使用/1回以下で再検証し、緩和問題でも不成立なら1回必須/2回必須/カード必須としてdomain固定',
-                    'V8.2.9 AuditProofFlow endpoint B&B: 再使用5〜18種を未登場/開区間/閉区間で構築し、閉区間single subset上界・完全同値target対称性で枝刈り',
-                    'V8.2.9 AuditProofFlow 支配memo: 同じ残使用状態で、gap供給が全成分以上かつ利用可能slot型が上位集合のdead-stateを証明安全に再利用',
-                    'V8.2.9 AuditProofFlow LRU: 複数Topology問題のdead-stateを全体上限付きで保持し、3問題超の往復でも証明済み枝を再利用',
-                    'V8.2.9 AuditProofFlow exact fallback: JS上限時のみ埋込WASM exact solverで静的使用構成の存在/不存在を独立検証',
-                    'V8.2.9 AuditProofFlow 判定: 成立=独立CT実検証済 / 不成立証明=全対象をexactに否定 / 未確定=静的構成あり順序未証明またはexact上限',
-                    'V8.2.9 AuditProofFlow Repeated: 4種以下は全循環topology列挙 / 5〜18種はendpoint Branch-and-Bound＋single全slot Gap DPでexact確認。予算超過だけ未確定',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact 使用構成: owner-pattern整数制約(JS)で 手数/CT不等式/cardNo/コスト/カード数/再使用条件 を直接解く',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact Bundle圧縮: コスト・カード全体機能・pattern domain・相互寄与が完全交換可能なowner群はpattern割当を正準化し、同じ使用pattern個数構成を1回だけExact検証。mandatory/CardNo排他は個別保持、判定不能時は従来V8へfallback',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact Topology圧縮: need・再使用相互寄与・single寄与が完全交換可能な再使用target群について、動的gap状態とslot所属履歴を含むlabel置換正準memo＋同一orbit action代表化を行う。入れ子/交差など非同値topologyは保持し、判定不能時は従来label付きTopologyへfallback',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 段階leaf再開: ManyTopologyがleaf上限だけに到達した場合、同一問題・同一dead-state memoを保持したまま 12k→24k→48k→96k→192k と段階拡張。途中上限は未完走に数えず、最終上限でも未完走の問題だけ未証明として残す',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact メモリ保護: 長時間の全モードExactは1 Workerで順次実行。ManyTopology memoは1問題5万/全体9万/6問題、供給上界6000、deck-pack 3万、不成立problem 1000を上限に古い再利用cacheを破棄。cache破棄は再計算を増やすだけで証明条件は不変',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 3工程UI: 成立解確保後、短手数・固定手数コスト・条件内カード枚数を各最大10分。現在工程/残り時間/工程別スキップボタンを表示。一時停止中は工程時間も停止',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 条件付き証明: 手数またはコストを未証明/スキップでも後工程へ進み、固定した採用手数・採用コスト上限の範囲で証明できた副目的だけを条件付き確定として表示',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 証明フロー: Discoveryで成立解を確保後、短手数→固定手数コスト→条件内カード枚数を各最大10分。前工程が未証明/スキップでも採用値を固定して次工程へ進み、証明できた範囲だけ条件付き確定とする',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 副目的証明: コスト/カード境界scanにも強制伝播を適用し、scan未完走時も循環Exactへ継続。任意の8/30回反復上限は撤廃',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact H手強制伝播: 静的成立Witnessに含まれるイベントだけを不使用/1回以下で再検証し、緩和問題でも不成立なら1回必須/2回必須/カード必須としてdomain固定',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact endpoint B&B: 再使用5〜18種を未登場/開区間/閉区間で構築し、閉区間single subset上界・完全同値target対称性で枝刈り',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 支配memo: 同じ残使用状態で、gap供給が全成分以上かつ利用可能slot型が上位集合のdead-stateを証明安全に再利用',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact LRU: 複数Topology問題のdead-stateを全体上限付きで保持し、3問題超の往復でも証明済み枝を再利用',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact fallback: JS上限時のみ埋込WASM exact solverで静的使用構成の存在/不存在を独立検証',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 判定: 成立=独立CT実検証済 / 不成立証明=全対象をexactに否定 / 未確定=静的構成あり順序未証明またはexact上限',
+                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact Repeated: 4種以下は全循環topology列挙 / 5〜18種はendpoint Branch-and-Bound＋single全slot Gap DPでexact確認。予算超過だけ未確定',
                     '現在の探索目的: '+(cfg.objectiveLabel||cfg.phase)+(cfg.targetHands?(' / '+cfg.targetHands+'手固定'):'')+(cfg.maxUniqueCards>0?(' / '+cfg.maxUniqueCards+'枚以下'):'' )+(cfg.maxTotalCost>=0?(' / '+fmtNum(cfg.maxTotalCost,1)+'C以下'):''),
                     '機能等価グループ: '+baseInfos.length+'候補 → '+allGroups.length+'群（安全に圧縮できる単一候補ownerのみ / owner構成 '+ownerProfileKinds+'種）',
                     '理論下限: '+runModes.map(m=>m.label+'='+(Number.isFinite(lbs[m.id])?lbs[m.id]+'手':'不可')+' / 最大'+modeMax[m.id]+'手').join(' | '),
@@ -4133,6 +4496,7 @@ function minSearchWorkerMainV6236() {
             };
         }
 
+const PHASE_LIMIT_MS=10*60*1000;
 const searchControl={
   mode:'idle',
   activeRun:null,
@@ -4144,59 +4508,124 @@ const searchControl={
   lastProgressReceivedAt:0,
   searchStartedAt:0,
   heartbeatTimer:null,
+  phase:null,
+  finalPhaseSummary:null,
   begin(){
-    this.mode='running';this.activeRun=null;this.cancelRequested=false;this.waiters=[];this.lastProgress=null;this.currentIncumbentMetrics=null;this.currentIncumbentProof=null;
+    this.mode='running';this.activeRun=null;this.cancelRequested=false;this.waiters=[];this.lastProgress=null;this.currentIncumbentMetrics=null;this.currentIncumbentProof=null;this.phase=null;this.finalPhaseSummary=null;
     this.searchStartedAt=Date.now();this.lastProgressReceivedAt=Date.now();
     if(this.heartbeatTimer)clearInterval(this.heartbeatTimer);
     this.heartbeatTimer=setInterval(()=>refreshProgressHeartbeat(),1000);
-    updateSearchControlUi();
+    updateSearchControlUi();updateCurrentPhaseUi();
+  },
+  _clearPhaseTimer(){
+    if(this.phase&&this.phase.timer){clearTimeout(this.phase.timer);this.phase.timer=null;}
+  },
+  _armPhaseTimer(){
+    this._clearPhaseTimer();
+    const ph=this.phase;if(!ph||!ph.skippable||ph.done||ph.abortKind||this.mode!=='running')return;
+    const ms=Math.max(0,Number(ph.remainingMs)||0);
+    ph.deadline=Date.now()+ms;
+    ph.timer=setTimeout(()=>{
+      if(!this.phase||this.phase!==ph||ph.done||ph.abortKind)return;
+      ph.remainingMs=0;ph.deadline=0;ph.abortKind='phase-timeout';ph.outcome='timeout';ph.timer=null;
+      if(this.activeRun&&typeof this.activeRun.stop==='function')this.activeRun.stop('phase-timeout');
+      updateSearchControlUi();updateCurrentPhaseUi();
+    },Math.max(1,ms));
+  },
+  beginPhase(key,title,skipLabel,step,total=3,limitMs=PHASE_LIMIT_MS,extra=''){
+    this._clearPhaseTimer();
+    this.phase={key,title,skipLabel,step,total,limitMs,remainingMs:limitMs,deadline:0,timer:null,abortKind:'',outcome:'running',done:false,extra,skippable:true};
+    this._armPhaseTimer();updateSearchControlUi();updateCurrentPhaseUi();
+  },
+  beginUntimedPhase(key,title,extra=''){
+    this._clearPhaseTimer();
+    this.phase={key,title,skipLabel:'',step:0,total:3,limitMs:0,remainingMs:0,deadline:0,timer:null,abortKind:'',outcome:'running',done:false,extra,skippable:false};
+    updateSearchControlUi();updateCurrentPhaseUi();
+  },
+  updatePhase(title,extra=''){
+    if(!this.phase)return;if(title)this.phase.title=title;this.phase.extra=extra||'';updateCurrentPhaseUi();
+  },
+  phaseAbortKind(){return this.phase&&this.phase.abortKind||'';},
+  finishPhase(outcome){
+    if(!this.phase)return null;
+    const ph=this.phase;this._clearPhaseTimer();
+    if(ph.deadline&&this.mode==='running')ph.remainingMs=Math.max(0,ph.deadline-Date.now());
+    ph.deadline=0;ph.done=true;ph.outcome=outcome||ph.outcome||'done';
+    updateSearchControlUi();updateCurrentPhaseUi();return {...ph,timer:null};
+  },
+  clearPhase(){this._clearPhaseTimer();this.phase=null;updateSearchControlUi();updateCurrentPhaseUi();},
+  skipPhase(){
+    const ph=this.phase;if(!ph||!ph.skippable||ph.done||ph.abortKind||this.mode!=='running')return;
+    if(ph.deadline)ph.remainingMs=Math.max(0,ph.deadline-Date.now());
+    this._clearPhaseTimer();ph.deadline=0;ph.abortKind='phase-skip';ph.outcome='skipped';
+    if(this.activeRun&&typeof this.activeRun.stop==='function')this.activeRun.stop('phase-skip');
+    updateSearchControlUi();updateCurrentPhaseUi();
   },
   pause(){
     if(this.mode!=='running')return;
+    const ph=this.phase;if(ph&&ph.skippable&&!ph.done&&!ph.abortKind){if(ph.deadline)ph.remainingMs=Math.max(0,ph.deadline-Date.now());this._clearPhaseTimer();ph.deadline=0;}
     this.mode='paused';
     if(this.activeRun&&typeof this.activeRun.stop==='function')this.activeRun.stop('pause');
-    updateSearchControlUi();
-    const lab=document.getElementById('progressLabel');
-    if(lab)lab.textContent='一時停止中';
+    updateSearchControlUi();updateCurrentPhaseUi();
+    const lab=document.getElementById('progressLabel');if(lab)lab.textContent='一時停止中';
   },
   resume(){
     if(this.mode!=='paused')return;
-    this.mode='running';
-    const ws=this.waiters.splice(0);
-    ws.forEach(fn=>fn('resume'));
-    updateSearchControlUi();
-    const lab=document.getElementById('progressLabel');
-    if(lab)lab.textContent='再開中（チェックポイントから継続）';
+    this.mode='running';this._armPhaseTimer();
+    const ws=this.waiters.splice(0);ws.forEach(fn=>fn('resume'));
+    updateSearchControlUi();updateCurrentPhaseUi();
+    const lab=document.getElementById('progressLabel');if(lab)lab.textContent='再開中（チェックポイントから継続）';
   },
   cancel(){
     if(this.mode!=='running'&&this.mode!=='paused')return;
-    this.cancelRequested=true;
-    this.mode='cancelled';
+    this.cancelRequested=true;this.mode='cancelled';this._clearPhaseTimer();
     if(this.activeRun&&typeof this.activeRun.stop==='function')this.activeRun.stop('cancel');
-    const ws=this.waiters.splice(0);
-    ws.forEach(fn=>fn('cancel'));
-    updateSearchControlUi();
+    const ws=this.waiters.splice(0);ws.forEach(fn=>fn('cancel'));
+    updateSearchControlUi();updateCurrentPhaseUi();
   },
   finish(){
-    this.activeRun=null;this.waiters.splice(0).forEach(fn=>fn('cancel'));
-    this.mode='idle';this.cancelRequested=false;this.lastProgress=null;
+    this.activeRun=null;this.waiters.splice(0).forEach(fn=>fn('cancel'));this._clearPhaseTimer();
+    this.mode='idle';this.cancelRequested=false;this.lastProgress=null;this.phase=null;
     if(this.heartbeatTimer){clearInterval(this.heartbeatTimer);this.heartbeatTimer=null;}
-    updateSearchControlUi();
+    updateSearchControlUi();updateCurrentPhaseUi();
   }
 };
+function phaseRemainingMs(){
+  const ph=searchControl.phase;if(!ph||!ph.skippable)return 0;
+  if(ph.done||ph.abortKind)return Math.max(0,Number(ph.remainingMs)||0);
+  if(searchControl.mode==='running'&&ph.deadline)return Math.max(0,ph.deadline-Date.now());
+  return Math.max(0,Number(ph.remainingMs)||0);
+}
+function updateCurrentPhaseUi(){
+  const ph=searchControl.phase;
+  const box=document.getElementById('phaseBox'),line=document.getElementById('currentPhaseLine'),time=document.getElementById('phaseTimeLine'),skip=document.getElementById('skipPhaseBtn');
+  if(box)box.className='phase-box'+(ph&&ph.outcome==='timeout'?' timeout':ph&&ph.outcome==='skipped'?' skipped':'');
+  if(!ph){
+    const fin=searchControl.finalPhaseSummary;
+    if(line)line.textContent=fin&&fin.line?fin.line:'現在の工程：—';if(time)time.textContent=fin&&fin.time?fin.time:'';
+    if(skip){skip.classList.add('hidden');skip.disabled=true;}return;
+  }
+  const step=ph.step>0?`工程 ${ph.step}/${ph.total} ｜ `:'事前工程 ｜ ';
+  if(line)line.textContent=step+'現在の工程：'+ph.title;
+  if(time){
+    if(!ph.skippable)time.textContent=(ph.extra?ph.extra+' ｜ ':'')+'成立解を確保した後、3つの最適化工程へ進みます。';
+    else{
+      const rem=phaseRemainingMs();
+      const status=ph.abortKind==='phase-timeout'?'10分上限に到達・次工程へ移行中':ph.abortKind==='phase-skip'?'ユーザー指定でスキップ・次工程へ移行中':ph.done?'工程終了':searchControl.mode==='paused'?'一時停止中（残り時間も停止）':`残り ${fmtElapsedSeconds(Math.ceil(rem/1000))} / 上限10分`;
+      time.textContent=(ph.extra?ph.extra+' ｜ ':'')+status;
+    }
+  }
+  if(skip){
+    if(ph.skippable){skip.classList.remove('hidden');skip.textContent=ph.skipLabel||'この工程をスキップ';skip.disabled=searchControl.mode!=='running'||ph.done||!!ph.abortKind;}
+    else{skip.classList.add('hidden');skip.disabled=true;}
+  }
+}
 function updateSearchControlUi(){
   const mode=searchControl.mode;
-  const pause=document.getElementById('pauseSearchBtn');
-  const resume=document.getElementById('resumeSearchBtn');
-  const cancel=document.getElementById('cancelSearchBtn');
-  if(pause)pause.disabled=mode!=='running';
-  if(resume)resume.disabled=mode!=='paused';
-  if(cancel)cancel.disabled=!(mode==='running'||mode==='paused');
-  const st=document.getElementById('searchState');
-  if(st){
-    st.className='search-state'+(mode==='paused'?' paused':mode==='cancelled'?' cancelled':'');
-    st.textContent=mode==='paused'?'一時停止中':mode==='cancelled'?'中止処理中':mode==='running'?'探索実行中':'';
-  }
+  const pause=document.getElementById('pauseSearchBtn'),resume=document.getElementById('resumeSearchBtn'),cancel=document.getElementById('cancelSearchBtn');
+  if(pause)pause.disabled=mode!=='running';if(resume)resume.disabled=mode!=='paused';if(cancel)cancel.disabled=!(mode==='running'||mode==='paused');
+  const st=document.getElementById('searchState');if(st){st.className='search-state'+(mode==='paused'?' paused':mode==='cancelled'?' cancelled':'');st.textContent=mode==='paused'?'一時停止中':mode==='cancelled'?'中止処理中':mode==='running'?'探索実行中':'';}
+  updateCurrentPhaseUi();
 }
 function waitForSearchResumeOrCancel(){
   if(searchControl.cancelRequested||searchControl.mode==='cancelled')return Promise.resolve('cancel');
@@ -4238,7 +4667,7 @@ function runV7WorkerOnce(baseInfos,config,onProgress){
 }
 function mergeParallelMinHandsResults(items){
   const results=items.map(x=>x.result).filter(Boolean);
-  const logs=['V8.2.9 AuditProofFlow exact マルチWorker: '+items.map(x=>x.modeId).join(' / ')+' を並列探索'];
+  const logs=['V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact マルチWorker: '+items.map(x=>x.modeId).join(' / ')+' を並列探索'];
   for(const x of items){
     logs.push('['+x.modeId+'] '+(x.result&&x.result.ok?'成立候補':'成立解なし/未完走'));
     if(x.result&&Array.isArray(x.result.logs))logs.push(...x.result.logs.map(v=>'['+x.modeId+'] '+v));
@@ -4300,8 +4729,8 @@ function runV7ParallelModesOnce(baseInfos,config,onProgress){
       selectionNodes:sum('selectionNodes'),orderTests:sum('orderTests'),orderEnumerated:sum('orderEnumerated'),
       repeatNodes:sum('repeatNodes'),candidateVisited:visited,candidateTotal:total,
       normalEffectDpStates:sum('normalEffectDpStates'),multiDpStates:sum('multiDpStates'),generalGapStates:sum('generalGapStates'),
-      gapFixedPointChecks:sum('gapFixedPointChecks'),gapFixedPointStates:sum('gapFixedPointStates'),gapFixedPointCurrentStates:Number(p&&p.gapFixedPointCurrentStates)||0,gapFixedPointCurrentLimit:Number(p&&p.gapFixedPointCurrentLimit)||0,gapFixedPointDowngraded:sum('gapFixedPointDowngraded'),gapFixedPointUnknown:sum('gapFixedPointUnknown'),generalGapCurrentStates:Number(p&&p.generalGapCurrentStates)||0,generalGapCurrentLimit:Number(p&&p.generalGapCurrentLimit)||0,repeatedTopologyVisited:sum('repeatedTopologyVisited'),manyTopologyNodes:sum('manyTopologyNodes'),manyTopologyLeaves:sum('manyTopologyLeaves'),manyTopologyPruned:sum('manyTopologyPruned'),manyTopologySymmetry:sum('manyTopologySymmetry'),manyTopologyMemoHits:sum('manyTopologyMemoHits'),manyTopologyMemoDominanceHits:sum('manyTopologyMemoDominanceHits'),manyTopologyMemoStores:sum('manyTopologyMemoStores'),manyTopologyMemoDominanceRemoved:sum('manyTopologyMemoDominanceRemoved'),manyTopologyMemoResident:sum('manyTopologyMemoResident'),manyTopologyMemoLimit:sum('manyTopologyMemoLimit'),manyTopologyMemoProblems:sum('manyTopologyMemoProblems'),manyTopologyMemoGlobalResident:sum('manyTopologyMemoGlobalResident'),manyTopologyMemoGlobalLimit:sum('manyTopologyMemoGlobalLimit'),manyTopologyMemoProblemEvictions:sum('manyTopologyMemoProblemEvictions'),manyTopologyResumeHits:sum('manyTopologyResumeHits'),manyTopologyProblemCacheHits:sum('manyTopologyProblemCacheHits'),manyTopologyProblemCacheStores:sum('manyTopologyProblemCacheStores'),manyTopologyCurrentLeaf:Number(p&&p.manyTopologyCurrentLeaf)||0,manyTopologyCurrentRepeated:Number(p&&p.manyTopologyCurrentRepeated)||0,
-      supplyBoundChecks:sum('supplyBoundChecks'),supplyBoundGroups:Number(p&&p.supplyBoundGroups)||0,v8IpNodes:sum('v8IpNodes'),v8WasmNodes:sum('v8WasmNodes'),v8StaticFeasible:sum('v8StaticFeasible'),forcedPropagationNodes:sum('forcedPropagationNodes'),forcedPropagationTests:sum('forcedPropagationTests'),forcedPropagationUnknown:sum('forcedPropagationUnknown'),forcedPropagationForcedOne:sum('forcedPropagationForcedOne'),forcedPropagationForcedTwo:sum('forcedPropagationForcedTwo'),forcedPropagationForcedOwners:sum('forcedPropagationForcedOwners'),forcedPropagationRounds:Math.max(0,...xs.map(x=>Number(x.forcedPropagationRounds)||0)),forcedPropagationPatternsBefore:sum('forcedPropagationPatternsBefore'),forcedPropagationPatternsAfter:sum('forcedPropagationPatternsAfter'),forcedPropagationWasmTests:sum('forcedPropagationWasmTests'),forcedPropagationCurrentNodes:Number(p&&p.forcedPropagationCurrentNodes)||0,forcedPropagationCurrentLimit:Number(p&&p.forcedPropagationCurrentLimit)||0,
+      gapFixedPointChecks:sum('gapFixedPointChecks'),gapFixedPointStates:sum('gapFixedPointStates'),gapFixedPointCurrentStates:Number(p&&p.gapFixedPointCurrentStates)||0,gapFixedPointCurrentLimit:Number(p&&p.gapFixedPointCurrentLimit)||0,gapFixedPointDowngraded:sum('gapFixedPointDowngraded'),gapFixedPointUnknown:sum('gapFixedPointUnknown'),generalGapCurrentStates:Number(p&&p.generalGapCurrentStates)||0,generalGapCurrentLimit:Number(p&&p.generalGapCurrentLimit)||0,repeatedTopologyVisited:sum('repeatedTopologyVisited'),manyTopologyNodes:sum('manyTopologyNodes'),manyTopologyLeaves:sum('manyTopologyLeaves'),manyTopologyPruned:sum('manyTopologyPruned'),manyTopologySymmetry:sum('manyTopologySymmetry'),manyTopologyMemoHits:sum('manyTopologyMemoHits'),manyTopologyMemoDominanceHits:sum('manyTopologyMemoDominanceHits'),manyTopologyMemoStores:sum('manyTopologyMemoStores'),manyTopologyMemoDominanceRemoved:sum('manyTopologyMemoDominanceRemoved'),manyTopologyMemoResident:sum('manyTopologyMemoResident'),manyTopologyMemoLimit:sum('manyTopologyMemoLimit'),manyTopologyMemoProblems:sum('manyTopologyMemoProblems'),manyTopologyMemoGlobalResident:sum('manyTopologyMemoGlobalResident'),manyTopologyMemoGlobalLimit:sum('manyTopologyMemoGlobalLimit'),manyTopologyMemoProblemEvictions:sum('manyTopologyMemoProblemEvictions'),manyTopologyResumeHits:sum('manyTopologyResumeHits'),manyTopologyProblemCacheHits:sum('manyTopologyProblemCacheHits'),manyTopologyProblemCacheStores:sum('manyTopologyProblemCacheStores'),manyTopologyTargetClassRuns:sum('manyTopologyTargetClassRuns'),manyTopologyTargetClassMaxClasses:Math.max(0,...xs.map(x=>Number(x.manyTopologyTargetClassMaxClasses)||0)),manyTopologyTargetClassMaxMembers:Math.max(0,...xs.map(x=>Number(x.manyTopologyTargetClassMaxMembers)||0)),manyTopologyTargetClassMaxCompressed:Math.max(0,...xs.map(x=>Number(x.manyTopologyTargetClassMaxCompressed)||0)),manyTopologyTargetClassCanonicalStates:sum('manyTopologyTargetClassCanonicalStates'),manyTopologyTargetClassOrbitPruned:sum('manyTopologyTargetClassOrbitPruned'),manyTopologyTargetClassFallbacks:sum('manyTopologyTargetClassFallbacks'),manyTopologyTargetClassCurrentCanonical:Number(p&&p.manyTopologyTargetClassCurrentCanonical)||0,manyTopologyTargetClassCurrentOrbitPruned:Number(p&&p.manyTopologyTargetClassCurrentOrbitPruned)||0,manyTopologyTargetClassCurrentClasses:Number(p&&p.manyTopologyTargetClassCurrentClasses)||0,manyTopologyTargetClassCurrentMembers:Number(p&&p.manyTopologyTargetClassCurrentMembers)||0,manyTopologyTargetClassCurrentCompressed:Number(p&&p.manyTopologyTargetClassCurrentCompressed)||0,manyTopologyBudgetHits:sum('manyTopologyBudgetHits'),manyTopologyNodeBudgetHits:sum('manyTopologyNodeBudgetHits'),manyTopologyLeafBudgetHits:sum('manyTopologyLeafBudgetHits'),manyTopologyOuterIncompleteHits:sum('manyTopologyOuterIncompleteHits'),memoryGuardCacheClears:sum('memoryGuardCacheClears'),manyTopologyGapIncomplete:sum('manyTopologyGapIncomplete'),manyTopologyLeafEscalations:sum('manyTopologyLeafEscalations'),manyTopologyLeafEscalatedProblems:sum('manyTopologyLeafEscalatedProblems'),manyTopologyLeafStageHits:sum('manyTopologyLeafStageHits'),manyTopologyCurrentLeafLimit:Number(p&&p.manyTopologyCurrentLeafLimit)||0,manyTopologyCurrentLeafPass:Number(p&&p.manyTopologyCurrentLeafPass)||0,manyTopologyLeafCeiling:Math.max(0,...xs.map(x=>Number(x.manyTopologyLeafCeiling)||0)),manyTopologyCurrentLeaf:Number(p&&p.manyTopologyCurrentLeaf)||0,manyTopologyCurrentRepeated:Number(p&&p.manyTopologyCurrentRepeated)||0,
+      supplyBoundChecks:sum('supplyBoundChecks'),supplyBoundGroups:Number(p&&p.supplyBoundGroups)||0,v8IpNodes:sum('v8IpNodes'),v8WasmNodes:sum('v8WasmNodes'),v8StaticFeasible:sum('v8StaticFeasible'),v8BundleOwners:sum('v8BundleOwners'),v8BundleClasses:sum('v8BundleClasses'),v8BundleCompressedOwners:sum('v8BundleCompressedOwners'),v8BundleClassMembers:sum('v8BundleClassMembers'),v8BundleSymmetryPruned:sum('v8BundleSymmetryPruned'),v8BundleFallbacks:sum('v8BundleFallbacks'),forcedPropagationNodes:sum('forcedPropagationNodes'),forcedPropagationTests:sum('forcedPropagationTests'),forcedPropagationUnknown:sum('forcedPropagationUnknown'),forcedPropagationForcedOne:sum('forcedPropagationForcedOne'),forcedPropagationForcedTwo:sum('forcedPropagationForcedTwo'),forcedPropagationForcedOwners:sum('forcedPropagationForcedOwners'),forcedPropagationRounds:Math.max(0,...xs.map(x=>Number(x.forcedPropagationRounds)||0)),forcedPropagationPatternsBefore:sum('forcedPropagationPatternsBefore'),forcedPropagationPatternsAfter:sum('forcedPropagationPatternsAfter'),forcedPropagationWasmTests:sum('forcedPropagationWasmTests'),forcedPropagationCurrentNodes:Number(p&&p.forcedPropagationCurrentNodes)||0,forcedPropagationCurrentLimit:Number(p&&p.forcedPropagationCurrentLimit)||0,
       candidatePct:total>0?Math.max(0,Math.min(100,visited*100/total)):null,
       passBudgetPct:Math.max(0,...xs.map(x=>Number(x.passBudgetPct)||0))
     };
@@ -4363,7 +4792,7 @@ function costQuantum(baseInfos){
   const v=baseInfos.map(x=>Number(x.cost)||0).filter(x=>x>0).map(x=>Math.round(x*10));
   if(!v.length)return .5;let g=v[0];for(let i=1;i<v.length;i++)g=gcd(g,v[i]);return Math.max(.1,g/10);
 }
-// V8.2.9 AuditProofFlow: 数学的な不存在証明として副目的の確定に使ってよい結果を一元判定する。
+// V8.3.5 FixedProgressUI PhaseBudget Skip Exact: 数学的な不存在証明として副目的の確定に使ってよい結果を一元判定する。
 // complete/secondaryCertified 単独では最低コスト・最少カードの証明に使わない。
 function isSafeInfeasibleProof(r){
   return !!r && r.proofStatus==='infeasible-proof' && r.complete===true && r.approximate!==true;
@@ -4374,7 +4803,7 @@ function standardCfg(phase='minHands'){
     maxPermutationsPerSelection:5000,maxGroupedPartitions:500000,maxHands:0,
     optimizeSameHands:true,passId:1,phase,objectiveLabel:'最小手数探索',
     targetHands:0,minUniqueCards:0,maxUniqueCards:0,maxTotalCost:-1,resumeOrderOffset:0,
-    scanOnly:false,quickSeed:false,exactRepeatedPermutationThreshold:8,exactRepeatedTopologyThreshold:4,maxRepeatedTopologies:5000,maxGeneralGapStates:240000,maxManyTopologyRepeated:18,maxManyTopologyNodes:3000000,maxManyTopologyLeaves:12000,maxManyTopologyMemoStates:120000,maxManyTopologyMemoProblems:12,maxManyTopologyMemoGlobalStates:300000,manyTopologyExact:true,forcedPropagation:true,forcedPropagationInScan:false,maxForcedPropagationTests:72,maxForcedPropagationRounds:3,maxForcedPropagationOwnerTests:20,forcedPropagationNodeBudget:250000,maxForcedPropagationWasmTests:6,forcedPropagationWasmNodeBudget:5000000,maxGapFixedPointStates:320000,gapFixedPointLowerBound:true,proofStaticCyclic:true,
+    scanOnly:false,quickSeed:false,exactRepeatedPermutationThreshold:8,exactRepeatedTopologyThreshold:4,maxRepeatedTopologies:5000,maxGeneralGapStates:240000,maxManyTopologyRepeated:18,maxManyTopologyNodes:3000000,maxManyTopologyLeaves:12000,manyTopologyAdaptiveLeaf:true,maxManyTopologyLeafPasses:5,manyTopologyLeafGrowth:2,maxManyTopologyLeafCeiling:192000,maxManyTopologyMemoStates:50000,maxManyTopologyMemoProblems:6,maxManyTopologyMemoGlobalStates:90000,manyTopologyExact:true,bundleClassExact:true,targetClassExact:true,forcedPropagation:true,forcedPropagationInScan:false,maxForcedPropagationTests:72,maxForcedPropagationRounds:3,maxForcedPropagationOwnerTests:20,forcedPropagationNodeBudget:250000,maxForcedPropagationWasmTests:6,forcedPropagationWasmNodeBudget:5000000,maxGapFixedPointStates:320000,gapFixedPointLowerBound:true,proofStaticCyclic:true,
     cardPatternSearch:true,normalEffectDP:true,maxNormalEffectDpStates:140000,maxMultiDpStates:180000,parallelModes:(phase==='minHands'),modeIds:null,resumeCheckpoint:null,resumeCheckpoints:null,
     v8IpSearch:true,ipNodeBudget:1800000,wasmExact:true,wasmNodeBudget:50000000,ipStopOnFirst:true,directObjectiveBound:false
   };
@@ -4384,6 +4813,39 @@ function fmtElapsedSeconds(sec){
   const m=Math.floor(sec/60),ss=sec%60;
   return m>0?(m+'分'+String(ss).padStart(2,'0')+'秒'):(ss+'秒');
 }
+function modeShortLabel(id){
+  return ({holy2:'聖水2回',normal:'通常',toki2:'吐息2回',mixed2:'聖水2回＋吐息2回'}[String(id||'')])||String(id||'');
+}
+function buildProgressSummary(p){
+  p=p||{};
+  const inc=searchControl.currentIncumbentMetrics||{};
+  const ph=searchControl.phase||{};
+  const h=Number(inc.hands)||0,c=Number(inc.totalCost)||0,k=Number(inc.uniqueCards)||0;
+  let basis='探索条件を確認中';
+  if(ph.key==='hands'&&h>0)basis=`基準：暫定${h}手 → ${Math.max(1,h-1)}手以下の成立/不存在を検証`;
+  else if(ph.key==='cost'&&h>0)basis=`基準：${h}手固定 / 現在${c.toFixed(1)}C → より低コストを検証`;
+  else if(ph.key==='cards'&&h>0)basis=`基準：${h}手・${c.toFixed(1)}C以下 / 現在${k}枚 → より少ない枚数を検証`;
+  else if(h>0)basis=`基準：現在の成立上界 ${h}手 / ${c.toFixed(1)}C / ${k}枚`;
+
+  const now=[];
+  if(Number(p.hands)>0)now.push(`${Number(p.hands)}手`);
+  if(p.modeId)now.push(modeShortLabel(p.modeId));
+  if(p.workStage)now.push(String(p.workStage));
+  const nums=[];
+  if(p.candidateTotal)nums.push(`候補 ${Math.round(Number(p.candidateVisited)||0).toLocaleString()}/${Math.round(Number(p.candidateTotal)||0).toLocaleString()}`);
+  else if(p.selectionNodes)nums.push(`候補選択 ${(Number(p.selectionNodes)||0).toLocaleString()}`);
+  if(p.manyTopologyNodes)nums.push(`Topology ${(Number(p.manyTopologyNodes)||0).toLocaleString()}節点・leaf ${(Number(p.manyTopologyCurrentLeaf||p.manyTopologyLeaves)||0).toLocaleString()}`);
+  else if(p.gapFixedPointCurrentLimit)nums.push(`Gap ${(Number(p.gapFixedPointCurrentStates)||0).toLocaleString()}/${(Number(p.gapFixedPointCurrentLimit)||0).toLocaleString()}`);
+  else if(p.orderTests)nums.push(`実CT検証 ${(Number(p.orderTests)||0).toLocaleString()}`);
+  if(p.manyTopologyCurrentLeafLimit)nums.push(`Leaf段階 ${Number(p.manyTopologyCurrentLeafPass)||1}/${Number(p.maxManyTopologyLeafPasses)||5}・上限 ${(Number(p.manyTopologyCurrentLeafLimit)||0).toLocaleString()}`);
+  const current=`現在：${now.length?now.join('・'):'準備中'}${nums.length?' ｜ '+nums.join(' ｜ '):''}`;
+  return basis+'\n'+current;
+}
+function updateProgressDetailsToggleText(){
+  const d=document.getElementById('progressDetails'),s=document.getElementById('progressDetailsSummary');
+  if(s)s.textContent=d&&d.open?'探索の詳細を隠す':'探索の詳細を表示';
+}
+
 function buildProgressDetail(p){
   p=p||{};
   const inc=searchControl.currentIncumbentMetrics;
@@ -4394,9 +4856,9 @@ function buildProgressDetail(p){
   let objectiveHead='';
   if(inc&&Number(inc.hands)>0){
     if(/^minCost/.test(phase)){
-      objectiveHead=`最小手数=${Number(inc.hands)}手固定 / 最低コスト証明中${Number(p.maxTotalCost)>=0?`（${Number(p.maxTotalCost).toFixed(1)}C以下を検証）`:''} / `;
+      objectiveHead=`${ip.hands?'最小手数':'採用手数'}=${Number(inc.hands)}手固定 / ${ip.hands?'':'手数最小性未証明 / '}最低コスト証明中${Number(p.maxTotalCost)>=0?`（${Number(p.maxTotalCost).toFixed(1)}C以下を検証）`:''} / `;
     }else if(/^minCards/.test(phase)){
-      objectiveHead=`最小手数=${Number(inc.hands)}手・最低コスト=${Number(inc.totalCost||0).toFixed(1)}C固定 / 最少カード枚数証明中${Number(p.maxUniqueCards)>0?`（${Number(p.maxUniqueCards)}枚以下を検証）`:''} / `;
+      objectiveHead=`${ip.hands?'最小手数':'採用手数'}=${Number(inc.hands)}手・${ip.cost?'最低コスト':'採用コスト'}=${Number(inc.totalCost||0).toFixed(1)}C条件 / 最少カード枚数証明中${Number(p.maxUniqueCards)>0?`（${Number(p.maxUniqueCards)}枚以下を検証）`:''} / `;
     }else if(ip.hands){
       objectiveHead=`最小手数=${Number(inc.hands)}手確定 / `;
     }else{
@@ -4416,9 +4878,15 @@ function buildProgressDetail(p){
     (p.manyTopologyNodes?` / 多数Topology=${(p.manyTopologyNodes||0).toLocaleString()}節点・leaf${(p.manyTopologyLeaves||0).toLocaleString()}・枝刈${(p.manyTopologyPruned||0).toLocaleString()}・対称${(p.manyTopologySymmetry||0).toLocaleString()}`:'')+
     (p.manyTopologyMemoResident?` / TopologyMemo=${(p.manyTopologyMemoHits||0).toLocaleString()}exact+${(p.manyTopologyMemoDominanceHits||0).toLocaleString()}支配hit・保持${(p.manyTopologyMemoResident||0).toLocaleString()}/${(p.manyTopologyMemoLimit||0).toLocaleString()}・追記${(p.manyTopologyMemoStores||0).toLocaleString()}・Pareto削除${(p.manyTopologyMemoDominanceRemoved||0).toLocaleString()}・全体${(p.manyTopologyMemoGlobalResident||0).toLocaleString()}/${(p.manyTopologyMemoGlobalLimit||0).toLocaleString()}(${(p.manyTopologyMemoProblems||0).toLocaleString()}問題)${p.manyTopologyMemoProblemEvictions?'・LRU破棄'+(p.manyTopologyMemoProblemEvictions||0).toLocaleString():''}${p.manyTopologyResumeHits?'・再開'+(p.manyTopologyResumeHits||0).toLocaleString():''}`:'')+
     (p.manyTopologyProblemCacheHits?` / 問題cache=${(p.manyTopologyProblemCacheHits||0).toLocaleString()}hit`:'')+
+    (p.memoryGuardCacheClears?` / MemoryGuard=cache破棄${(p.memoryGuardCacheClears||0).toLocaleString()}回`:'' )+
+    ((p.manyTopologyTargetClassCurrentCompressed||p.manyTopologyTargetClassMaxCompressed)?` / TargetClass圧縮=${Number(p.manyTopologyTargetClassCurrentMembers||p.manyTopologyTargetClassMaxMembers||0).toLocaleString()}target/${Number(p.manyTopologyTargetClassCurrentClasses||p.manyTopologyTargetClassMaxClasses||0).toLocaleString()}class・削減次元${Number(p.manyTopologyTargetClassCurrentCompressed||p.manyTopologyTargetClassMaxCompressed||0).toLocaleString()}・正準状態${((p.manyTopologyTargetClassCanonicalStates||0)+(p.manyTopologyTargetClassCurrentCanonical||0)).toLocaleString()}・orbit枝${((p.manyTopologyTargetClassOrbitPruned||0)+(p.manyTopologyTargetClassCurrentOrbitPruned||0)).toLocaleString()}${p.manyTopologyTargetClassRuns?'・適用'+(p.manyTopologyTargetClassRuns||0).toLocaleString()+'問題':''}${p.manyTopologyTargetClassFallbacks?'・fallback'+(p.manyTopologyTargetClassFallbacks||0).toLocaleString():''}`:'')+
+    ((p.manyTopologyCurrentLeafLimit||p.manyTopologyLeafEscalations)?` / AdaptiveLeaf=${p.manyTopologyCurrentLeafLimit?('現在'+Number(p.manyTopologyCurrentLeaf||0).toLocaleString()+'/'+Number(p.manyTopologyCurrentLeafLimit||0).toLocaleString()+'・段階'+Number(p.manyTopologyCurrentLeafPass||1)+(p.manyTopologyLeafCeiling?'・最終上限'+Number(p.manyTopologyLeafCeiling).toLocaleString():'')+' / '):''}拡張${Number(p.manyTopologyLeafEscalations||0).toLocaleString()}回・対象${Number(p.manyTopologyLeafEscalatedProblems||0).toLocaleString()}問題・途中leaf到達${Number(p.manyTopologyLeafStageHits||0).toLocaleString()}回`:'')+
+    (p.manyTopologyBudgetHits?` / Topology未完走=${(p.manyTopologyBudgetHits||0).toLocaleString()}件（node上限${(p.manyTopologyNodeBudgetHits||0).toLocaleString()}・leaf上限${(p.manyTopologyLeafBudgetHits||0).toLocaleString()}・外側中断${(p.manyTopologyOuterIncompleteHits||0).toLocaleString()}）${p.manyTopologyGapIncomplete?'・Gap未完走'+(p.manyTopologyGapIncomplete||0).toLocaleString():''}`:(p.manyTopologyGapIncomplete?` / Gap未完走=${(p.manyTopologyGapIncomplete||0).toLocaleString()}件`:''))+
     (p.forcedPropagationTests?` / 固定手数強制伝播=${(p.forcedPropagationTests||0).toLocaleString()}検査・1回必須${(p.forcedPropagationForcedOne||0).toLocaleString()}・2回必須${(p.forcedPropagationForcedTwo||0).toLocaleString()}・カード必須${(p.forcedPropagationForcedOwners||0).toLocaleString()}・不明${(p.forcedPropagationUnknown||0).toLocaleString()}・${(p.forcedPropagationNodes||0).toLocaleString()}節点${p.forcedPropagationPatternsBefore?`・pattern${(p.forcedPropagationPatternsBefore||0).toLocaleString()}→${(p.forcedPropagationPatternsAfter||0).toLocaleString()}`:''}`:'')+
     (p.forcedPropagationCurrentLimit?` / 現在強制検査=${(p.forcedPropagationCurrentNodes||0).toLocaleString()}/${(p.forcedPropagationCurrentLimit||0).toLocaleString()}`:'')+
     (p.v8IpNodes?` / V8整数制約=${(p.v8IpNodes||0).toLocaleString()}節点`:'')+
+    (p.v8BundleCompressedOwners?` / Bundle圧縮=${(p.v8BundleOwners||0).toLocaleString()}owner→同値${(p.v8BundleClassMembers||0).toLocaleString()}owner/${(p.v8BundleClasses||0).toLocaleString()}class・削減次元${(p.v8BundleCompressedOwners||0).toLocaleString()}・対称枝${(p.v8BundleSymmetryPruned||0).toLocaleString()}`:'')+
+    (p.v8BundleFallbacks?` / Bundle fallback=${(p.v8BundleFallbacks||0).toLocaleString()}回（従来V8継続）`:'')+
     (p.v8WasmNodes?` / WASM exact=${(p.v8WasmNodes||0).toLocaleString()}節点`:'')+
     (p.workStage?` / 段階=${p.workStage}`:'')+
     (p.candidateTotal?` / 候補空間=${Math.round(p.candidateVisited||0).toLocaleString()} / ${Math.round(p.candidateTotal).toLocaleString()}`:'')+
@@ -4431,13 +4899,21 @@ function buildProgressHeartbeat(p){
   const parts=[`生存確認: Worker最終更新 ${fmtElapsedSeconds(age)}前`,`探索経過 ${fmtElapsedSeconds(elapsed)}`];
   if(p.workStage)parts.push(`段階 ${p.workStage}`);
   if(p.manyTopologyCurrentRepeated||p.manyTopologyNodes)parts.push(`多数Topology ${Number(p.manyTopologyCurrentRepeated||0)||'?'}種 / ${(p.manyTopologyNodes||0).toLocaleString()}節点 / leaf ${(p.manyTopologyCurrentLeaf||p.manyTopologyLeaves||0).toLocaleString()} / memo ${(p.manyTopologyMemoHits||0).toLocaleString()}exact+${(p.manyTopologyMemoDominanceHits||0).toLocaleString()}支配hit・保持${(p.manyTopologyMemoResident||0).toLocaleString()} / 全体${(p.manyTopologyMemoGlobalResident||0).toLocaleString()}(${(p.manyTopologyMemoProblems||0)}問題)`);
+  if(p.manyTopologyTargetClassCurrentCompressed||p.manyTopologyTargetClassMaxCompressed)parts.push(`TargetClass ${Number(p.manyTopologyTargetClassCurrentMembers||p.manyTopologyTargetClassMaxMembers||0)}target/${Number(p.manyTopologyTargetClassCurrentClasses||p.manyTopologyTargetClassMaxClasses||0)}class / 次元-${Number(p.manyTopologyTargetClassCurrentCompressed||p.manyTopologyTargetClassMaxCompressed||0)} / orbit枝 ${Number((p.manyTopologyTargetClassOrbitPruned||0)+(p.manyTopologyTargetClassCurrentOrbitPruned||0)).toLocaleString()}`);
+  if(p.manyTopologyCurrentLeafLimit)parts.push(`AdaptiveLeaf ${Number(p.manyTopologyCurrentLeaf||0).toLocaleString()}/${Number(p.manyTopologyCurrentLeafLimit||0).toLocaleString()} / 段階${Number(p.manyTopologyCurrentLeafPass||1)}${p.manyTopologyLeafCeiling?' / 上限'+Number(p.manyTopologyLeafCeiling).toLocaleString():''}`);
+  else if(p.manyTopologyLeafEscalations)parts.push(`AdaptiveLeaf 拡張${Number(p.manyTopologyLeafEscalations||0).toLocaleString()}回 / ${Number(p.manyTopologyLeafEscalatedProblems||0).toLocaleString()}問題`);
+  if(p.manyTopologyBudgetHits||p.manyTopologyGapIncomplete)parts.push(`未完走 Topology ${Number(p.manyTopologyBudgetHits||0)} / Gap ${Number(p.manyTopologyGapIncomplete||0)}`);
+  if(p.memoryGuardCacheClears)parts.push(`MemoryGuard cache破棄 ${(p.memoryGuardCacheClears||0).toLocaleString()}回`);
   if(p.forcedPropagationCurrentLimit)parts.push(`強制検査 ${(p.forcedPropagationCurrentNodes||0).toLocaleString()}/${(p.forcedPropagationCurrentLimit||0).toLocaleString()} / 必須 ${Number(p.forcedPropagationForcedOne||0)+Number(p.forcedPropagationForcedTwo||0)}件`);
+  if(p.v8BundleCompressedOwners)parts.push(`Bundle ${Number(p.v8BundleClassMembers||0)}owner/${Number(p.v8BundleClasses||0)}class / 対称枝 ${(p.v8BundleSymmetryPruned||0).toLocaleString()}`);
     if(p.generalGapCurrentLimit)parts.push(`全区間Gap ${(p.generalGapCurrentStates||0).toLocaleString()}/${(p.generalGapCurrentLimit||0).toLocaleString()}`);
   else if(p.gapFixedPointCurrentLimit)parts.push(`Gap固定点 ${(p.gapFixedPointCurrentStates||0).toLocaleString()}/${(p.gapFixedPointCurrentLimit||0).toLocaleString()}`);
   return parts.join(' / ');
 }
 function refreshProgressHeartbeat(){
-  if(searchControl.mode!=='running'||!searchControl.lastProgress)return;
+  updateCurrentPhaseUi();
+  if((searchControl.mode!=='running'&&searchControl.mode!=='paused')||!searchControl.lastProgress)return;
+  const sm=document.getElementById('progressSummary');if(sm)sm.textContent=buildProgressSummary(searchControl.lastProgress);
   const el=document.getElementById('progressDetail');if(el)el.textContent=buildProgressDetail(searchControl.lastProgress);
   const hb=document.getElementById('progressHeartbeat');if(hb)hb.textContent=buildProgressHeartbeat(searchControl.lastProgress);
 }
@@ -4448,13 +4924,14 @@ function updateProgress(p){
   const lab=p.objectiveLabel||p.label||'探索中';
   const inc=searchControl.currentIncumbentMetrics;
   const ip=searchControl.currentIncumbentProof||{};
-  const proofPrefix=ip.cards?'手数・コスト・カード確定':(ip.cost?'手数・コスト確定':(ip.hands?'最小手数確定':'暫定成立解'));
+  const proofPrefix=ip.cards?(ip.hands&&ip.cost?'手数・コスト・カード確定':'条件内カード枚数確定'):(ip.cost?(ip.hands?'手数・コスト確定':'採用手数内コスト確定'):(ip.hands?'最小手数確定':'暫定成立解'));
   const incText=inc&&Number(inc.hands)>0
     ?`${proofPrefix} ${Number(inc.hands)}手 / ${inc.unknownCostCards?'コスト不明':Number(inc.totalCost||0).toFixed(1)+'C'} / ${Number(inc.uniqueCards||0)}枚を保持 ｜ `
     :'';
   if(searchControl.mode!=='paused')document.getElementById('progressLabel').textContent=incText+lab+(p.label?' / '+p.label:'');
   const pct=Number.isFinite(p.candidatePct)?p.candidatePct:Math.min(100,Number(p.passBudgetPct)||0);
   document.getElementById('progressBar').style.width=Math.max(0,Math.min(100,pct))+'%';
+  const sm=document.getElementById('progressSummary');if(sm)sm.textContent=buildProgressSummary(p);
   document.getElementById('progressDetail').textContent=buildProgressDetail(p);
   const hb=document.getElementById('progressHeartbeat');if(hb)hb.textContent=buildProgressHeartbeat(p);
 }
@@ -4605,11 +5082,11 @@ function setLiveStage(stage,type='warn'){
 }
 async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
   const defs=hybridEngineConfigs().map(d=>Object.assign({},d,{cfg:Object.assign({},d.cfg)}));
-  const completed=[];const logs=['V8.2.9 AuditProofFlow Hybrid discovery: '+defs.map(x=>x.label).join(' | '),
+  const completed=[];const logs=['V8.3.5 FixedProgressUI PhaseBudget Skip Exact Hybrid discovery: '+defs.map(x=>x.label).join(' | '),
     'Discoveryでは初回成立解を早く出すため全H下限走査のGap固定点を省略。各実HのGap固定点と、成立後のexact証明ではGap固定点を有効化。'];
   let liveBest=null, incumbentHands=Infinity;
 
-  // V8.2.9 AuditProofFlow:
+  // V8.3.5 FixedProgressUI PhaseBudget Skip Exact:
   // 成立解 H は「探索上界」としてだけ使う。H を見つけても、すでに H 未満を探索中の
   // 他Workerは止めない。各Workerは自身の数学的下限から上へ探索しているため、
   // その進捗を保持したまま H 未満を探させ、H 以上へ到達した時点でだけ停止する。
@@ -4623,12 +5100,12 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
     // これは探索を省略するのではなく、同じH以下をproof-safeなexactフェーズで再評価するための役割分担。
     if(Number.isFinite(incumbentHands) && p&&p.workStage==='lower-bound'){
       const ss=sessionById.get(id);
-      if(ss){logs.push('V8.2.9 AuditProofFlow Discovery→exact引継ぎ: '+id+' は理論下限前処理中のため停止。'+Math.max(0,incumbentHands-1)+'手以下は次段exactで全モード確認。');ss.stop('bound');return;}
+      if(ss){logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact Discovery→exact引継ぎ: '+id+' は理論下限前処理中のため停止。'+Math.max(0,incumbentHands-1)+'手以下は次段exactで全モード確認。');ss.stop('bound');return;}
     }
     if(Number.isFinite(incumbentHands) && Number(p&&p.hands)>0 && Number(p.hands)>=incumbentHands){
       const ss=sessionById.get(id);
       if(ss){
-        logs.push('V8.2.9 AuditProofFlow 動的上界停止: '+id+' は '+Number(p.hands)+'手へ到達。暫定成立 '+incumbentHands+'手以上は改善不能のため停止。');
+        logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 動的上界停止: '+id+' は '+Number(p.hands)+'手へ到達。暫定成立 '+incumbentHands+'手以上は改善不能のため停止。');
         ss.stop('bound');
       }
     }
@@ -4636,12 +5113,12 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
     const total=sum('candidateTotal'),visited=sum('candidateVisited');
     const capText=Number.isFinite(incumbentHands)?(' / 暫定'+incumbentHands+'手を保持・'+Math.max(0,incumbentHands-1)+'手以下だけ継続'):'';
     const def=defs.find(x=>x.id===id)||{};
-    const agg={objectiveLabel:'V8.2.9 AuditProofFlow Hybrid 成立解探索（最大4 Worker）'+capText,label:(def.label||id)+' / '+(p&&p.label||''),phase:'minHands',
+    const agg={objectiveLabel:'V8.3.5 FixedProgressUI PhaseBudget Skip Exact Hybrid 成立解探索（最大4 Worker）'+capText,label:(def.label||id)+' / '+(p&&p.label||''),phase:'minHands',
       workStage:p&&p.workStage||'',hands:Number(p&&p.hands)||0,modeId:p&&p.modeId||'',
       selectionNodes:sum('selectionNodes'),orderTests:sum('orderTests'),orderEnumerated:sum('orderEnumerated'),repeatNodes:sum('repeatNodes'),
       candidateVisited:visited,candidateTotal:total,candidatePct:total>0?Math.max(0,Math.min(100,visited*100/total)):null,
-      normalEffectDpStates:sum('normalEffectDpStates'),multiDpStates:sum('multiDpStates'),generalGapStates:sum('generalGapStates'),gapFixedPointChecks:sum('gapFixedPointChecks'),gapFixedPointStates:sum('gapFixedPointStates'),gapFixedPointCurrentStates:Number(p&&p.gapFixedPointCurrentStates)||0,gapFixedPointCurrentLimit:Number(p&&p.gapFixedPointCurrentLimit)||0,gapFixedPointDowngraded:sum('gapFixedPointDowngraded'),gapFixedPointUnknown:sum('gapFixedPointUnknown'),generalGapCurrentStates:Number(p&&p.generalGapCurrentStates)||0,generalGapCurrentLimit:Number(p&&p.generalGapCurrentLimit)||0,repeatedTopologyVisited:sum('repeatedTopologyVisited'),manyTopologyNodes:sum('manyTopologyNodes'),manyTopologyLeaves:sum('manyTopologyLeaves'),manyTopologyPruned:sum('manyTopologyPruned'),manyTopologySymmetry:sum('manyTopologySymmetry'),manyTopologyMemoHits:sum('manyTopologyMemoHits'),manyTopologyMemoDominanceHits:sum('manyTopologyMemoDominanceHits'),manyTopologyMemoStores:sum('manyTopologyMemoStores'),manyTopologyMemoDominanceRemoved:sum('manyTopologyMemoDominanceRemoved'),manyTopologyMemoResident:sum('manyTopologyMemoResident'),manyTopologyMemoLimit:sum('manyTopologyMemoLimit'),manyTopologyMemoProblems:sum('manyTopologyMemoProblems'),manyTopologyMemoGlobalResident:sum('manyTopologyMemoGlobalResident'),manyTopologyMemoGlobalLimit:sum('manyTopologyMemoGlobalLimit'),manyTopologyMemoProblemEvictions:sum('manyTopologyMemoProblemEvictions'),manyTopologyResumeHits:sum('manyTopologyResumeHits'),manyTopologyProblemCacheHits:sum('manyTopologyProblemCacheHits'),manyTopologyProblemCacheStores:sum('manyTopologyProblemCacheStores'),manyTopologyCurrentLeaf:Number(p&&p.manyTopologyCurrentLeaf)||0,manyTopologyCurrentRepeated:Number(p&&p.manyTopologyCurrentRepeated)||0,
-      supplyBoundChecks:sum('supplyBoundChecks'),supplyBoundGroups:Number(p&&p.supplyBoundGroups)||0,v8IpNodes:sum('v8IpNodes'),v8WasmNodes:sum('v8WasmNodes'),v8StaticFeasible:sum('v8StaticFeasible'),forcedPropagationNodes:sum('forcedPropagationNodes'),forcedPropagationTests:sum('forcedPropagationTests'),forcedPropagationUnknown:sum('forcedPropagationUnknown'),forcedPropagationForcedOne:sum('forcedPropagationForcedOne'),forcedPropagationForcedTwo:sum('forcedPropagationForcedTwo'),forcedPropagationForcedOwners:sum('forcedPropagationForcedOwners'),forcedPropagationRounds:Math.max(0,...xs.map(x=>Number(x.forcedPropagationRounds)||0)),forcedPropagationPatternsBefore:sum('forcedPropagationPatternsBefore'),forcedPropagationPatternsAfter:sum('forcedPropagationPatternsAfter'),forcedPropagationWasmTests:sum('forcedPropagationWasmTests'),forcedPropagationCurrentNodes:Number(p&&p.forcedPropagationCurrentNodes)||0,forcedPropagationCurrentLimit:Number(p&&p.forcedPropagationCurrentLimit)||0,
+      normalEffectDpStates:sum('normalEffectDpStates'),multiDpStates:sum('multiDpStates'),generalGapStates:sum('generalGapStates'),gapFixedPointChecks:sum('gapFixedPointChecks'),gapFixedPointStates:sum('gapFixedPointStates'),gapFixedPointCurrentStates:Number(p&&p.gapFixedPointCurrentStates)||0,gapFixedPointCurrentLimit:Number(p&&p.gapFixedPointCurrentLimit)||0,gapFixedPointDowngraded:sum('gapFixedPointDowngraded'),gapFixedPointUnknown:sum('gapFixedPointUnknown'),generalGapCurrentStates:Number(p&&p.generalGapCurrentStates)||0,generalGapCurrentLimit:Number(p&&p.generalGapCurrentLimit)||0,repeatedTopologyVisited:sum('repeatedTopologyVisited'),manyTopologyNodes:sum('manyTopologyNodes'),manyTopologyLeaves:sum('manyTopologyLeaves'),manyTopologyPruned:sum('manyTopologyPruned'),manyTopologySymmetry:sum('manyTopologySymmetry'),manyTopologyMemoHits:sum('manyTopologyMemoHits'),manyTopologyMemoDominanceHits:sum('manyTopologyMemoDominanceHits'),manyTopologyMemoStores:sum('manyTopologyMemoStores'),manyTopologyMemoDominanceRemoved:sum('manyTopologyMemoDominanceRemoved'),manyTopologyMemoResident:sum('manyTopologyMemoResident'),manyTopologyMemoLimit:sum('manyTopologyMemoLimit'),manyTopologyMemoProblems:sum('manyTopologyMemoProblems'),manyTopologyMemoGlobalResident:sum('manyTopologyMemoGlobalResident'),manyTopologyMemoGlobalLimit:sum('manyTopologyMemoGlobalLimit'),manyTopologyMemoProblemEvictions:sum('manyTopologyMemoProblemEvictions'),manyTopologyResumeHits:sum('manyTopologyResumeHits'),manyTopologyProblemCacheHits:sum('manyTopologyProblemCacheHits'),manyTopologyProblemCacheStores:sum('manyTopologyProblemCacheStores'),manyTopologyTargetClassRuns:sum('manyTopologyTargetClassRuns'),manyTopologyTargetClassMaxClasses:Math.max(0,...xs.map(x=>Number(x.manyTopologyTargetClassMaxClasses)||0)),manyTopologyTargetClassMaxMembers:Math.max(0,...xs.map(x=>Number(x.manyTopologyTargetClassMaxMembers)||0)),manyTopologyTargetClassMaxCompressed:Math.max(0,...xs.map(x=>Number(x.manyTopologyTargetClassMaxCompressed)||0)),manyTopologyTargetClassCanonicalStates:sum('manyTopologyTargetClassCanonicalStates'),manyTopologyTargetClassOrbitPruned:sum('manyTopologyTargetClassOrbitPruned'),manyTopologyTargetClassFallbacks:sum('manyTopologyTargetClassFallbacks'),manyTopologyTargetClassCurrentCanonical:Number(p&&p.manyTopologyTargetClassCurrentCanonical)||0,manyTopologyTargetClassCurrentOrbitPruned:Number(p&&p.manyTopologyTargetClassCurrentOrbitPruned)||0,manyTopologyTargetClassCurrentClasses:Number(p&&p.manyTopologyTargetClassCurrentClasses)||0,manyTopologyTargetClassCurrentMembers:Number(p&&p.manyTopologyTargetClassCurrentMembers)||0,manyTopologyTargetClassCurrentCompressed:Number(p&&p.manyTopologyTargetClassCurrentCompressed)||0,manyTopologyBudgetHits:sum('manyTopologyBudgetHits'),manyTopologyNodeBudgetHits:sum('manyTopologyNodeBudgetHits'),manyTopologyLeafBudgetHits:sum('manyTopologyLeafBudgetHits'),manyTopologyOuterIncompleteHits:sum('manyTopologyOuterIncompleteHits'),memoryGuardCacheClears:sum('memoryGuardCacheClears'),manyTopologyGapIncomplete:sum('manyTopologyGapIncomplete'),manyTopologyLeafEscalations:sum('manyTopologyLeafEscalations'),manyTopologyLeafEscalatedProblems:sum('manyTopologyLeafEscalatedProblems'),manyTopologyLeafStageHits:sum('manyTopologyLeafStageHits'),manyTopologyCurrentLeafLimit:Number(p&&p.manyTopologyCurrentLeafLimit)||0,manyTopologyCurrentLeafPass:Number(p&&p.manyTopologyCurrentLeafPass)||0,manyTopologyLeafCeiling:Math.max(0,...xs.map(x=>Number(x.manyTopologyLeafCeiling)||0)),manyTopologyCurrentLeaf:Number(p&&p.manyTopologyCurrentLeaf)||0,manyTopologyCurrentRepeated:Number(p&&p.manyTopologyCurrentRepeated)||0,
+      supplyBoundChecks:sum('supplyBoundChecks'),supplyBoundGroups:Number(p&&p.supplyBoundGroups)||0,v8IpNodes:sum('v8IpNodes'),v8WasmNodes:sum('v8WasmNodes'),v8StaticFeasible:sum('v8StaticFeasible'),v8BundleOwners:sum('v8BundleOwners'),v8BundleClasses:sum('v8BundleClasses'),v8BundleCompressedOwners:sum('v8BundleCompressedOwners'),v8BundleClassMembers:sum('v8BundleClassMembers'),v8BundleSymmetryPruned:sum('v8BundleSymmetryPruned'),v8BundleFallbacks:sum('v8BundleFallbacks'),forcedPropagationNodes:sum('forcedPropagationNodes'),forcedPropagationTests:sum('forcedPropagationTests'),forcedPropagationUnknown:sum('forcedPropagationUnknown'),forcedPropagationForcedOne:sum('forcedPropagationForcedOne'),forcedPropagationForcedTwo:sum('forcedPropagationForcedTwo'),forcedPropagationForcedOwners:sum('forcedPropagationForcedOwners'),forcedPropagationRounds:Math.max(0,...xs.map(x=>Number(x.forcedPropagationRounds)||0)),forcedPropagationPatternsBefore:sum('forcedPropagationPatternsBefore'),forcedPropagationPatternsAfter:sum('forcedPropagationPatternsAfter'),forcedPropagationWasmTests:sum('forcedPropagationWasmTests'),forcedPropagationCurrentNodes:Number(p&&p.forcedPropagationCurrentNodes)||0,forcedPropagationCurrentLimit:Number(p&&p.forcedPropagationCurrentLimit)||0,
       incumbentHands:Number.isFinite(incumbentHands)?incumbentHands:0,searchMaxHands:Number.isFinite(incumbentHands)?Math.max(0,incumbentHands-1):0};
     searchControl.lastProgress=agg;onProgress&&onProgress(agg);
   };
@@ -4668,7 +5145,7 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
         if(!liveBest||metricBetter(v.result.metrics,liveBest.metrics))liveBest=v.result;
         if(h<incumbentHands){
           const old=incumbentHands;incumbentHands=h;
-          logs.push('V8.2.9 AuditProofFlow incumbent更新: '+(Number.isFinite(old)?old+'手 → ':'')+h+'手。成立解は画面に保持し、他Workerの '+(h-1)+'手以下探索は停止せず継続。');
+          logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact incumbent更新: '+(Number.isFinite(old)?old+'手 → ':'')+h+'手。成立解は画面に保持し、他Workerの '+(h-1)+'手以下探索は停止せず継続。');
           onIncumbent&&onIncumbent(liveBest,{engine:v.label,stage:v.label+' が '+h+'手の成立解を発見。暫定成立解として表示したまま探索を継続します。他モードは43→42…のようには探さず、それぞれの数学的下限から '+Math.max(0,h-1)+'手以下の範囲を探索します。'});
         }else{
           onIncumbent&&onIncumbent(liveBest,{engine:v.label,stage:v.label+' が '+h+'手の成立解を確認。現在保持中の暫定最良 '+incumbentHands+'手より短くないため、成立上界は変更しません。'});
@@ -4679,8 +5156,8 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
       const merged=mergeHybridDiscoveryResults(completed,logs);
       if(Number.isFinite(incumbentHands) && liveBest && liveBest.metrics){
         const verifyMax=Math.max(0,incumbentHands-1);
-        logs.push('V8.2.9 AuditProofFlow Discovery短手数探索終了: 各Workerは暫定'+incumbentHands+'手未満で新しい成立解を発見せず終了/上界到達。暫定解を保持し、次段で'+verifyMax+'手以下のexact不存在確認へ移行。');
-        onIncumbent&&onIncumbent(liveBest,{engine:'hybrid',stage:'暫定成立 '+incumbentHands+'手を保持。他Workerからこれより短い成立解は見つからなかったため、次に '+verifyMax+'手以下の不存在をexact確認します。成立しなければ '+incumbentHands+'手を最小確定し、同手数の最低コスト→最少カード枚数へ進みます。'});
+        logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact Discovery短手数探索終了: 各Workerは暫定'+incumbentHands+'手未満で新しい成立解を発見せず終了/上界到達。暫定解を保持し、次段で'+verifyMax+'手以下のexact不存在確認へ移行。');
+        onIncumbent&&onIncumbent(liveBest,{engine:'hybrid',stage:'暫定成立 '+incumbentHands+'手を保持。他Workerからこれより短い成立解は見つからなかったため、次に工程1/3として最大10分で '+verifyMax+'手以下をExact検証します。未証明またはスキップでも '+incumbentHands+'手を採用して工程2/3のコスト探索へ進みます。'});
         merged.discoveryShorterSearchFinished=true;
         merged.discoveryVerifyMaxHands=verifyMax;
       }
@@ -4700,28 +5177,47 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
   return liveBest||mergeHybridDiscoveryResults(completed,logs);
 }
 
+function phaseOutcomeReason(ph){
+  if(!ph)return '未実施';
+  if(ph.outcome==='proved')return '確定';
+  if(ph.outcome==='skipped')return 'ユーザーがスキップ';
+  if(ph.outcome==='timeout')return '10分上限で打切り';
+  if(ph.outcome==='unproven')return '現行Exactで未証明';
+  if(ph.outcome==='trivial')return '境界なしで確定';
+  return ph.outcome||'未証明';
+}
+function isPhaseInterrupt(r){return !!(r&&r.interrupted&&(r.interruptKind==='phase-skip'||r.interruptKind==='phase-timeout'));}
+function currentPhaseAbortOutcome(){const k=searchControl.phaseAbortKind();return k==='phase-skip'?'skipped':k==='phase-timeout'?'timeout':'';}
+
 async function hybridProveOrImproveBelow(baseInfos,incumbent,onProgress,logs,onUpdate){
   let best=incumbent;
   while(true){
-    const h=Number(best&&best.metrics&&best.metrics.hands)||0;if(h<=1)return {best,handsProof:true};
-    onUpdate&&onUpdate(best,{handsProof:false,stage:h+'手の成立は確認済み。各モードの数学的下限から '+(h-1)+'手以下に成立解がないか、V8 exactで検証中。'});
+    const abort0=currentPhaseAbortOutcome();if(abort0)return {best,handsProof:false,phaseOutcome:abort0};
+    const h=Number(best&&best.metrics&&best.metrics.hands)||0;if(h<=1)return {best,handsProof:true,phaseOutcome:'proved'};
+    searchControl.updatePhase('1手少ない手数の探索（'+Math.max(0,h-1)+'手以下をExact検証）','採用中 '+h+'手 / 最小性を検証');
+    onUpdate&&onUpdate(best,{handsProof:false,stage:h+'手の成立は確認済み。最大10分で '+(h-1)+'手以下の成立/不存在をV8 exactで検証中。スキップして '+h+'手固定のコスト探索へ進むこともできます。'});
+    logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact: 短手数証明は工程全体で最大10分。長時間ExactはOut of Memory回避のため1 Worker内で全モード順次検証。');
     let pcfg=standardCfg('minHands');
-    Object.assign(pcfg,{objectiveLabel:'V8.2.9 AuditProofFlow exact: 各モード下限〜'+(h-1)+'手以下の成立/不存在証明',maxHands:h-1,parallelModes:true,
-      v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,cardPatternSearch:true,normalEffectDP:true});
-    const r=await runV7Worker(baseInfos,pcfg,onProgress);logs.push(...(r.logs||[]));
+    Object.assign(pcfg,{objectiveLabel:'V8.3.5 FixedProgressUI PhaseBudget Skip Exact: '+(h-1)+'手以下の成立/不存在証明（工程最大10分）',maxHands:h-1,parallelModes:false,v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,cardPatternSearch:true,normalEffectDP:true});
+    const r=await runV7Worker(baseInfos,pcfg,onProgress);
+    if(r&&Array.isArray(r.logs))logs.push(...r.logs);
+    if(isPhaseInterrupt(r)||currentPhaseAbortOutcome()){
+      const out=currentPhaseAbortOutcome()||(r.interruptKind==='phase-skip'?'skipped':'timeout');
+      logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 短手数工程: '+(out==='skipped'?'ユーザーがスキップ':'10分上限に到達')+'。'+h+'手を採用値として次工程へ。');
+      return {best,handsProof:false,phaseOutcome:out};
+    }
     if(r.ok&&r.metrics&&Number(r.metrics.hands)<h){
-      best=r;logs.push('V8.2.9 AuditProofFlow exact が incumbent を '+h+'手 → '+r.metrics.hands+'手へ改善');
-      onUpdate&&onUpdate(best,{handsProof:false,stage:r.metrics.hands+'手へ改善。さらに短い手数の成立/不存在を検証中。'});
+      best=r;logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact が incumbent を '+h+'手 → '+r.metrics.hands+'手へ改善');
+      onUpdate&&onUpdate(best,{handsProof:false,stage:r.metrics.hands+'手へ改善。同じ10分工程の残り時間でさらに短い手数を検証中。'});
       continue;
     }
     if(r.proofStatus==='infeasible-proof'){
-      logs.push('V8.2.9 AuditProofFlow exact: '+(h-1)+'手以下を不成立証明 → '+h+'手を最小確定');
-      onUpdate&&onUpdate(best,{handsProof:true,stage:(h-1)+'手以下を不成立証明。最小手数 '+h+'手を確定。続いて '+h+'手固定で最低コストを探索し、その後に最少カード枚数を探索します。'});
-      return {best,handsProof:true};
+      logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact: '+(h-1)+'手以下を不成立証明 → '+h+'手を最小確定');
+      onUpdate&&onUpdate(best,{handsProof:true,stage:(h-1)+'手以下を不成立証明。最小手数 '+h+'手を確定。続いて '+h+'手固定で最小コストを最大10分探索します。'});
+      return {best,handsProof:true,phaseOutcome:'proved'};
     }
-    logs.push('V8.2.9 AuditProofFlow exact: '+(h-1)+'手以下は未確定。現在の成立解 '+h+'手を暫定最良として保持');
-    onUpdate&&onUpdate(best,{handsProof:false,stage:(h-1)+'手以下の不存在は現行探索予算では未証明。'+h+'手は成立確認済みの暫定最良として保持。'});
-    return {best,handsProof:false};
+    logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact: '+(h-1)+'手以下は未確定。'+h+'手を採用値として次工程へ。');
+    return {best,handsProof:false,phaseOutcome:'unproven'};
   }
 }
 
@@ -4729,241 +5225,136 @@ async function solveV7(){
   setSolveStatus('探索中','');
   if(!app.parsed) throw new Error('先に「カードを解析」を押してください。');
   if(!ensureDeputyRarityInputs()) throw new Error('副将鏡/錬鏡を計算するための副将レアリティが未入力です。赤く強調されたカードでレアリティを指定してください。');
-  const chosenCards=selectedCards();
-  if(!chosenCards.length) throw new Error('探索対象カードが選択されていません。カード一覧のチェックを確認してください。');
-  const rawBaseInfos=selectedCandidates().map(x=>({...x}));
-  if(!rawBaseInfos.length) throw new Error('チェック済みカードの中に施術ループ候補となる回復スキルがありません。');
+  const chosenCards=selectedCards();if(!chosenCards.length) throw new Error('探索対象カードが選択されていません。カード一覧のチェックを確認してください。');
+  const rawBaseInfos=selectedCandidates().map(x=>({...x}));if(!rawBaseInfos.length) throw new Error('チェック済みカードの中に施術ループ候補となる回復スキルがありません。');
   if(rawBaseInfos.some(x=>!(x.cost>0))) throw new Error('コストを取得できない回復候補カードがあります。入力文字列を確認してください。');
-  const norm=normalizeSameCardNoVariants(rawBaseInfos);
-  const baseInfos=norm.baseInfos;
+  const norm=normalizeSameCardNoVariants(rawBaseInfos),baseInfos=norm.baseInfos;
 
   document.getElementById('resultPanel').classList.add('hidden');
   const rsl=document.getElementById('resultStageLine');if(rsl){rsl.textContent='';rsl.className='result-stage small warn';}
   document.getElementById('progressPanel').classList.remove('hidden');
   const logs=[];
-  logs.push('V8.2.9 AuditProofFlow CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
+  logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
+  logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact: 成立解確保後は ①短手数 ②固定手数コスト ③固定手数+採用コスト条件カード枚数 を各最大10分。各工程はユーザーがスキップ可能。未証明を確定扱いしない。');
 
   let liveBest=null;
-  const publishDiscovery=(cand,meta)=>{
-    if(!cand||!cand.metrics)return;
-    if(!liveBest||metricBetter(cand.metrics,liveBest.metrics))liveBest=cand;
-    publishLiveResult(liveBest,baseInfos,liveProof(false,false,false,false),meta&&meta.stage||'成立解を発見。より良い解を探索中。','成立解あり・探索継続中','warn');
-  };
+  const publishDiscovery=(cand,meta)=>{if(!cand||!cand.metrics)return;if(!liveBest||metricBetter(cand.metrics,liveBest.metrics))liveBest=cand;publishLiveResult(liveBest,baseInfos,liveProof(false,false,false,false),meta&&meta.stage||'成立解を発見。より良い解を探索中。','成立解あり・探索継続中','warn');};
 
-  // Phase A: 異なる探索器を並列で最後まで比較し、発見のたびに結果欄を更新する。
-  let res=await runHybridDiscovery(baseInfos,updateProgress,publishDiscovery);
-  logs.push(...(res.logs||[]));
+  // 事前工程: 成立解の確保。ここは3つの10分工程とは別。
+  searchControl.beginUntimedPhase('discovery','成立解の探索','成立解を確保中');
+  let res=await runHybridDiscovery(baseInfos,updateProgress,publishDiscovery);logs.push(...(res.logs||[]));
   if(!res||!res.ok){
-    const cfg=standardCfg('minHands');
-    setSolveStatus('成立解探索中','');
-    const ex=await runV7Worker(baseInfos,cfg,updateProgress);logs.push(...(ex.logs||[]));res=ex;
+    const cfg=standardCfg('minHands');setSolveStatus('成立解探索中','');
+    const ex=await runV7Worker(baseInfos,cfg,updateProgress);if(ex&&Array.isArray(ex.logs))logs.push(...ex.logs);res=ex;
     if(!res||!res.ok){
-      const definitiveNo=!!res && res.proofStatus==='infeasible-proof';
-      setSolveStatus(definitiveNo?'不成立証明':'未確定',definitiveNo?'bad':'warn');
-      document.getElementById('progressPanel').classList.add('hidden');
-      document.getElementById('resultPanel').classList.add('hidden');
-      app.lastResult=null;app.lastOrderText='';return false;
+      const definitiveNo=!!res&&res.proofStatus==='infeasible-proof';setSolveStatus(definitiveNo?'不成立証明':'未確定',definitiveNo?'bad':'warn');
+      document.getElementById('progressPanel').classList.add('hidden');document.getElementById('resultPanel').classList.add('hidden');app.lastResult=null;app.lastOrderText='';searchControl.clearPhase();return false;
     }
-    publishLiveResult(res,baseInfos,liveProof(false,false,false,false),'成立解を発見。より短い手数がないか検証へ移行。','成立解あり・探索継続中','warn');
+    publishLiveResult(res,baseInfos,liveProof(false,false,false,false),'成立解を発見。3つの時間制限付き工程へ移行。','成立解あり・探索継続中','warn');
   }
 
   let best=res;
-  // Discoveryは成立解発見専用。途中で上界停止された探索器がある場合、完了済みengineだけの下限を
-  // 全4モード共通の最小手数証明へ昇格させない。全モードparallel exactが明示的にcertifiedした場合だけ即確定。
-  const discoveryHandsCertified=!!((res.parallelModes===true && res.certified===true) ||
-    (res.discoveryLowerBoundCoverageComplete===true && Number(res.metrics&&res.metrics.hands)===Number(res.globalLowerBound)));
-  let handsProof=discoveryHandsCertified || Number(res.metrics&&res.metrics.hands)<=1;
-  publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),
-    handsProof?('成立手数 '+best.metrics.hands+'手を全モード証明で最小確定。'):('成立手数 '+best.metrics.hands+'手を確認。Discovery下限だけでは確定せず、より短い手数を全モードexactで検証します。'),
-    '成立解あり・探索継続中',handsProof?'ok':'warn');
+  const discoveryHandsCertified=!!((res.parallelModes===true&&res.certified===true)||(res.discoveryLowerBoundCoverageComplete===true&&Number(res.metrics&&res.metrics.hands)===Number(res.globalLowerBound)));
+  let handsProof=discoveryHandsCertified||Number(res.metrics&&res.metrics.hands)<=1;
+  let costProof=false,cardsProof=false,marginProof=false;
+  const phaseOutcomes={hands:null,cost:null,cards:null};
+  const savedPareto=(res.paretoFrontier||[]).filter(q=>q&&q.metrics&&Number(q.metrics.hands)===Number(res.metrics&&res.metrics.hands));
+  for(const q of savedPareto){if(metricBetter(q.metrics,best.metrics))best=Object.assign({},res,{order:q.order,mode:q.mode||res.mode,metrics:q.metrics,searchModeLabel:(res.searchModeLabel||'')+' / Pareto再利用'});}
+  if(savedPareto.length)logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact Pareto frontier再利用: 成立確認済み '+savedPareto.length+'解から現在値を改善');
 
-  if(!handsProof){
-    const hp=await hybridProveOrImproveBelow(baseInfos,best,updateProgress,logs,(cand,st)=>{
-      best=cand;
-      publishLiveResult(best,baseInfos,liveProof(!!st.handsProof,false,false,false),st.stage,'成立解あり・探索継続中',st.handsProof?'ok':'warn');
-    });
-    best=hp.best;handsProof=hp.handsProof;
+  // 工程1/3: 1手少ない手数の探索。
+  if(handsProof){
+    searchControl.beginPhase('hands','1手少ない手数の探索（既に最小手数確定）','1手少ない手数の探索をスキップ',1,3);
+    phaseOutcomes.hands=searchControl.finishPhase('proved');
+    publishLiveResult(best,baseInfos,liveProof(true,false,false,false),'Discovery/数学的下限により最小手数 '+best.metrics.hands+'手は既に確定しています。工程1を完了し、最小コスト探索へ進みます。','成立（最小手数確定・コスト探索へ）','ok');
+  }else{
+    searchControl.beginPhase('hands','1手少ない手数の探索（'+Math.max(0,Number(best.metrics.hands)-1)+'手以下をExact検証）','1手少ない手数の探索をスキップ',1,3,PHASE_LIMIT_MS,'採用中 '+best.metrics.hands+'手');
+    publishLiveResult(best,baseInfos,liveProof(false,false,false,false),'工程1/3：最大10分で '+Math.max(0,best.metrics.hands-1)+'手以下を検証中。スキップした場合は '+best.metrics.hands+'手を採用してコスト探索へ進みます。','成立解あり・工程1/3','warn');
+    const hp=await hybridProveOrImproveBelow(baseInfos,best,updateProgress,logs,(cand,st)=>{best=cand;publishLiveResult(best,baseInfos,liveProof(!!st.handsProof,false,false,false),st.stage,'成立解あり・工程1/3',st.handsProof?'ok':'warn');});
+    best=hp.best;handsProof=hp.handsProof;phaseOutcomes.hands=searchControl.finishPhase(hp.phaseOutcome||(handsProof?'proved':'unproven'));
   }
   res=best;
 
-  // Pareto frontierは「現在値の改善」には使うが、V7系secondaryCertifiedを数学的証明には流用しない。
-  const savedPareto=(res.paretoFrontier||[]).filter(q=>q&&q.metrics&&Number(q.metrics.hands)===Number(res.metrics&&res.metrics.hands));
-  for(const q of savedPareto){
-    if(metricBetter(q.metrics,best.metrics)){
-      best=Object.assign({},res,{order:q.order,mode:q.mode||res.mode,metrics:q.metrics,searchModeLabel:(res.searchModeLabel||'')+' / Pareto再利用'});
-      publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),'同じ手数の成立済みPareto解から、現在のコスト/カード構成を改善。証明探索を継続。','成立解あり・探索継続中',handsProof?'ok':'warn');
-    }
-  }
-  if(savedPareto.length)logs.push('V8.2.9 AuditProofFlow Pareto frontier再利用: 成立確認済み '+savedPareto.length+'解から現在値を改善');
-
-  // 数学的な副目的証明は必ずfalseから開始。V7系secondaryCertifiedは任意循環順序の完全証明ではないため使わない。
-  let costProof=false, cardsProof=false, marginProof=false;
+  // 工程2/3: 現在採用している手数を固定してコストを最適化する。手数の最小性は不要。
+  searchControl.beginPhase('cost','最小コストの探索（'+best.metrics.hands+'手固定）','最小コストの探索をスキップ',2,3,PHASE_LIMIT_MS,handsProof?'最小手数確定済み':'手数最小性は未証明');
+  let costOutcome='unproven';
   const sat=res.saturationV7;
-  if(handsProof&&sat&&sat.complete&&sat.costKnown&&sat.coversAllModes===true&&Number(sat.hands)===Number(best.metrics&&best.metrics.hands)&&best.metrics){
-    if(Math.abs((sat.minCost||0)-(best.metrics.totalCost||0))<1e-9) costProof=true;
-    if(costProof && Number(sat.minCards)===Number(best.metrics.uniqueCards)) cardsProof=true;
-    if(cardsProof && Number(sat.maxMargin)===Number(best.metrics.minSupplyMargin)) marginProof=true;
-    if(costProof)logs.push('V8.2.9 AuditProofFlow 全モードSaturation証明を副目的へ適用。');
+  if(handsProof&&sat&&sat.complete&&sat.costKnown&&sat.coversAllModes===true&&Number(sat.hands)===Number(best.metrics&&best.metrics.hands)&&best.metrics&&Math.abs((sat.minCost||0)-(best.metrics.totalCost||0))<1e-9){
+    costProof=true;costOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 全モードSaturation証明を固定手数コストへ適用。');
   }
-
-  if(!handsProof){
-    publishLiveResult(best,baseInfos,liveProof(false,false,false,false),
-      '手数の最適性が未証明のため、「最低コスト」「最少カード」の証明は行わず、現在の成立解の値として表示します。',
-      '成立（暫定最良・未証明あり）','warn');
-  }
-
-  // Objective 2/3: 手数確定後、最低コスト → 同最低コスト内の最少カード枚数を辞書式に証明する。
-  // 任意の反復回数上限は置かない。改善が出るたび境界が必ず厳しくなるため有限回で収束し、
-  // 未完走/順序未証明が出た場合だけ安全側の「未証明」で停止する。
-  let secondaryRestart=true;
-  while(handsProof && secondaryRestart){
-    secondaryRestart=false;
-
-    if(!costProof && best.metrics && !(best.metrics.unknownCostCards||0)){
-      const q=costQuantum(baseInfos);
-      while(true){
-        const currentCost=Number(best.metrics.totalCost||0);
-        const bound=currentCost-q;
-        if(bound<0){
-          costProof=true;
-          logs.push('V8.2.9 AuditProofFlow コスト証明: コスト量子 '+q.toFixed(1)+'C に対し現在値 '+currentCost.toFixed(1)+'C 未満の非負境界が存在しないため最低コスト確定。');
-          break;
-        }
-        publishLiveResult(best,baseInfos,liveProof(true,false,false,false),
-          '最小手数 '+best.metrics.hands+'手は確定済み。現在 '+currentCost.toFixed(1)+'C。次の境界 '+Math.max(0,bound).toFixed(1)+'C以下に成立解がないか検証中。',
-          '成立（最小手数確定・最低コスト証明中）','warn');
-        let bc=standardCfg('minCostBound');
-        Object.assign(bc,{objectiveLabel:'最低使用コスト証明: 境界内の静的必要条件否定',targetHands:best.metrics.hands,
-          maxTotalCost:Math.max(0,bound),scanOnly:true,forcedPropagationInScan:true,quickSeed:false,orderTestBudget:1,maxGroupedPartitions:1,
-          maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,
-          selectionNodeBudget:12000000,repeatNodeBudget:3000000});
-        const scan=await runV7Worker(baseInfos,bc,updateProgress);logs.push(...(scan.logs||[]));
-        if(isSafeInfeasibleProof(scan)&&!scan.scanMetrics){
-          logs.push('V8.2.9 AuditProofFlow コスト証明: '+Math.max(0,bound).toFixed(1)+'C以下を安全な不成立証明で否定。');
-          costProof=true;break;
-        }
-        if(!scan.scanComplete)logs.push('V8.2.9 AuditProofFlow コスト境界scan未完走: 前処理だけでは判定不能。証明を中止せず、同じ境界を循環順序込みExactで検証。');
-
-        let oc=standardCfg('minCostOrders');
-        Object.assign(oc,{objectiveLabel:'最低使用コスト証明: 強制伝播+循環Exact',targetHands:best.metrics.hands,maxTotalCost:Math.max(0,bound),ipStopOnFirst:false,directObjectiveBound:true,optimizeSameHands:true,
-          maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,
-          selectionNodeBudget:20000000,repeatNodeBudget:5000000,orderTestBudget:1000000});
-        const low=await runV7Worker(baseInfos,oc,updateProgress);logs.push(...(low.logs||[]));
-        const sameHands=low&&low.ok&&low.metrics&&Number(low.metrics.hands)===Number(best.metrics.hands);
-        const lowerCost=sameHands && Number(low.metrics.totalCost)<currentCost-1e-9 && Number(low.metrics.totalCost)<=bound+1e-9;
-        if(lowerCost){
-          best=low;costProof=false;cardsProof=false;
-          publishLiveResult(best,baseInfos,liveProof(true,false,false,false),
-            '同じ最小手数で、より低コストの成立解 '+Number(best.metrics.totalCost||0).toFixed(1)+'C を発見。新しい現在値からさらに低い境界を検証します。',
-            '成立（最小手数確定・コスト改善）','warn');
-          continue;
-        }
-        if(low&&low.ok&&!lowerCost){
-          logs.push('V8.2.9 AuditProofFlow 警告: コスト境界Exactが境界改善にならない成立候補を返したため、証明へ流用せず未証明で停止。');
-          break;
-        }
-        if(isSafeInfeasibleProof(low)){
-          logs.push('V8.2.9 AuditProofFlow コスト証明: 循環Exactで '+Math.max(0,bound).toFixed(1)+'C以下を安全に不成立証明。');
-          costProof=true;break;
-        }
-        break;
-      }
-      if(costProof)publishLiveResult(best,baseInfos,liveProof(true,true,false,false),
-        '最低使用コスト '+Number(best.metrics.totalCost||0).toFixed(1)+'C を確定。続いて同じ手数・同じ最低コストの範囲で最少カード枚数を検証します。',
-        '成立（手数・コスト確定・カード探索へ）','ok');
-      else publishLiveResult(best,baseInfos,liveProof(true,false,false,false),
-        '最小手数は確定済み。最低コストは現行Exact予算では未証明のため、カード枚数の最少性検証は開始しません。',
-        '成立（手数確定・コスト未証明）','warn');
+  if(!costProof&&best.metrics&&!(best.metrics.unknownCostCards||0)){
+    const q=costQuantum(baseInfos);
+    while(true){
+      const abort=currentPhaseAbortOutcome();if(abort){costOutcome=abort;break;}
+      const currentCost=Number(best.metrics.totalCost||0),bound=currentCost-q;
+      searchControl.updatePhase('最小コストの探索（'+best.metrics.hands+'手固定）','現在最良 '+currentCost.toFixed(1)+'C'+(handsProof?'':' / 手数最小性未証明'));
+      if(bound<0){costProof=true;costOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: 非負の下位境界なし → '+currentCost.toFixed(1)+'C確定。');break;}
+      publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),'工程2/3：'+best.metrics.hands+'手固定で現在 '+currentCost.toFixed(1)+'C。最大10分で '+Math.max(0,bound).toFixed(1)+'C以下を検証中。','成立（工程2/3・コスト探索中）','warn');
+      let bc=standardCfg('minCostBound');Object.assign(bc,{objectiveLabel:'工程2/3 最小コスト: 静的境界検証',targetHands:best.metrics.hands,maxTotalCost:Math.max(0,bound),scanOnly:true,forcedPropagationInScan:true,quickSeed:false,orderTestBudget:1,maxGroupedPartitions:1,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:12000000,repeatNodeBudget:3000000});
+      const scan=await runV7Worker(baseInfos,bc,updateProgress);if(scan&&Array.isArray(scan.logs))logs.push(...scan.logs);
+      if(isPhaseInterrupt(scan)||currentPhaseAbortOutcome()){costOutcome=currentPhaseAbortOutcome()||(scan.interruptKind==='phase-skip'?'skipped':'timeout');break;}
+      if(isSafeInfeasibleProof(scan)&&!scan.scanMetrics){costProof=true;costOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: '+Math.max(0,bound).toFixed(1)+'C以下を安全に否定。');break;}
+      let oc=standardCfg('minCostOrders');Object.assign(oc,{objectiveLabel:'工程2/3 最小コスト: 循環Exact',targetHands:best.metrics.hands,maxTotalCost:Math.max(0,bound),ipStopOnFirst:false,directObjectiveBound:true,optimizeSameHands:true,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:20000000,repeatNodeBudget:5000000,orderTestBudget:1000000});
+      const low=await runV7Worker(baseInfos,oc,updateProgress);if(low&&Array.isArray(low.logs))logs.push(...low.logs);
+      if(isPhaseInterrupt(low)||currentPhaseAbortOutcome()){costOutcome=currentPhaseAbortOutcome()||(low.interruptKind==='phase-skip'?'skipped':'timeout');break;}
+      const sameHands=low&&low.ok&&low.metrics&&Number(low.metrics.hands)===Number(best.metrics.hands);
+      const lowerCost=sameHands&&Number(low.metrics.totalCost)<currentCost-1e-9&&Number(low.metrics.totalCost)<=bound+1e-9;
+      if(lowerCost){best=low;costProof=false;cardsProof=false;publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),'工程2/3：より低コストの '+Number(best.metrics.totalCost||0).toFixed(1)+'C を発見。残り時間でさらに下を検証します。','成立（工程2/3・コスト改善）','warn');continue;}
+      if(isSafeInfeasibleProof(low)){costProof=true;costOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: 循環Exactで '+Math.max(0,bound).toFixed(1)+'C以下を否定。');break;}
+      costOutcome='unproven';break;
     }
+  }else if(!best.metrics||best.metrics.unknownCostCards){costOutcome='unproven';}
+  if(currentPhaseAbortOutcome())costOutcome=currentPhaseAbortOutcome();
+  phaseOutcomes.cost=searchControl.finishPhase(costProof?'proved':costOutcome);
+  if(costProof)publishLiveResult(best,baseInfos,liveProof(handsProof,true,false,false),best.metrics.hands+'手固定で最低使用コスト '+Number(best.metrics.totalCost||0).toFixed(1)+'C を確定。工程3/3へ進みます。','成立（工程2/3完了・カード探索へ）','ok');
+  else publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),best.metrics.hands+'手固定で現在最良 '+Number(best.metrics.totalCost||0).toFixed(1)+'C。コスト最小性は'+phaseOutcomeReason(phaseOutcomes.cost)+'のため未証明ですが、この条件でカード枚数探索へ進みます。','成立（工程2/3終了・コスト未証明）','warn');
 
-    // コスト未確定ならカード枚数は辞書式目的上まだ比較できない。
-    if(!costProof)break;
-
-    if(!cardsProof && best.metrics){
-      if(Number(best.metrics.uniqueCards)<=1){cardsProof=true;break;}
-      while(true){
-        const currentCards=Number(best.metrics.uniqueCards)||0;
-        const provenCost=Number(best.metrics.totalCost||0);
-        const cardBound=currentCards-1;
-        if(cardBound<1){cardsProof=true;break;}
-        publishLiveResult(best,baseInfos,liveProof(true,true,false,false),
-          '最小手数 '+best.metrics.hands+'手・最低コスト '+provenCost.toFixed(1)+'C は確定済み。現在 '+currentCards+'枚。'+cardBound+'枚以下で成立解がないか検証中。',
-          '成立（手数・コスト確定・カード枚数証明中）','warn');
-        let sc=standardCfg('minCardsBound');
-        Object.assign(sc,{objectiveLabel:'最少カード枚数証明: 境界内の静的必要条件否定',
-          targetHands:best.metrics.hands,maxUniqueCards:cardBound,maxTotalCost:provenCost,
-          scanOnly:true,forcedPropagationInScan:true,quickSeed:false,orderTestBudget:1,maxGroupedPartitions:1,
-          maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,
-          selectionNodeBudget:12000000,repeatNodeBudget:3000000});
-        const scan=await runV7Worker(baseInfos,sc,updateProgress);logs.push(...(scan.logs||[]));
-        if(isSafeInfeasibleProof(scan)&&!scan.scanMetrics){
-          logs.push('V8.2.9 AuditProofFlow カード枚数証明: '+cardBound+'枚以下を安全な不成立証明で否定。');
-          cardsProof=true;break;
-        }
-        if(!scan.scanComplete)logs.push('V8.2.9 AuditProofFlow カード境界scan未完走: 前処理だけでは判定不能。証明を中止せず、同じ境界を循環順序込みExactで検証。');
-
-        let oc=standardCfg('minCardsOrders');
-        Object.assign(oc,{objectiveLabel:'最少カード枚数証明: 強制伝播+循環Exact',
-          targetHands:best.metrics.hands,maxUniqueCards:cardBound,maxTotalCost:provenCost,ipStopOnFirst:false,directObjectiveBound:true,optimizeSameHands:true,
-          maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,
-          selectionNodeBudget:20000000,repeatNodeBudget:5000000,orderTestBudget:1000000});
-        const low=await runV7Worker(baseInfos,oc,updateProgress);logs.push(...(low.logs||[]));
-        const sameHands=low&&low.ok&&low.metrics&&Number(low.metrics.hands)===Number(best.metrics.hands);
-        const lc=Number(low&&low.metrics&&low.metrics.totalCost);
-        const lowerCost=sameHands&&Number.isFinite(lc)&&lc<provenCost-1e-9;
-        if(lowerCost){
-          // 防御経路。正しいcostProofと矛盾するので、低コスト成立解を優先し副目的証明を最初からやり直す。
-          best=low;costProof=false;cardsProof=false;secondaryRestart=true;
-          logs.push('V8.2.9 AuditProofFlow 防御再開: カード探索中に既存最低コストより低い成立解を検出。旧costProofを破棄し、新しいコストから再証明。');
-          publishLiveResult(best,baseInfos,liveProof(true,false,false,false),
-            'カード枚数探索中に、さらに低コストの成立解 '+lc.toFixed(1)+'C を検出。コスト最適性を新しい値から再証明します。',
-            '成立（コスト証明を再開）','warn');
-          break;
-        }
-        const fewerCards=sameHands&&Math.abs(lc-provenCost)<1e-9&&Number(low.metrics.uniqueCards)<currentCards&&Number(low.metrics.uniqueCards)<=cardBound;
-        if(fewerCards){
-          best=low;cardsProof=false;
-          publishLiveResult(best,baseInfos,liveProof(true,true,false,false),
-            '同じ最小手数・最低コストで、より少ない '+best.metrics.uniqueCards+'枚の成立解を発見。新しい現在値からさらに1枚少ない境界を検証します。',
-            '成立（カード枚数改善）','warn');
-          continue;
-        }
-        if(low&&low.ok&&!fewerCards){
-          logs.push('V8.2.9 AuditProofFlow 警告: カード境界Exactが辞書式改善にならない成立候補を返したため、証明へ流用せず未証明で停止。');
-          break;
-        }
-        if(isSafeInfeasibleProof(low)){
-          logs.push('V8.2.9 AuditProofFlow カード枚数証明: 循環Exactで '+cardBound+'枚以下を安全に不成立証明。');
-          cardsProof=true;break;
-        }
-        break;
-      }
-      if(secondaryRestart)continue;
-    }
+  // 工程3/3: 採用手数と工程開始時の採用コスト以下を条件に、カード枚数を最小化。
+  const cardCostCeiling=Number(best.metrics.totalCost||0);
+  searchControl.beginPhase('cards','最小カード枚数の探索（'+best.metrics.hands+'手・'+cardCostCeiling.toFixed(1)+'C以下）','最小カード枚数の探索をスキップ',3,3,PHASE_LIMIT_MS,costProof?'最低コスト確定済み':'コスト最小性は未証明');
+  let cardsOutcome='unproven';
+  if(Number(best.metrics.uniqueCards)<=1){cardsProof=true;cardsOutcome='proved';}
+  while(!cardsProof){
+    const abort=currentPhaseAbortOutcome();if(abort){cardsOutcome=abort;break;}
+    const currentCards=Number(best.metrics.uniqueCards)||0,cardBound=currentCards-1;
+    if(cardBound<1){cardsProof=true;cardsOutcome='proved';break;}
+    searchControl.updatePhase('最小カード枚数の探索（'+best.metrics.hands+'手・'+cardCostCeiling.toFixed(1)+'C以下）','現在 '+currentCards+'枚'+(costProof?' / 最低コスト確定済み':' / コスト最小性未証明'));
+    publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程3/3：'+best.metrics.hands+'手・'+cardCostCeiling.toFixed(1)+'C以下の条件で現在 '+currentCards+'枚。最大10分で '+cardBound+'枚以下を検証中。','成立（工程3/3・カード探索中）','warn');
+    let sc=standardCfg('minCardsBound');Object.assign(sc,{objectiveLabel:'工程3/3 最小カード枚数: 静的境界検証',targetHands:best.metrics.hands,maxUniqueCards:cardBound,maxTotalCost:cardCostCeiling,scanOnly:true,forcedPropagationInScan:true,quickSeed:false,orderTestBudget:1,maxGroupedPartitions:1,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:12000000,repeatNodeBudget:3000000});
+    const scan=await runV7Worker(baseInfos,sc,updateProgress);if(scan&&Array.isArray(scan.logs))logs.push(...scan.logs);
+    if(isPhaseInterrupt(scan)||currentPhaseAbortOutcome()){cardsOutcome=currentPhaseAbortOutcome()||(scan.interruptKind==='phase-skip'?'skipped':'timeout');break;}
+    if(isSafeInfeasibleProof(scan)&&!scan.scanMetrics){cardsProof=true;cardsOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 条件内カード枚数: '+cardBound+'枚以下を安全に否定。');break;}
+    let oc=standardCfg('minCardsOrders');Object.assign(oc,{objectiveLabel:'工程3/3 最小カード枚数: 循環Exact',targetHands:best.metrics.hands,maxUniqueCards:cardBound,maxTotalCost:cardCostCeiling,ipStopOnFirst:false,directObjectiveBound:!!costProof,optimizeSameHands:true,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:20000000,repeatNodeBudget:5000000,orderTestBudget:1000000});
+    const low=await runV7Worker(baseInfos,oc,updateProgress);if(low&&Array.isArray(low.logs))logs.push(...low.logs);
+    if(isPhaseInterrupt(low)||currentPhaseAbortOutcome()){cardsOutcome=currentPhaseAbortOutcome()||(low.interruptKind==='phase-skip'?'skipped':'timeout');break;}
+    const sameHands=low&&low.ok&&low.metrics&&Number(low.metrics.hands)===Number(best.metrics.hands),lc=Number(low&&low.metrics&&low.metrics.totalCost);
+    const fewer=sameHands&&Number.isFinite(lc)&&lc<=cardCostCeiling+1e-9&&Number(low.metrics.uniqueCards)<currentCards&&Number(low.metrics.uniqueCards)<=cardBound;
+    if(fewer){best=low;cardsProof=false;publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程3/3：条件内でより少ない '+best.metrics.uniqueCards+'枚の成立解を発見。残り時間でさらに1枚少ない境界を検証します。','成立（工程3/3・カード枚数改善）','warn');continue;}
+    if(isSafeInfeasibleProof(low)){cardsProof=true;cardsOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 条件内カード枚数: 循環Exactで '+cardBound+'枚以下を否定。');break;}
+    cardsOutcome='unproven';break;
   }
+  if(currentPhaseAbortOutcome())cardsOutcome=currentPhaseAbortOutcome();
+  phaseOutcomes.cards=searchControl.finishPhase(cardsProof?'proved':cardsOutcome);
 
-  if(handsProof&&costProof&&cardsProof&&best.metrics&&sat&&sat.complete&&sat.costKnown&&sat.coversAllModes===true&&Number(sat.hands)===Number(best.metrics.hands)&&Number(sat.maxMargin)===Number(best.metrics.minSupplyMargin)) marginProof=true;
+  if(handsProof&&costProof&&cardsProof&&best.metrics&&sat&&sat.complete&&sat.costKnown&&sat.coversAllModes===true&&Number(sat.hands)===Number(best.metrics.hands)&&Number(sat.maxMargin)===Number(best.metrics.minSupplyMargin))marginProof=true;
+  searchControl.finalPhaseSummary={line:'現在の工程：完了（3/3）',time:`手数: ${phaseOutcomeReason(phaseOutcomes.hands)} ｜ コスト: ${phaseOutcomeReason(phaseOutcomes.cost)} ｜ カード: ${phaseOutcomeReason(phaseOutcomes.cards)}`};
+  searchControl.clearPhase();
 
-  const final={...best,proof:{hands:handsProof,cost:costProof,cards:cardsProof,margin:marginProof},logs};
-  const sim=physicalSim(final.order,baseInfos,50);final.physicalSim=sim;
-  if(!sim.ok) throw new Error(`V8候補を独立CTシミュレータで検証したところ、${sim.round}周目 ${sim.step}手目で ${sim.skillName} のCTが ${sim.remaining}分残っていました。出力は採用しません。`);
+  const final={...best,proof:{hands:handsProof,cost:costProof,cards:cardsProof,margin:marginProof,cardCostCeiling,phaseOutcomes},logs};
+  const sim=physicalSim(final.order,baseInfos,50);final.physicalSim=sim;if(!sim.ok)throw new Error(`V8候補を独立CTシミュレータで検証したところ、${sim.round}周目 ${sim.step}手目で ${sim.skillName} のCTが ${sim.remaining}分残っていました。出力は採用しません。`);
   app.lastResult=final;
 
-  let finalStatus,finalStage,finalStageType='warn';
-  if(handsProof&&costProof&&cardsProof){
-    finalStatus='成立（手数・コスト・カード確定）';finalStage='探索完了。最小手数・最低使用コスト・最少使用カード枚数まで証明済みです。';finalStageType='ok';
-  }else if(handsProof&&costProof){
-    finalStatus='成立（手数・コスト確定・カード未証明）';finalStage='探索完了。最小手数と最低使用コストは確定しています。カード枚数は同条件で探索しましたが、最少性は現行Exact予算では未証明です。';
-  }else if(handsProof){
-    finalStatus='成立（最小手数確定・コスト未証明）';finalStage='探索完了。最小手数は確定しています。最低使用コストは未証明のため、カード枚数の最少性検証は辞書式目的上まだ実施できません。表示コスト/枚数は現在の成立解の値です。';
-  }else{
-    finalStatus='成立（暫定最良・手数未証明）';finalStage='探索完了。表示順序の成立は確認済みですが最小手数は未証明です。コスト・カード枚数の最適性検証は最小手数確定後に行うため未実施です。';
-  }
-  final.liveStage=finalStage;final.liveStageType=finalStageType;
-  setSolveStatus(finalStatus,finalStageType==='ok'?'ok':'warn');
-  renderResult(final);
-  document.getElementById('progressBar').style.width='100%';
-  document.getElementById('progressLabel').textContent=handsProof?(costProof?(cardsProof?'完了：手数・コスト・カード確定':'完了：手数・コスト確定 / カード未証明'):'完了：手数確定 / コスト未証明'):'完了：暫定成立 / 手数未証明';
+  const hText=handsProof?'最小手数確定':('採用手数 '+best.metrics.hands+'手・最小性未証明');
+  const cText=costProof?(best.metrics.hands+'手内最低コスト確定'): (best.metrics.hands+'手内コスト最小性未証明');
+  const kScope=best.metrics.hands+'手・'+cardCostCeiling.toFixed(1)+'C以下';
+  const kText=cardsProof?(kScope+'で最少カード確定'):(kScope+'でカード最少性未証明');
+  const allGlobal=handsProof&&costProof&&cardsProof;
+  const finalStatus=allGlobal?'成立（手数・コスト・カード確定）':'成立（時間制限付き最適化完了）';
+  const finalStage=`探索完了。${hText}。${cText}。${kText}。工程結果: 手数=${phaseOutcomeReason(phaseOutcomes.hands)} / コスト=${phaseOutcomeReason(phaseOutcomes.cost)} / カード=${phaseOutcomeReason(phaseOutcomes.cards)}。`;
+  final.liveStage=finalStage;final.liveStageType=allGlobal?'ok':'warn';setSolveStatus(finalStatus,allGlobal?'ok':'warn');renderResult(final);
+  document.getElementById('progressBar').style.width='100%';document.getElementById('progressLabel').textContent='完了：3工程終了';
+  updateCurrentPhaseUi();
+  if(searchControl.lastProgress){const fp=Object.assign({},searchControl.lastProgress,{workStage:'完了',label:'',generalGapCurrentStates:0,generalGapCurrentLimit:0,gapFixedPointCurrentStates:0,gapFixedPointCurrentLimit:0,forcedPropagationCurrentNodes:0,forcedPropagationCurrentLimit:0,manyTopologyCurrentLeaf:0,manyTopologyCurrentRepeated:0,manyTopologyCurrentLeafLimit:0,manyTopologyCurrentLeafPass:0,manyTopologyTargetClassCurrentCanonical:0,manyTopologyTargetClassCurrentOrbitPruned:0,manyTopologyTargetClassCurrentClasses:0,manyTopologyTargetClassCurrentMembers:0,manyTopologyTargetClassCurrentCompressed:0});searchControl.lastProgress=fp;const de=document.getElementById('progressDetail');if(de)de.textContent=buildProgressDetail(fp);const hb=document.getElementById('progressHeartbeat');if(hb)hb.textContent=buildProgressHeartbeat(fp);}
 }
 
 function isSelfExcludedInfo(x){
@@ -5014,15 +5405,18 @@ function renderResult(r){
   const hLabel=document.getElementById('handsOut')?.parentElement?.querySelector('.k');
   const cLabel=document.getElementById('costOut')?.parentElement?.querySelector('.k');
   const nLabel=document.getElementById('cardsOut')?.parentElement?.querySelector('.k');
-  if(hLabel)hLabel.textContent=p.hands?'最小手数':'暫定最良手数';
-  if(cLabel)cLabel.textContent=p.cost?'最低使用コスト':'現在の使用コスト';
-  if(nLabel)nLabel.textContent=p.cards?'最少使用カード枚数':'現在の使用カード枚数';
-  const costState=p.cost?'確定':(p.hands?'未証明':'未検証');
-  const cardState=p.cards?'確定':(p.hands&&p.cost?'未証明':'未検証');
+  const h=Number(m.hands||r.order?.length||0),ceiling=Number(p.cardCostCeiling!=null?p.cardCostCeiling:m.totalCost||0);
+  if(hLabel)hLabel.textContent=p.hands?'最小手数':'採用手数（最小性未証明）';
+  if(cLabel)cLabel.textContent=p.cost?`${h}手内最低使用コスト`:`${h}手内現在最良コスト`;
+  if(nLabel)nLabel.textContent=p.cards?`${h}手・${ceiling.toFixed(1)}C以下で最少カード枚数`:`${h}手・${ceiling.toFixed(1)}C以下で現在カード枚数`;
+  const po=p.phaseOutcomes||{};
+  const hs=p.hands?'確定':('未証明'+(po.hands?'（'+phaseOutcomeReason(po.hands)+'）':''));
+  const cs=p.cost?`${h}手内確定`:`${h}手内未証明${po.cost?'（'+phaseOutcomeReason(po.cost)+'）':''}`;
+  const ks=p.cards?'条件内確定':`条件内未証明${po.cards?'（'+phaseOutcomeReason(po.cards)+'）':''}`;
   const badges=[
-    `<span class="badge ${p.hands?'ok':'warn'}">手数=${p.hands?'確定':'未証明'}</span>`,
-    `<span class="badge ${p.cost?'ok':'warn'}">コスト=${costState}</span>`,
-    `<span class="badge ${p.cards?'ok':'warn'}">カード=${cardState}</span>`
+    `<span class="badge ${p.hands?'ok':'warn'}">手数=${hs}</span>`,
+    `<span class="badge ${p.cost?'ok':'warn'}">コスト=${cs}</span>`,
+    `<span class="badge ${p.cards?'ok':'warn'}">カード=${ks}</span>`
   ];
   document.getElementById('proofLine').innerHTML=badges.join(' ');
   const stageEl=document.getElementById('resultStageLine');
@@ -5065,14 +5459,19 @@ function renderResult(r){
 document.getElementById('parseBtn').addEventListener('click',()=>{try{parseAll();}catch(e){alert(e.message);}});
 document.getElementById('selectAllBtn').addEventListener('click',()=>setAllCardSelections(true));
 document.getElementById('selectNoneBtn').addEventListener('click',()=>setAllCardSelections(false));
+const progressDetailsEl=document.getElementById('progressDetails');
+if(progressDetailsEl){progressDetailsEl.open=false;progressDetailsEl.addEventListener('toggle',updateProgressDetailsToggleText);updateProgressDetailsToggleText();}
 document.getElementById('pauseSearchBtn').addEventListener('click',()=>searchControl.pause());
 document.getElementById('resumeSearchBtn').addEventListener('click',()=>searchControl.resume());
+document.getElementById('skipPhaseBtn').addEventListener('click',()=>searchControl.skipPhase());
 document.getElementById('cancelSearchBtn').addEventListener('click',()=>searchControl.cancel());
 document.getElementById('solveBtn').addEventListener('click',async()=>{
   const b=document.getElementById('solveBtn');
   b.disabled=true;
   setSearchInputsLocked(true);
   searchControl.begin();
+  const pd=document.getElementById('progressDetails');if(pd){pd.open=false;updateProgressDetailsToggleText();}
+  const ps=document.getElementById('progressSummary');if(ps)ps.textContent='探索基準と主要進捗を準備中';
   try{
     await solveV7();
   }catch(e){
