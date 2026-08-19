@@ -41,6 +41,7 @@ tr.card-excluded td{background:#f3f0e9;color:#8a8175}
 .search-state.cancelled{color:var(--bad)}
 
 /* V8.3.5: 探索中パネルは詳細ログの開閉で高さを変えない。暫定結果欄の位置を固定する。 */
+/* V8.3.6: 副将の明鏡/錬鏡はスキル名からレアリティを自動判別し、実際に適用する鏡モードを選択する。 */
 #progressLabel{
   line-height:1.45;
   height:4.35em;
@@ -130,9 +131,9 @@ tr.card-excluded td{background:#f3f0e9;color:#8a8175}
   color:var(--muted);
 }
 .selection-summary.has-missing-rarity{color:var(--bad)}
-.rarity-col{min-width:170px}
-.deputy-rarity-select{min-width:78px;border:1px solid #9b8b70;border-radius:3px;padding:4px 5px;background:#fff;color:var(--text);font-family:inherit;font-size:11px}
-.deputy-rarity-select.input-required{border:2px solid var(--bad);background:#fff1f0;box-shadow:0 0 0 2px rgba(183,23,23,.12)}
+.rarity-col{min-width:285px}
+.mirror-mode-select{min-width:270px;max-width:100%;border:1px solid #9b8b70;border-radius:3px;padding:4px 5px;background:#fff;color:var(--text);font-family:inherit;font-size:11px}
+.mirror-mode-select.input-required{border:2px solid var(--bad);background:#fff1f0;box-shadow:0 0 0 2px rgba(183,23,23,.12)}
 .rarity-status{display:block;margin-top:4px;font-size:10px;line-height:1.4;color:var(--muted)}
 .rarity-status.ok{color:var(--ok);font-weight:bold}.rarity-status.warn{color:var(--warn);font-weight:bold}.rarity-status.bad{color:var(--bad);font-weight:bold}
 tr.rarity-missing td{background:#fff1f0!important}
@@ -169,7 +170,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <h2>1. カードファイルからコピーした内容を貼り付け</h2>
     <div class="notice">
       <b>カードファイル画面で「小15枚表示」または「小60枚表示」にして、対象カードをまとめてコピーし、そのまま貼り付けてください。</b><br>
-      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡を自動解析します。カード境界はNo行で判定するため「デッキコスト不足」のカードも個別に解析します。副将鏡が回復スキルに影響するカードは、解析後に副将レアリティを指定してください。スキル回復以外のスキルも貼り付けたままで構いません。
+      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡を自動解析します。カード境界はNo行で判定するため「デッキコスト不足」のカードも個別に解析します。副将の明鏡/錬鏡はスキル名から対象レアリティを自動判別し、解析後に「効果なし / 明鏡効果 / 錬鏡効果（条件一致）」を選択できます。スキル回復以外のスキルも貼り付けたままで構いません。
     </div>
     <div style="margin-top:10px">
       <h3>カードファイル</h3>
@@ -184,14 +185,14 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 
   <section id="parsedPanel" class="panel hidden">
     <h2>2. 探索対象カードを選択</h2>
-    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。副将鏡/錬鏡が主将1枠目の回復スキルに影響するカードは、鏡名から想定される「副将レアリティ（主将と同一）」を初期選択します。必要に応じて変更できます。副将効果率は R40% / SR50% / UR60% / L70% / SL80% として計算し、鏡の対象主将レアリティと不一致なら鏡効果は0として扱います。龍肝の湯薬はゲーム仕様に合わせ、主将鏡・副将鏡・錬鏡によるコピー効果を一切加算しません。</p>
+    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。副将の明鏡/錬鏡はスキル名から R / SR / UR / L / SL を自動判別します。明鏡は「効果なし / 明鏡効果」、錬鏡は「効果なし / 明鏡相当効果 / 錬鏡効果（勢力等の条件一致）」から選択できます。初期値は明鏡なら明鏡効果、錬鏡なら条件一致の錬鏡効果です。表示する％と短縮分数にはスキルLVを反映します。龍肝の湯薬はゲーム仕様に合わせ、主将鏡・副将鏡・錬鏡によるコピー効果を一切加算しません。</p>
     <div class="selection-tools">
       <button id="selectAllBtn" class="secondary" type="button">すべて選択</button>
       <button id="selectNoneBtn" class="secondary" type="button">すべて解除</button>
       <span id="selectionSummary" class="selection-summary"></span>
     </div>
     <div class="tablewrap"><table>
-      <thead><tr><th class="select-col">対象</th><th>カード名</th><th>カードNo</th><th class="num">コスト</th><th class="rarity-col">副将レアリティ<br><span class="small">（主将と同一）</span></th><th>検出スキル / 判定</th></tr></thead>
+      <thead><tr><th class="select-col">対象</th><th>カード名</th><th>カードNo</th><th class="num">コスト</th><th class="rarity-col">副将鏡 / 錬鏡<br><span class="small">適用効果</span></th><th>検出スキル / 判定</th></tr></thead>
       <tbody id="parsedBody"></tbody>
     </table></div>
     <div id="parseWarnings"></div>
@@ -262,7 +263,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 </main>
 
 <script>
-// 施術ループ探索（仮） v8.3.5 FixedProgressUI Hybrid
+// 施術ループ探索（仮） v8.3.6 MirrorMode Hybrid
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -355,9 +356,10 @@ function buildCandidatesForCard(card){
 }
 
 // カードファイル画面の通常コピーには効果説明が含まれないため、
-// 既知のLV1～10回復量、カード自身の超覇補正、鏡系スキルLV、副将レアリティから
+// 既知のLV1～10回復量、カード自身の超覇補正、鏡系スキル名/LVから
 // deck.php裏面と同じ「実効短縮量」を復元する。
-// 副将鏡/錬鏡は「鏡が要求する主将レアリティ」と手入力した副将レアリティが一致するときだけ有効。
+// V8.3.6: 副将の明鏡/錬鏡はレアリティをスキル名から自動判別し、
+// 「効果なし / 通常明鏡相当 / 錬鏡条件一致」を利用者が選ぶ。
 // 回復スキルはコスト非依存のため、明鏡=副将コスト / 錬鏡=主将コストの差は本計算では考慮不要。
 // 龍肝の湯薬はゲーム仕様上、主将鏡・副将鏡・錬鏡によるコピー効果を受けない。
 const CARD_FILE_BASE_TABLE = {
@@ -369,7 +371,12 @@ const CARD_FILE_BASE_TABLE = {
   '娘々聖水':  [20,25,30,35,40,45,50,60,70,80],
   '龍肝の湯薬':[90,135,180,225,270,315,360,420,510,600]
 };
+// 通常の副将明鏡系。LV10時の副将スキル反映率。
 const DEPUTY_RARITY_RATE = {R:0.40,SR:0.50,UR:0.60,L:0.70,SL:0.80};
+// 錬鏡が勢力/性別等の固有条件を満たした場合のLV10時反映率。
+// R=50 / UR=70 / L=85 / SL=100 はゲーム内説明/実測と一致。
+// SR大錬鏡は同系列の60%として扱う。
+const RENKYO_MATCH_RATE = {R:0.50,SR:0.60,UR:0.70,L:0.85,SL:1.00};
 const DEPUTY_RARITIES = ['R','SR','UR','L','SL'];
 
 function cardFileBaseForFamily(familyName,level){
@@ -398,6 +405,12 @@ function isMirrorLikeName(rawName){
 function isMirrorLikeEntry(e){
   return !!(e && isMirrorLikeName(e.rawName));
 }
+function isRenkyoName(rawName){
+  return /錬鏡/.test(String(rawName||''));
+}
+function isRenkyoEntry(e){
+  return !!(e && isRenkyoName(e.rawName));
+}
 function isMainMirrorEntry(e){
   return !!(e && !isDeputyEntry(e) && /(?:明鏡|明鑑)/.test(String(e.rawName||'')));
 }
@@ -409,7 +422,7 @@ function deputyMirrorTargetRarity(rawName){
   if(/副将の神明(?:鏡|鑑)/.test(s)) return 'UR';
   if(/副将の大明(?:鏡|鑑)/.test(s)) return 'SR';
   if(/副将の明(?:鏡|鑑)/.test(s)) return 'R';
-  // 魏将/呉将/蜀将/群将...の〇錬鏡。先頭の勢力名は問わない。
+  // 魏将/呉将/蜀将/群将/娘将...の〇錬鏡。先頭条件名は問わない。
   if(/将の帝錬鏡/.test(s)) return 'SL';
   if(/将の天錬鏡/.test(s)) return 'L';
   if(/将の神錬鏡/.test(s)) return 'UR';
@@ -424,20 +437,41 @@ function deputyMirrorLevelRate(level){
   const lv=Math.max(1,Math.min(10,Math.floor(Number(level)||0)));
   return lv/10;
 }
-function inferredDeputyRarityForEntries(entries){
+function inferredDeputyMirrorMetaForEntries(entries){
   const raw=entries||[];
   const slot1=raw.find(e=>e.slot===1);
   const fam=slot1?familyFor(slot1.rawName):null;
-  // 龍肝は鏡・副将コピー不可なので副将レアリティ指定自体が不要。
-  if(!fam || fam[0]==='龍肝の湯薬')return '';
-  const req=[...new Set(raw.filter(e=>isDeputyEntry(e)&&isMirrorLikeName(e.rawName))
-    .map(e=>deputyMirrorTargetRarity(e.rawName)).filter(Boolean))];
-  return req.length===1?req[0]:'';
+  // 龍肝は鏡・副将コピー不可なので選択自体を不要にする。
+  if(!fam || fam[0]==='龍肝の湯薬')return null;
+  const rel=raw.filter(e=>isDeputyEntry(e)&&isMirrorLikeName(e.rawName)&&deputyMirrorTargetRarity(e.rawName));
+  if(!rel.length)return null;
+  const e=rel[0];
+  return {
+    rarity:deputyMirrorTargetRarity(e.rawName)||'',
+    kind:isRenkyoEntry(e)?'renkyo':'mirror',
+    entry:e,
+    count:rel.length
+  };
 }
-function cardNeedsDeputyRarity(card){
-  return !!(card && card.hasRelevantDeputyMirror);
+function defaultMirrorModeForEntries(entries){
+  const m=inferredDeputyMirrorMetaForEntries(entries);
+  if(!m)return 'none';
+  return m.kind==='renkyo'?'renkyo':'mirror';
 }
-function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnings){
+function cardNeedsMirrorMode(card){
+  return !!(card && card.hasRelevantDeputyMirror && card.primaryRecoveryFamily!=='龍肝の湯薬');
+}
+function mirrorEffectiveRate(rarity,level,kind,mode){
+  const lv=deputyMirrorLevelRate(level);
+  if(mode==='none')return 0;
+  if(mode==='renkyo' && kind==='renkyo')return (RENKYO_MATCH_RATE[rarity]||0)*lv;
+  return (DEPUTY_RARITY_RATE[rarity]||0)*lv;
+}
+function mirrorPercentText(rate){
+  const v=Math.round((Number(rate)||0)*1000)/10;
+  return (Math.abs(v-Math.round(v))<1e-9?String(Math.round(v)):v.toFixed(1))+'%';
+}
+function applyCardFileSkillEffects(entries,bonusPct,mirrorMode,cardName,warnings){
   const raw=entries||[];
   const warn=warnings&&typeof warnings.push==='function'?warnings:null;
   const slot1=raw.find(e=>e.slot===1);
@@ -457,14 +491,19 @@ function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnin
 
   const requiredRarities=new Set();
   let relevantDeputyMirrorCount=0;
+  let deputyMirrorKind='';
+  let deputyMirrorRarity='';
   for(const e of raw){
     e.effect='';
     e.mirrorRequiredRarity='';
     e.mirrorLevelRate=0;
     e.mirrorRarityRate=0;
+    e.mirrorAppliedRate=0;
     e.mirrorActive=false;
     e.mirrorShorten=0;
     e.mirrorBlockedReason='';
+    e.mirrorKind='';
+    e.mirrorSelectedMode=mirrorMode||'none';
 
     const fam=familyFor(e.rawName);
     if(fam){
@@ -479,7 +518,7 @@ function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnin
       continue;
     }
 
-    // 龍肝の湯薬はゲーム仕様上、主将鏡・副将鏡・錬鏡によるコピー対象外。
+    // 主将自身の鏡/明鑑は従来どおり自動適用。
     if(isMainMirrorEntry(e)){
       if(dragonCopyBlocked){
         e.mirrorBlockedReason='龍肝は鏡・副将コピー不可';
@@ -488,6 +527,7 @@ function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnin
         e.mirrorActive=true;
         e.mirrorLevelRate=1;
         e.mirrorRarityRate=1;
+        e.mirrorAppliedRate=1;
         e.mirrorShorten=primaryBase;
       }
       continue;
@@ -496,26 +536,30 @@ function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnin
     if(isDeputyEntry(e) && isMirrorLikeName(e.rawName)){
       const required=deputyMirrorTargetRarity(e.rawName);
       if(!required){
-        if(warn)warn.push('副将鏡の対象レアリティ判定未登録: '+cardName+' / '+e.label);
+        if(warn)warn.push('副将鏡/錬鏡のレアリティ判定未登録: '+cardName+' / '+e.label);
         continue;
       }
+      const kind=isRenkyoEntry(e)?'renkyo':'mirror';
+      e.mirrorKind=kind;
       e.mirrorRequiredRarity=required;
       e.mirrorLevelRate=deputyMirrorLevelRate(e.level);
-      e.mirrorRarityRate=DEPUTY_RARITY_RATE[deputyRarity]||0;
+      e.mirrorRarityRate=DEPUTY_RARITY_RATE[required]||0;
 
       if(dragonCopyBlocked){
         e.mirrorBlockedReason='龍肝は鏡・副将コピー不可';
         continue;
       }
 
-      // SKILL1が本ツール対象の回復スキルなら、副将レアリティが計算に必要。
       if(primaryBase>0){
         relevantDeputyMirrorCount++;
         requiredRarities.add(required);
+        if(!deputyMirrorKind)deputyMirrorKind=kind;
+        if(!deputyMirrorRarity)deputyMirrorRarity=required;
       }
-      if(primaryBase>0 && deputyRarity && deputyRarity===required){
-        const ratio=e.mirrorLevelRate*(DEPUTY_RARITY_RATE[deputyRarity]||0);
+      if(primaryBase>0){
+        const ratio=mirrorEffectiveRate(required,e.level,kind,mirrorMode||'none');
         const v=Math.round(primaryBase*ratio);
+        e.mirrorAppliedRate=ratio;
         e.mirrorActive=v>0;
         e.mirrorShorten=v;
         if(v>0)e.effect=cardFileScopeText(primaryScope)+'スキル回復時間を'+v+'分0秒短縮する';
@@ -526,16 +570,20 @@ function applyCardFileSkillEffects(entries,bonusPct,deputyRarity,cardName,warnin
     primaryBase,primaryScope,primaryFamily,dragonCopyBlocked,
     hasRelevantDeputyMirror:relevantDeputyMirrorCount>0,
     relevantDeputyMirrorCount,
-    requiredRarities:Array.from(requiredRarities)
+    requiredRarities:Array.from(requiredRarities),
+    deputyMirrorKind,deputyMirrorRarity
   };
 }
-function refreshCardFromDeputyRarity(card,warnings){
+function refreshCardFromMirrorMode(card,warnings){
   if(!card)return;
-  const meta=applyCardFileSkillEffects(card.skillEntries||[],card.bonusPct||0,card.deputyRarity||'',card.name||'',warnings||null);
+  if(!card.mirrorMode)card.mirrorMode=defaultMirrorModeForEntries(card.skillEntries||[]);
+  const meta=applyCardFileSkillEffects(card.skillEntries||[],card.bonusPct||0,card.mirrorMode||'none',card.name||'',warnings||null);
   card.primaryBaseShorten=meta.primaryBase||0;
   card.primaryRecoveryFamily=meta.primaryFamily||'';
   card.hasRelevantDeputyMirror=!!meta.hasRelevantDeputyMirror;
   card.requiredDeputyRarities=meta.requiredRarities||[];
+  card.deputyMirrorKind=meta.deputyMirrorKind||'';
+  card.deputyMirrorRarity=meta.deputyMirrorRarity||'';
   const ws=buildCandidatesForCard(card);
   if(warnings&&ws&&ws.length)warnings.push(...ws);
 }
@@ -629,7 +677,7 @@ function parseCardFile(text){
     const card={
       ownerKey,deckKey:'file',index:cards.length,name,cardNo:no,cost,
       frontRaw:block.join('\n'),backRaw:'',skills:[],candidates:[],
-      bonusPct,deputyRarity:'',deputyRarityAuto:false
+      bonusPct,mirrorMode:'none',mirrorModeAuto:true,deputyMirrorRarity:'',deputyMirrorKind:''
     };
 
     card.skillEntries=parseCardFileSkillEntries(block);
@@ -637,13 +685,15 @@ function parseCardFile(text){
       warnings.push('スキル行を解析できません: '+name+' / No'+no+'。コピー形式に未対応の可能性があります。');
     }
 
-    const inferredRarity=inferredDeputyRarityForEntries(card.skillEntries);
-    if(inferredRarity){
-      card.deputyRarity=inferredRarity;
-      card.deputyRarityAuto=true;
+    const inferredMirror=inferredDeputyMirrorMetaForEntries(card.skillEntries);
+    if(inferredMirror){
+      card.deputyMirrorRarity=inferredMirror.rarity||'';
+      card.deputyMirrorKind=inferredMirror.kind||'';
+      card.mirrorMode=inferredMirror.kind==='renkyo'?'renkyo':'mirror';
+      card.mirrorModeAuto=true;
     }
 
-    refreshCardFromDeputyRarity(card,warnings);
+    refreshCardFromMirrorMode(card,warnings);
     cards.push(card);
   }
 
@@ -692,28 +742,48 @@ function selectedCandidates(){
   return app.candidates.filter(c=>owners.has(c.ownerKey));
 }
 function selectedCardsMissingDeputyRarity(){
-  return selectedCards().filter(c=>cardNeedsDeputyRarity(c) && !c.deputyRarity);
+  // V8.3.6: レアリティは鏡名から自動判別するため手入力不足は存在しない。
+  return [];
 }
-function rarityOptionsHtml(selected){
-  const opts=['<option value="">未指定</option>'];
-  for(const r of DEPUTY_RARITIES)opts.push('<option value="'+r+'"'+(selected===r?' selected':'')+'>'+r+'</option>');
+function mirrorControlInfo(card){
+  if(!card || !cardNeedsMirrorMode(card))return null;
+  const entries=(card.skillEntries||[]).filter(e=>isDeputyMirrorEntry(e) && card.primaryBaseShorten>0);
+  if(!entries.length)return null;
+  const e=entries[0];
+  const rarity=e.mirrorRequiredRarity||deputyMirrorTargetRarity(e.rawName)||card.deputyMirrorRarity||'';
+  const kind=isRenkyoEntry(e)?'renkyo':'mirror';
+  const normalRate=mirrorEffectiveRate(rarity,e.level,kind,'mirror');
+  const renkyoRate=kind==='renkyo'?mirrorEffectiveRate(rarity,e.level,kind,'renkyo'):0;
+  const base=Number(card.primaryBaseShorten)||0;
+  return {
+    entry:e,rarity,kind,
+    normalRate,normalShorten:Math.round(base*normalRate),
+    renkyoRate,renkyoShorten:Math.round(base*renkyoRate)
+  };
+}
+function mirrorModeOptionsHtml(card){
+  const info=mirrorControlInfo(card);if(!info)return '';
+  const cur=String(card.mirrorMode||'none');
+  const opts=[];
+  function add(value,label){opts.push('<option value="'+value+'"'+(cur===value?' selected':'')+'>'+esc(label)+'</option>');}
+  add('none','効果なし');
+  add('mirror',info.rarity+'明鏡効果 '+mirrorPercentText(info.normalRate)+' ・ +'+info.normalShorten+'分');
+  if(info.kind==='renkyo')add('renkyo',info.rarity+'錬鏡効果（勢力一致） '+mirrorPercentText(info.renkyoRate)+' ・ +'+info.renkyoShorten+'分');
   return opts.join('');
 }
-function deputyMirrorStatusForCard(card){
+function mirrorModeStatusForCard(card){
   const blocked=(card.skillEntries||[]).filter(e=>e.mirrorBlockedReason);
   if(blocked.length && card.primaryRecoveryFamily==='龍肝の湯薬'){
-    return {kind:'warn',text:'龍肝は鏡・副将コピー不可 → 鏡効果0'};
+    return {kind:'warn',text:'龍肝は鏡・副将コピー不可 → 効果0'};
   }
-  if(!cardNeedsDeputyRarity(card))return {kind:'none',text:'—'};
-  const entries=(card.skillEntries||[]).filter(e=>isDeputyMirrorEntry(e) && card.primaryBaseShorten>0);
-  const req=[...new Set(entries.map(e=>e.mirrorRequiredRarity||deputyMirrorTargetRarity(e.rawName)).filter(Boolean))];
-  if(!card.deputyRarity)return {kind:'bad',text:'入力必須 / 対象主将: '+(req.join('/')||'要確認')};
-  const active=entries.filter(e=>e.mirrorActive);
-  if(active.length){
-    const prefix=card.deputyRarityAuto?'想定'+card.deputyRarity+'を初期選択 / ':'';
-    return {kind:'ok',text:prefix+'有効: '+active.map(e=>e.label+' +'+(e.mirrorShorten||0)+'分').join(' / ')};
-  }
-  return {kind:'warn',text:'指定 '+card.deputyRarity+' / 鏡対象 '+(req.join('/')||'要確認')+' → 鏡効果0'};
+  const info=mirrorControlInfo(card);
+  if(!info)return {kind:'none',text:'—'};
+  const mode=String(card.mirrorMode||'none');
+  let modeText='効果なし';
+  if(mode==='mirror')modeText=info.rarity+'明鏡';
+  else if(mode==='renkyo')modeText=info.rarity+'錬鏡（勢力一致）';
+  const auto=card.mirrorModeAuto?' / 初期値自動':' / 手動選択';
+  return {kind:mode==='none'?'warn':'ok',text:'レアリティ '+info.rarity+' 自動判別 / '+modeText+auto};
 }
 function skillSummaryForCard(card){
   const parts=[];
@@ -729,9 +799,11 @@ function skillSummaryForCard(card){
     }else if(isDeputyMirrorEntry(s)){
       const req=s.mirrorRequiredRarity||deputyMirrorTargetRarity(s.rawName)||'?';
       if(s.mirrorBlockedReason)t+=' → '+s.mirrorBlockedReason+' / 効果0';
-      else if(!card.deputyRarity)t+=' → 要副将'+req;
-      else if(s.mirrorActive)t+=' → '+(s.mirrorShorten||shortenFrom(s.effect))+'分';
-      else t+=' → 対象'+req+' / 効果0';
+      else if(!s.mirrorActive)t+=' → '+req+' / 効果なし';
+      else {
+        const k=isRenkyoEntry(s)&&card.mirrorMode==='renkyo'?'錬鏡（勢力一致）':'明鏡';
+        t+=' → '+req+k+' '+mirrorPercentText(s.mirrorAppliedRate||0)+' / +'+(s.mirrorShorten||shortenFrom(s.effect))+'分';
+      }
     }
     parts.push(t);
   }
@@ -742,13 +814,14 @@ function rowForOwnerKey(ownerKey){
 }
 function updateCardRarityRow(card){
   const tr=rowForOwnerKey(card.ownerKey);if(!tr)return;
-  const cb=tr.querySelector('.card-select');
-  const selected=!!(cb&&cb.checked);
-  const sel=tr.querySelector('.deputy-rarity-select');
-  const st=deputyMirrorStatusForCard(card);
-  tr.classList.toggle('rarity-missing',selected&&cardNeedsDeputyRarity(card)&&!card.deputyRarity);
-  tr.classList.toggle('rarity-mismatch',selected&&cardNeedsDeputyRarity(card)&&!!card.deputyRarity&&st.kind==='warn');
-  if(sel)sel.classList.toggle('input-required',selected&&cardNeedsDeputyRarity(card)&&!card.deputyRarity);
+  const sel=tr.querySelector('.mirror-mode-select');
+  const st=mirrorModeStatusForCard(card);
+  if(sel){
+    const val=String(card.mirrorMode||'none');
+    sel.innerHTML=mirrorModeOptionsHtml(card);
+    sel.value=val;
+  }
+  tr.classList.remove('rarity-missing','rarity-mismatch');
   const status=tr.querySelector('.rarity-status');
   if(status){
     status.className='rarity-status '+(st.kind==='none'?'':st.kind);
@@ -761,40 +834,26 @@ function updateAllRarityRows(){
   app.cards.forEach(updateCardRarityRow);
 }
 function rebuildAllCandidatesAfterRarityChange(){
-  app.cards.forEach(c=>refreshCardFromDeputyRarity(c,null));
+  app.cards.forEach(c=>refreshCardFromMirrorMode(c,null));
   app.candidates=app.cards.flatMap(c=>c.candidates);
 }
-function ensureDeputyRarityInputs(){
-  const missing=selectedCardsMissingDeputyRarity();
+function ensureMirrorModeInputs(){
+  // 選択肢は解析時に必ず初期化される。未判別の鏡名は警告し、効果0のまま探索可能。
   updateAllRarityRows();
   const box=document.getElementById('rarityPrompt');
-  if(!missing.length){
-    if(box){box.classList.add('hidden');box.innerHTML='';}
-    return true;
-  }
-  const names=missing.slice(0,8).map(c=>esc(c.name)+' No'+esc(c.cardNo)).join(' / ')+(missing.length>8?' ほか'+(missing.length-8)+'枚':'');
-  if(box){
-    box.innerHTML='<b>副将レアリティの入力が必要です。</b><br>赤く強調された探索対象カードで「副将レアリティ（主将と同一）」を指定してください。未指定のままでは副将鏡/錬鏡の回復量を確定できないため探索を開始しません。<br><span class="small">'+names+'</span>';
-    box.classList.remove('hidden');
-  }
-  const first=rowForOwnerKey(missing[0].ownerKey);
-  if(first){
-    first.scrollIntoView({behavior:'smooth',block:'center'});
-    const sel=first.querySelector('.deputy-rarity-select');
-    if(sel)setTimeout(()=>sel.focus(),0);
-  }
-  return false;
+  if(box){box.classList.add('hidden');box.innerHTML='';}
+  return true;
 }
 
 function updateSelectionSummary(){
   const total=app.cards.length;
   const selected=selectedCards().length;
   const cand=selectedCandidates().length;
-  const missing=selectedCardsMissingDeputyRarity().length;
   const el=document.getElementById('selectionSummary');
   if(el){
-    el.textContent=`探索対象 ${selected}/${total}枚 / 回復候補 ${cand}件`+(missing?` / 副将レアリティ未入力 ${missing}枚`:'');
-    el.classList.toggle('has-missing-rarity',missing>0);
+    const mirrorCards=selectedCards().filter(cardNeedsMirrorMode).length;
+    el.textContent=`探索対象 ${selected}/${total}枚 / 回復候補 ${cand}件`+(mirrorCards?` / 鏡効果選択 ${mirrorCards}枚`:'');
+    el.classList.remove('has-missing-rarity');
   }
   document.querySelectorAll('#parsedBody tr').forEach(tr=>{
     const cb=tr.querySelector('.card-select');
@@ -813,29 +872,27 @@ function renderParsed(){
   app.cards.forEach((c)=>{
     const tr=document.createElement('tr');
     tr.dataset.ownerKey=c.ownerKey;
-    const rarityCell=cardNeedsDeputyRarity(c)
-      ? `<select class="deputy-rarity-select" data-owner-key="${esc(c.ownerKey)}" aria-label="${esc(c.name)} No${esc(c.cardNo)}の副将レアリティ">${rarityOptionsHtml(c.deputyRarity||'')}</select><span class="rarity-status"></span>`
+    const modeCell=cardNeedsMirrorMode(c)
+      ? `<select class="mirror-mode-select" data-owner-key="${esc(c.ownerKey)}" aria-label="${esc(c.name)} No${esc(c.cardNo)}の副将鏡・錬鏡効果">${mirrorModeOptionsHtml(c)}</select><span class="rarity-status"></span>`
       : '<span class="rarity-status">—</span>';
-    tr.innerHTML=`<td class="select-col"><input type="checkbox" class="card-select" data-owner-key="${esc(c.ownerKey)}" checked aria-label="${esc(c.name)} No${esc(c.cardNo)}を探索対象にする"></td><td>${esc(c.name)}</td><td>${esc(c.cardNo)}</td><td class="num">${c.cost?c.cost.toFixed(1):'不明'}</td><td class="rarity-cell">${rarityCell}</td><td class="skill-summary">${esc(skillSummaryForCard(c))}</td>`;
+    tr.innerHTML=`<td class="select-col"><input type="checkbox" class="card-select" data-owner-key="${esc(c.ownerKey)}" checked aria-label="${esc(c.name)} No${esc(c.cardNo)}を探索対象にする"></td><td>${esc(c.name)}</td><td>${esc(c.cardNo)}</td><td class="num">${c.cost?c.cost.toFixed(1):'不明'}</td><td class="rarity-cell">${modeCell}</td><td class="skill-summary">${esc(skillSummaryForCard(c))}</td>`;
     body.appendChild(tr);
   });
   body.querySelectorAll('.card-select').forEach(cb=>cb.addEventListener('change',()=>{
     updateSelectionSummary();
     setSolveStatus('','');
     document.getElementById('resultPanel').classList.add('hidden');
-    const box=document.getElementById('rarityPrompt');if(box&&selectedCardsMissingDeputyRarity().length===0)box.classList.add('hidden');
   }));
-  body.querySelectorAll('.deputy-rarity-select').forEach(sel=>sel.addEventListener('change',()=>{
+  body.querySelectorAll('.mirror-mode-select').forEach(sel=>sel.addEventListener('change',()=>{
     setSolveStatus('','');
     const card=app.cards.find(c=>c.ownerKey===sel.dataset.ownerKey);
     if(!card)return;
-    card.deputyRarity=String(sel.value||'');
-    card.deputyRarityAuto=false;
+    card.mirrorMode=String(sel.value||'none');
+    card.mirrorModeAuto=false;
     rebuildAllCandidatesAfterRarityChange();
     updateSelectionSummary();
     document.getElementById('resultPanel').classList.add('hidden');
     document.getElementById('progressPanel').classList.add('hidden');
-    const box=document.getElementById('rarityPrompt');if(box&&selectedCardsMissingDeputyRarity().length===0)box.classList.add('hidden');
   }));
   const w=document.getElementById('parseWarnings');
   if(app.warnings.length) w.innerHTML='<div class="notice warnbox" style="margin-top:10px">'+app.warnings.map(esc).join('<br>')+'</div>';
@@ -1860,7 +1917,7 @@ function minSearchWorkerMainV6236() {
                     for(let c=0;c<eqMembers.length;c++){let ok=true;for(const j of eqMembers[c])if(!exchangeable(i,j)){ok=false;break;}if(ok){found=c;break;}}
                     if(found<0){found=eqN++;eqMembers.push([]);}eqClass[i]=found;eqMembers[found].push(i);
                 }
-                // V8.3.5 FixedProgressUI PhaseBudget Skip Exact:
+                // V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact:
                 // exchangeable() が証明したクラス内では target label の置換は問題全体の自己同型。
                 // そこで prefix 状態を「各targetの動的状態 + これまでのslot所属履歴」で正準ラベル化し、
                 // labelを入れ替えただけの状態を同一memo状態として扱う。履歴まで含めるため、入れ子/交差の
@@ -2099,7 +2156,7 @@ function minSearchWorkerMainV6236() {
                     return allDead;
                 }
                 // anchorの1回目を先頭へ固定。anchor event自身はself寄与0、他の未登場targetにはwrap gap2として入る。
-                // V8.3.5 FixedProgressUI PhaseBudget Skip Exact:
+                // V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact:
                 // leaf上限だけに当たった場合は、その問題を離れず deadMemo を保持したまま上限を段階拡張する。
                 // 既に完全deadと証明済みの部分木は次passでmemo hitになるため、同じ証明済み領域を総当たりし直さない。
                 let rootDead=false;
@@ -3493,7 +3550,7 @@ function minSearchWorkerMainV6236() {
                 }
                 dfs(0,1);return bestFound;
             }
-            // V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact core: owner-pattern integer constraint solver + optional WASM exact static solver.
+            // V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact core: owner-pattern integer constraint solver + optional WASM exact static solver.
             // JS solver is a CP-SAT/IP style finite-domain branch-and-bound: each physical card(owner) chooses
             // exactly one local usage pattern, with exact hand count, cardNo exclusion, cost/card bounds,
             // repeat-mode requirements, and all aggregate CT inequalities propagated directly.
@@ -4269,25 +4326,25 @@ function minSearchWorkerMainV6236() {
                     'V7 Effect Matrix: '+effectN+'×'+effectN+'（数理探索用。最終物理CTシミュレータとは独立実装）',
                     'V7.2 通常効果量DP: 1周1回モードを 手数/総供給/局所必要閾値/コスト/カード枚数 のPareto状態で厳密圧縮',
                     'V7.2 再使用区間DP: singleのtarget別寄与ベクトルを多次元DPでmiddle/tailへ分割',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 全区間Gap: 再使用4種以下は循環topology完全列挙＋single全slot配置DP。入れ子/交差/周回境界も同一モデルで検証',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 事前固定点: H手内で各再使用targetの2区間へ自由配分してもCT不足なら2回使用不可へ降格し、供給上界を固定点再計算',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 全区間Gap: 再使用4種以下は循環topology完全列挙＋single全slot配置DP。入れ子/交差/周回境界も同一モデルで検証',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 事前固定点: H手内で各再使用targetの2区間へ自由配分してもCT不足なら2回使用不可へ降格し、供給上界を固定点再計算',
                     'V7.2 Checkpoint/Pareto: owner境界または使用構成+順序offsetから再開 / 成立確認済みPareto解を後続最適化へ再利用',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact 使用構成: owner-pattern整数制約(JS)で 手数/CT不等式/cardNo/コスト/カード数/再使用条件 を直接解く',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact Bundle圧縮: コスト・カード全体機能・pattern domain・相互寄与が完全交換可能なowner群はpattern割当を正準化し、同じ使用pattern個数構成を1回だけExact検証。mandatory/CardNo排他は個別保持、判定不能時は従来V8へfallback',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact Topology圧縮: need・再使用相互寄与・single寄与が完全交換可能な再使用target群について、動的gap状態とslot所属履歴を含むlabel置換正準memo＋同一orbit action代表化を行う。入れ子/交差など非同値topologyは保持し、判定不能時は従来label付きTopologyへfallback',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 段階leaf再開: ManyTopologyがleaf上限だけに到達した場合、同一問題・同一dead-state memoを保持したまま 12k→24k→48k→96k→192k と段階拡張。途中上限は未完走に数えず、最終上限でも未完走の問題だけ未証明として残す',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact メモリ保護: 長時間の全モードExactは1 Workerで順次実行。ManyTopology memoは1問題5万/全体9万/6問題、供給上界6000、deck-pack 3万、不成立problem 1000を上限に古い再利用cacheを破棄。cache破棄は再計算を増やすだけで証明条件は不変',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 3工程UI: 成立解確保後、短手数・固定手数コスト・条件内カード枚数を各最大10分。現在工程/残り時間/工程別スキップボタンを表示。一時停止中は工程時間も停止',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 条件付き証明: 手数またはコストを未証明/スキップでも後工程へ進み、固定した採用手数・採用コスト上限の範囲で証明できた副目的だけを条件付き確定として表示',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 証明フロー: Discoveryで成立解を確保後、短手数→固定手数コスト→条件内カード枚数を各最大10分。前工程が未証明/スキップでも採用値を固定して次工程へ進み、証明できた範囲だけ条件付き確定とする',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 副目的証明: コスト/カード境界scanにも強制伝播を適用し、scan未完走時も循環Exactへ継続。任意の8/30回反復上限は撤廃',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact H手強制伝播: 静的成立Witnessに含まれるイベントだけを不使用/1回以下で再検証し、緩和問題でも不成立なら1回必須/2回必須/カード必須としてdomain固定',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact endpoint B&B: 再使用5〜18種を未登場/開区間/閉区間で構築し、閉区間single subset上界・完全同値target対称性で枝刈り',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 支配memo: 同じ残使用状態で、gap供給が全成分以上かつ利用可能slot型が上位集合のdead-stateを証明安全に再利用',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact LRU: 複数Topology問題のdead-stateを全体上限付きで保持し、3問題超の往復でも証明済み枝を再利用',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact fallback: JS上限時のみ埋込WASM exact solverで静的使用構成の存在/不存在を独立検証',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact 判定: 成立=独立CT実検証済 / 不成立証明=全対象をexactに否定 / 未確定=静的構成あり順序未証明またはexact上限',
-                    'V8.3.5 FixedProgressUI PhaseBudget Skip Exact Repeated: 4種以下は全循環topology列挙 / 5〜18種はendpoint Branch-and-Bound＋single全slot Gap DPでexact確認。予算超過だけ未確定',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact 使用構成: owner-pattern整数制約(JS)で 手数/CT不等式/cardNo/コスト/カード数/再使用条件 を直接解く',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Bundle圧縮: コスト・カード全体機能・pattern domain・相互寄与が完全交換可能なowner群はpattern割当を正準化し、同じ使用pattern個数構成を1回だけExact検証。mandatory/CardNo排他は個別保持、判定不能時は従来V8へfallback',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Topology圧縮: need・再使用相互寄与・single寄与が完全交換可能な再使用target群について、動的gap状態とslot所属履歴を含むlabel置換正準memo＋同一orbit action代表化を行う。入れ子/交差など非同値topologyは保持し、判定不能時は従来label付きTopologyへfallback',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 段階leaf再開: ManyTopologyがleaf上限だけに到達した場合、同一問題・同一dead-state memoを保持したまま 12k→24k→48k→96k→192k と段階拡張。途中上限は未完走に数えず、最終上限でも未完走の問題だけ未証明として残す',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact メモリ保護: 長時間の全モードExactは1 Workerで順次実行。ManyTopology memoは1問題5万/全体9万/6問題、供給上界6000、deck-pack 3万、不成立problem 1000を上限に古い再利用cacheを破棄。cache破棄は再計算を増やすだけで証明条件は不変',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 3工程UI: 成立解確保後、短手数・固定手数コスト・条件内カード枚数を各最大10分。現在工程/残り時間/工程別スキップボタンを表示。一時停止中は工程時間も停止',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 条件付き証明: 手数またはコストを未証明/スキップでも後工程へ進み、固定した採用手数・採用コスト上限の範囲で証明できた副目的だけを条件付き確定として表示',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 証明フロー: Discoveryで成立解を確保後、短手数→固定手数コスト→条件内カード枚数を各最大10分。前工程が未証明/スキップでも採用値を固定して次工程へ進み、証明できた範囲だけ条件付き確定とする',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 副目的証明: コスト/カード境界scanにも強制伝播を適用し、scan未完走時も循環Exactへ継続。任意の8/30回反復上限は撤廃',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact H手強制伝播: 静的成立Witnessに含まれるイベントだけを不使用/1回以下で再検証し、緩和問題でも不成立なら1回必須/2回必須/カード必須としてdomain固定',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact endpoint B&B: 再使用5〜18種を未登場/開区間/閉区間で構築し、閉区間single subset上界・完全同値target対称性で枝刈り',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 支配memo: 同じ残使用状態で、gap供給が全成分以上かつ利用可能slot型が上位集合のdead-stateを証明安全に再利用',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact LRU: 複数Topology問題のdead-stateを全体上限付きで保持し、3問題超の往復でも証明済み枝を再利用',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact fallback: JS上限時のみ埋込WASM exact solverで静的使用構成の存在/不存在を独立検証',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 判定: 成立=独立CT実検証済 / 不成立証明=全対象をexactに否定 / 未確定=静的構成あり順序未証明またはexact上限',
+                    'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Repeated: 4種以下は全循環topology列挙 / 5〜18種はendpoint Branch-and-Bound＋single全slot Gap DPでexact確認。予算超過だけ未確定',
                     '現在の探索目的: '+(cfg.objectiveLabel||cfg.phase)+(cfg.targetHands?(' / '+cfg.targetHands+'手固定'):'')+(cfg.maxUniqueCards>0?(' / '+cfg.maxUniqueCards+'枚以下'):'' )+(cfg.maxTotalCost>=0?(' / '+fmtNum(cfg.maxTotalCost,1)+'C以下'):''),
                     '機能等価グループ: '+baseInfos.length+'候補 → '+allGroups.length+'群（安全に圧縮できる単一候補ownerのみ / owner構成 '+ownerProfileKinds+'種）',
                     '理論下限: '+runModes.map(m=>m.label+'='+(Number.isFinite(lbs[m.id])?lbs[m.id]+'手':'不可')+' / 最大'+modeMax[m.id]+'手').join(' | '),
@@ -4667,7 +4724,7 @@ function runV7WorkerOnce(baseInfos,config,onProgress){
 }
 function mergeParallelMinHandsResults(items){
   const results=items.map(x=>x.result).filter(Boolean);
-  const logs=['V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact マルチWorker: '+items.map(x=>x.modeId).join(' / ')+' を並列探索'];
+  const logs=['V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact マルチWorker: '+items.map(x=>x.modeId).join(' / ')+' を並列探索'];
   for(const x of items){
     logs.push('['+x.modeId+'] '+(x.result&&x.result.ok?'成立候補':'成立解なし/未完走'));
     if(x.result&&Array.isArray(x.result.logs))logs.push(...x.result.logs.map(v=>'['+x.modeId+'] '+v));
@@ -4792,7 +4849,7 @@ function costQuantum(baseInfos){
   const v=baseInfos.map(x=>Number(x.cost)||0).filter(x=>x>0).map(x=>Math.round(x*10));
   if(!v.length)return .5;let g=v[0];for(let i=1;i<v.length;i++)g=gcd(g,v[i]);return Math.max(.1,g/10);
 }
-// V8.3.5 FixedProgressUI PhaseBudget Skip Exact: 数学的な不存在証明として副目的の確定に使ってよい結果を一元判定する。
+// V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact: 数学的な不存在証明として副目的の確定に使ってよい結果を一元判定する。
 // complete/secondaryCertified 単独では最低コスト・最少カードの証明に使わない。
 function isSafeInfeasibleProof(r){
   return !!r && r.proofStatus==='infeasible-proof' && r.complete===true && r.approximate!==true;
@@ -4955,7 +5012,7 @@ function setSolveStatus(text,type){
 function setSearchInputsLocked(locked){
   ['parseBtn','clearBtn','selectAllBtn','selectNoneBtn'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!!locked;});
   const fi=document.getElementById('fileInput');if(fi)fi.disabled=!!locked;
-  document.querySelectorAll('.card-select,.deputy-rarity-select').forEach(el=>{el.disabled=!!locked;});
+  document.querySelectorAll('.card-select,.mirror-mode-select').forEach(el=>{el.disabled=!!locked;});
 }
 
 
@@ -5082,11 +5139,11 @@ function setLiveStage(stage,type='warn'){
 }
 async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
   const defs=hybridEngineConfigs().map(d=>Object.assign({},d,{cfg:Object.assign({},d.cfg)}));
-  const completed=[];const logs=['V8.3.5 FixedProgressUI PhaseBudget Skip Exact Hybrid discovery: '+defs.map(x=>x.label).join(' | '),
+  const completed=[];const logs=['V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Hybrid discovery: '+defs.map(x=>x.label).join(' | '),
     'Discoveryでは初回成立解を早く出すため全H下限走査のGap固定点を省略。各実HのGap固定点と、成立後のexact証明ではGap固定点を有効化。'];
   let liveBest=null, incumbentHands=Infinity;
 
-  // V8.3.5 FixedProgressUI PhaseBudget Skip Exact:
+  // V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact:
   // 成立解 H は「探索上界」としてだけ使う。H を見つけても、すでに H 未満を探索中の
   // 他Workerは止めない。各Workerは自身の数学的下限から上へ探索しているため、
   // その進捗を保持したまま H 未満を探させ、H 以上へ到達した時点でだけ停止する。
@@ -5100,12 +5157,12 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
     // これは探索を省略するのではなく、同じH以下をproof-safeなexactフェーズで再評価するための役割分担。
     if(Number.isFinite(incumbentHands) && p&&p.workStage==='lower-bound'){
       const ss=sessionById.get(id);
-      if(ss){logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact Discovery→exact引継ぎ: '+id+' は理論下限前処理中のため停止。'+Math.max(0,incumbentHands-1)+'手以下は次段exactで全モード確認。');ss.stop('bound');return;}
+      if(ss){logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Discovery→exact引継ぎ: '+id+' は理論下限前処理中のため停止。'+Math.max(0,incumbentHands-1)+'手以下は次段exactで全モード確認。');ss.stop('bound');return;}
     }
     if(Number.isFinite(incumbentHands) && Number(p&&p.hands)>0 && Number(p.hands)>=incumbentHands){
       const ss=sessionById.get(id);
       if(ss){
-        logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 動的上界停止: '+id+' は '+Number(p.hands)+'手へ到達。暫定成立 '+incumbentHands+'手以上は改善不能のため停止。');
+        logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 動的上界停止: '+id+' は '+Number(p.hands)+'手へ到達。暫定成立 '+incumbentHands+'手以上は改善不能のため停止。');
         ss.stop('bound');
       }
     }
@@ -5113,7 +5170,7 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
     const total=sum('candidateTotal'),visited=sum('candidateVisited');
     const capText=Number.isFinite(incumbentHands)?(' / 暫定'+incumbentHands+'手を保持・'+Math.max(0,incumbentHands-1)+'手以下だけ継続'):'';
     const def=defs.find(x=>x.id===id)||{};
-    const agg={objectiveLabel:'V8.3.5 FixedProgressUI PhaseBudget Skip Exact Hybrid 成立解探索（最大4 Worker）'+capText,label:(def.label||id)+' / '+(p&&p.label||''),phase:'minHands',
+    const agg={objectiveLabel:'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Hybrid 成立解探索（最大4 Worker）'+capText,label:(def.label||id)+' / '+(p&&p.label||''),phase:'minHands',
       workStage:p&&p.workStage||'',hands:Number(p&&p.hands)||0,modeId:p&&p.modeId||'',
       selectionNodes:sum('selectionNodes'),orderTests:sum('orderTests'),orderEnumerated:sum('orderEnumerated'),repeatNodes:sum('repeatNodes'),
       candidateVisited:visited,candidateTotal:total,candidatePct:total>0?Math.max(0,Math.min(100,visited*100/total)):null,
@@ -5145,7 +5202,7 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
         if(!liveBest||metricBetter(v.result.metrics,liveBest.metrics))liveBest=v.result;
         if(h<incumbentHands){
           const old=incumbentHands;incumbentHands=h;
-          logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact incumbent更新: '+(Number.isFinite(old)?old+'手 → ':'')+h+'手。成立解は画面に保持し、他Workerの '+(h-1)+'手以下探索は停止せず継続。');
+          logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact incumbent更新: '+(Number.isFinite(old)?old+'手 → ':'')+h+'手。成立解は画面に保持し、他Workerの '+(h-1)+'手以下探索は停止せず継続。');
           onIncumbent&&onIncumbent(liveBest,{engine:v.label,stage:v.label+' が '+h+'手の成立解を発見。暫定成立解として表示したまま探索を継続します。他モードは43→42…のようには探さず、それぞれの数学的下限から '+Math.max(0,h-1)+'手以下の範囲を探索します。'});
         }else{
           onIncumbent&&onIncumbent(liveBest,{engine:v.label,stage:v.label+' が '+h+'手の成立解を確認。現在保持中の暫定最良 '+incumbentHands+'手より短くないため、成立上界は変更しません。'});
@@ -5156,7 +5213,7 @@ async function runHybridDiscovery(baseInfos,onProgress,onIncumbent){
       const merged=mergeHybridDiscoveryResults(completed,logs);
       if(Number.isFinite(incumbentHands) && liveBest && liveBest.metrics){
         const verifyMax=Math.max(0,incumbentHands-1);
-        logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact Discovery短手数探索終了: 各Workerは暫定'+incumbentHands+'手未満で新しい成立解を発見せず終了/上界到達。暫定解を保持し、次段で'+verifyMax+'手以下のexact不存在確認へ移行。');
+        logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Discovery短手数探索終了: 各Workerは暫定'+incumbentHands+'手未満で新しい成立解を発見せず終了/上界到達。暫定解を保持し、次段で'+verifyMax+'手以下のexact不存在確認へ移行。');
         onIncumbent&&onIncumbent(liveBest,{engine:'hybrid',stage:'暫定成立 '+incumbentHands+'手を保持。他Workerからこれより短い成立解は見つからなかったため、次に工程1/3として最大10分で '+verifyMax+'手以下をExact検証します。未証明またはスキップでも '+incumbentHands+'手を採用して工程2/3のコスト探索へ進みます。'});
         merged.discoveryShorterSearchFinished=true;
         merged.discoveryVerifyMaxHands=verifyMax;
@@ -5196,27 +5253,27 @@ async function hybridProveOrImproveBelow(baseInfos,incumbent,onProgress,logs,onU
     const h=Number(best&&best.metrics&&best.metrics.hands)||0;if(h<=1)return {best,handsProof:true,phaseOutcome:'proved'};
     searchControl.updatePhase('1手少ない手数の探索（'+Math.max(0,h-1)+'手以下をExact検証）','採用中 '+h+'手 / 最小性を検証');
     onUpdate&&onUpdate(best,{handsProof:false,stage:h+'手の成立は確認済み。最大10分で '+(h-1)+'手以下の成立/不存在をV8 exactで検証中。スキップして '+h+'手固定のコスト探索へ進むこともできます。'});
-    logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact: 短手数証明は工程全体で最大10分。長時間ExactはOut of Memory回避のため1 Worker内で全モード順次検証。');
+    logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact: 短手数証明は工程全体で最大10分。長時間ExactはOut of Memory回避のため1 Worker内で全モード順次検証。');
     let pcfg=standardCfg('minHands');
-    Object.assign(pcfg,{objectiveLabel:'V8.3.5 FixedProgressUI PhaseBudget Skip Exact: '+(h-1)+'手以下の成立/不存在証明（工程最大10分）',maxHands:h-1,parallelModes:false,v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,cardPatternSearch:true,normalEffectDP:true});
+    Object.assign(pcfg,{objectiveLabel:'V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact: '+(h-1)+'手以下の成立/不存在証明（工程最大10分）',maxHands:h-1,parallelModes:false,v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,cardPatternSearch:true,normalEffectDP:true});
     const r=await runV7Worker(baseInfos,pcfg,onProgress);
     if(r&&Array.isArray(r.logs))logs.push(...r.logs);
     if(isPhaseInterrupt(r)||currentPhaseAbortOutcome()){
       const out=currentPhaseAbortOutcome()||(r.interruptKind==='phase-skip'?'skipped':'timeout');
-      logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 短手数工程: '+(out==='skipped'?'ユーザーがスキップ':'10分上限に到達')+'。'+h+'手を採用値として次工程へ。');
+      logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 短手数工程: '+(out==='skipped'?'ユーザーがスキップ':'10分上限に到達')+'。'+h+'手を採用値として次工程へ。');
       return {best,handsProof:false,phaseOutcome:out};
     }
     if(r.ok&&r.metrics&&Number(r.metrics.hands)<h){
-      best=r;logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact が incumbent を '+h+'手 → '+r.metrics.hands+'手へ改善');
+      best=r;logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact が incumbent を '+h+'手 → '+r.metrics.hands+'手へ改善');
       onUpdate&&onUpdate(best,{handsProof:false,stage:r.metrics.hands+'手へ改善。同じ10分工程の残り時間でさらに短い手数を検証中。'});
       continue;
     }
     if(r.proofStatus==='infeasible-proof'){
-      logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact: '+(h-1)+'手以下を不成立証明 → '+h+'手を最小確定');
+      logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact: '+(h-1)+'手以下を不成立証明 → '+h+'手を最小確定');
       onUpdate&&onUpdate(best,{handsProof:true,stage:(h-1)+'手以下を不成立証明。最小手数 '+h+'手を確定。続いて '+h+'手固定で最小コストを最大10分探索します。'});
       return {best,handsProof:true,phaseOutcome:'proved'};
     }
-    logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact exact: '+(h-1)+'手以下は未確定。'+h+'手を採用値として次工程へ。');
+    logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact exact: '+(h-1)+'手以下は未確定。'+h+'手を採用値として次工程へ。');
     return {best,handsProof:false,phaseOutcome:'unproven'};
   }
 }
@@ -5224,7 +5281,7 @@ async function hybridProveOrImproveBelow(baseInfos,incumbent,onProgress,logs,onU
 async function solveV7(){
   setSolveStatus('探索中','');
   if(!app.parsed) throw new Error('先に「カードを解析」を押してください。');
-  if(!ensureDeputyRarityInputs()) throw new Error('副将鏡/錬鏡を計算するための副将レアリティが未入力です。赤く強調されたカードでレアリティを指定してください。');
+  if(!ensureMirrorModeInputs()) throw new Error('副将鏡/錬鏡の効果選択を確認してください。');
   const chosenCards=selectedCards();if(!chosenCards.length) throw new Error('探索対象カードが選択されていません。カード一覧のチェックを確認してください。');
   const rawBaseInfos=selectedCandidates().map(x=>({...x}));if(!rawBaseInfos.length) throw new Error('チェック済みカードの中に施術ループ候補となる回復スキルがありません。');
   if(rawBaseInfos.some(x=>!(x.cost>0))) throw new Error('コストを取得できない回復候補カードがあります。入力文字列を確認してください。');
@@ -5234,8 +5291,8 @@ async function solveV7(){
   const rsl=document.getElementById('resultStageLine');if(rsl){rsl.textContent='';rsl.className='result-stage small warn';}
   document.getElementById('progressPanel').classList.remove('hidden');
   const logs=[];
-  logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
-  logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact: 成立解確保後は ①短手数 ②固定手数コスト ③固定手数+採用コスト条件カード枚数 を各最大10分。各工程はユーザーがスキップ可能。未証明を確定扱いしない。');
+  logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
+  logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact: 成立解確保後は ①短手数 ②固定手数コスト ③固定手数+採用コスト条件カード枚数 を各最大10分。各工程はユーザーがスキップ可能。未証明を確定扱いしない。');
 
   let liveBest=null;
   const publishDiscovery=(cand,meta)=>{if(!cand||!cand.metrics)return;if(!liveBest||metricBetter(cand.metrics,liveBest.metrics))liveBest=cand;publishLiveResult(liveBest,baseInfos,liveProof(false,false,false,false),meta&&meta.stage||'成立解を発見。より良い解を探索中。','成立解あり・探索継続中','warn');};
@@ -5260,7 +5317,7 @@ async function solveV7(){
   const phaseOutcomes={hands:null,cost:null,cards:null};
   const savedPareto=(res.paretoFrontier||[]).filter(q=>q&&q.metrics&&Number(q.metrics.hands)===Number(res.metrics&&res.metrics.hands));
   for(const q of savedPareto){if(metricBetter(q.metrics,best.metrics))best=Object.assign({},res,{order:q.order,mode:q.mode||res.mode,metrics:q.metrics,searchModeLabel:(res.searchModeLabel||'')+' / Pareto再利用'});}
-  if(savedPareto.length)logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact Pareto frontier再利用: 成立確認済み '+savedPareto.length+'解から現在値を改善');
+  if(savedPareto.length)logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact Pareto frontier再利用: 成立確認済み '+savedPareto.length+'解から現在値を改善');
 
   // 工程1/3: 1手少ない手数の探索。
   if(handsProof){
@@ -5280,7 +5337,7 @@ async function solveV7(){
   let costOutcome='unproven';
   const sat=res.saturationV7;
   if(handsProof&&sat&&sat.complete&&sat.costKnown&&sat.coversAllModes===true&&Number(sat.hands)===Number(best.metrics&&best.metrics.hands)&&best.metrics&&Math.abs((sat.minCost||0)-(best.metrics.totalCost||0))<1e-9){
-    costProof=true;costOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 全モードSaturation証明を固定手数コストへ適用。');
+    costProof=true;costOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 全モードSaturation証明を固定手数コストへ適用。');
   }
   if(!costProof&&best.metrics&&!(best.metrics.unknownCostCards||0)){
     const q=costQuantum(baseInfos);
@@ -5288,19 +5345,19 @@ async function solveV7(){
       const abort=currentPhaseAbortOutcome();if(abort){costOutcome=abort;break;}
       const currentCost=Number(best.metrics.totalCost||0),bound=currentCost-q;
       searchControl.updatePhase('最小コストの探索（'+best.metrics.hands+'手固定）','現在最良 '+currentCost.toFixed(1)+'C'+(handsProof?'':' / 手数最小性未証明'));
-      if(bound<0){costProof=true;costOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: 非負の下位境界なし → '+currentCost.toFixed(1)+'C確定。');break;}
+      if(bound<0){costProof=true;costOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: 非負の下位境界なし → '+currentCost.toFixed(1)+'C確定。');break;}
       publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),'工程2/3：'+best.metrics.hands+'手固定で現在 '+currentCost.toFixed(1)+'C。最大10分で '+Math.max(0,bound).toFixed(1)+'C以下を検証中。','成立（工程2/3・コスト探索中）','warn');
       let bc=standardCfg('minCostBound');Object.assign(bc,{objectiveLabel:'工程2/3 最小コスト: 静的境界検証',targetHands:best.metrics.hands,maxTotalCost:Math.max(0,bound),scanOnly:true,forcedPropagationInScan:true,quickSeed:false,orderTestBudget:1,maxGroupedPartitions:1,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:12000000,repeatNodeBudget:3000000});
       const scan=await runV7Worker(baseInfos,bc,updateProgress);if(scan&&Array.isArray(scan.logs))logs.push(...scan.logs);
       if(isPhaseInterrupt(scan)||currentPhaseAbortOutcome()){costOutcome=currentPhaseAbortOutcome()||(scan.interruptKind==='phase-skip'?'skipped':'timeout');break;}
-      if(isSafeInfeasibleProof(scan)&&!scan.scanMetrics){costProof=true;costOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: '+Math.max(0,bound).toFixed(1)+'C以下を安全に否定。');break;}
+      if(isSafeInfeasibleProof(scan)&&!scan.scanMetrics){costProof=true;costOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: '+Math.max(0,bound).toFixed(1)+'C以下を安全に否定。');break;}
       let oc=standardCfg('minCostOrders');Object.assign(oc,{objectiveLabel:'工程2/3 最小コスト: 循環Exact',targetHands:best.metrics.hands,maxTotalCost:Math.max(0,bound),ipStopOnFirst:false,directObjectiveBound:true,optimizeSameHands:true,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:20000000,repeatNodeBudget:5000000,orderTestBudget:1000000});
       const low=await runV7Worker(baseInfos,oc,updateProgress);if(low&&Array.isArray(low.logs))logs.push(...low.logs);
       if(isPhaseInterrupt(low)||currentPhaseAbortOutcome()){costOutcome=currentPhaseAbortOutcome()||(low.interruptKind==='phase-skip'?'skipped':'timeout');break;}
       const sameHands=low&&low.ok&&low.metrics&&Number(low.metrics.hands)===Number(best.metrics.hands);
       const lowerCost=sameHands&&Number(low.metrics.totalCost)<currentCost-1e-9&&Number(low.metrics.totalCost)<=bound+1e-9;
       if(lowerCost){best=low;costProof=false;cardsProof=false;publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),'工程2/3：より低コストの '+Number(best.metrics.totalCost||0).toFixed(1)+'C を発見。残り時間でさらに下を検証します。','成立（工程2/3・コスト改善）','warn');continue;}
-      if(isSafeInfeasibleProof(low)){costProof=true;costOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: 循環Exactで '+Math.max(0,bound).toFixed(1)+'C以下を否定。');break;}
+      if(isSafeInfeasibleProof(low)){costProof=true;costOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 固定手数コスト: 循環Exactで '+Math.max(0,bound).toFixed(1)+'C以下を否定。');break;}
       costOutcome='unproven';break;
     }
   }else if(!best.metrics||best.metrics.unknownCostCards){costOutcome='unproven';}
@@ -5323,14 +5380,14 @@ async function solveV7(){
     let sc=standardCfg('minCardsBound');Object.assign(sc,{objectiveLabel:'工程3/3 最小カード枚数: 静的境界検証',targetHands:best.metrics.hands,maxUniqueCards:cardBound,maxTotalCost:cardCostCeiling,scanOnly:true,forcedPropagationInScan:true,quickSeed:false,orderTestBudget:1,maxGroupedPartitions:1,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:12000000,repeatNodeBudget:3000000});
     const scan=await runV7Worker(baseInfos,sc,updateProgress);if(scan&&Array.isArray(scan.logs))logs.push(...scan.logs);
     if(isPhaseInterrupt(scan)||currentPhaseAbortOutcome()){cardsOutcome=currentPhaseAbortOutcome()||(scan.interruptKind==='phase-skip'?'skipped':'timeout');break;}
-    if(isSafeInfeasibleProof(scan)&&!scan.scanMetrics){cardsProof=true;cardsOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 条件内カード枚数: '+cardBound+'枚以下を安全に否定。');break;}
+    if(isSafeInfeasibleProof(scan)&&!scan.scanMetrics){cardsProof=true;cardsOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 条件内カード枚数: '+cardBound+'枚以下を安全に否定。');break;}
     let oc=standardCfg('minCardsOrders');Object.assign(oc,{objectiveLabel:'工程3/3 最小カード枚数: 循環Exact',targetHands:best.metrics.hands,maxUniqueCards:cardBound,maxTotalCost:cardCostCeiling,ipStopOnFirst:false,directObjectiveBound:!!costProof,optimizeSameHands:true,maxForcedPropagationTests:96,maxForcedPropagationRounds:4,forcedPropagationNodeBudget:500000,maxForcedPropagationWasmTests:12,forcedPropagationWasmNodeBudget:10000000,selectionNodeBudget:20000000,repeatNodeBudget:5000000,orderTestBudget:1000000});
     const low=await runV7Worker(baseInfos,oc,updateProgress);if(low&&Array.isArray(low.logs))logs.push(...low.logs);
     if(isPhaseInterrupt(low)||currentPhaseAbortOutcome()){cardsOutcome=currentPhaseAbortOutcome()||(low.interruptKind==='phase-skip'?'skipped':'timeout');break;}
     const sameHands=low&&low.ok&&low.metrics&&Number(low.metrics.hands)===Number(best.metrics.hands),lc=Number(low&&low.metrics&&low.metrics.totalCost);
     const fewer=sameHands&&Number.isFinite(lc)&&lc<=cardCostCeiling+1e-9&&Number(low.metrics.uniqueCards)<currentCards&&Number(low.metrics.uniqueCards)<=cardBound;
     if(fewer){best=low;cardsProof=false;publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程3/3：条件内でより少ない '+best.metrics.uniqueCards+'枚の成立解を発見。残り時間でさらに1枚少ない境界を検証します。','成立（工程3/3・カード枚数改善）','warn');continue;}
-    if(isSafeInfeasibleProof(low)){cardsProof=true;cardsOutcome='proved';logs.push('V8.3.5 FixedProgressUI PhaseBudget Skip Exact 条件内カード枚数: 循環Exactで '+cardBound+'枚以下を否定。');break;}
+    if(isSafeInfeasibleProof(low)){cardsProof=true;cardsOutcome='proved';logs.push('V8.3.6 MirrorMode FixedProgressUI PhaseBudget Skip Exact 条件内カード枚数: 循環Exactで '+cardBound+'枚以下を否定。');break;}
     cardsOutcome='unproven';break;
   }
   if(currentPhaseAbortOutcome())cardsOutcome=currentPhaseAbortOutcome();
