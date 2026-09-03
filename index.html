@@ -170,7 +170,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <h2>1. カードファイルからコピーした内容を貼り付け</h2>
     <div class="notice">
       <b>カードファイル画面で「小15枚表示」または「小60枚表示」にして、対象カードをまとめてコピーし、そのまま貼り付けてください。</b><br>
-      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡を自動解析します。カード境界はNo行で判定するため「デッキコスト不足」のカードも個別に解析します。副将の明鏡/錬鏡はスキル名から対象レアリティを自動判別し、解析後に「効果なし / 明鏡効果 / 錬鏡効果（条件一致）」を選択できます。スキル回復以外のスキルも貼り付けたままで構いません。
+      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡・療覚醒 を自動解析します。カード境界はNo行で判定するため「デッキコスト不足」のカードも個別に解析します。副将の明鏡/錬鏡はスキル名から対象レアリティを自動判別し、解析後に「効果なし / 明鏡効果 / 錬鏡効果（条件一致）」を選択できます。スキル回復以外のスキルも貼り付けたままで構いません。
     </div>
     <div style="margin-top:10px">
       <h3>カードファイル</h3>
@@ -185,7 +185,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 
   <section id="parsedPanel" class="panel hidden">
     <h2>2. 探索対象カードを選択</h2>
-    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。副将の明鏡/錬鏡はスキル名から R / SR / UR / L / SL を自動判別します。明鏡は「効果なし / 明鏡効果」、錬鏡は「効果なし / 明鏡相当効果 / 錬鏡効果（勢力等の条件一致）」から選択できます。初期値は明鏡なら明鏡効果、錬鏡なら条件一致の錬鏡効果です。表示する％と短縮分数にはスキルLVを反映します。龍肝の湯薬はゲーム仕様に合わせ、主将鏡・副将鏡・錬鏡によるコピー効果を一切加算しません。</p>
+    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。副将の明鏡/錬鏡はスキル名から R / SR / UR / L / SL を自動判別します。明鏡は「効果なし / 明鏡効果」、錬鏡は「効果なし / 明鏡相当効果 / 錬鏡効果（勢力等の条件一致）」から選択できます。初期値は明鏡なら明鏡効果、錬鏡なら条件一致の錬鏡効果です。表示する％と短縮分数にはスキルLVを反映します。龍肝の湯薬はゲーム仕様に合わせ、主将鏡・副将鏡・錬鏡によるコピー効果を一切加算しません。霊丹3種は待機中対象の自己除外型として扱います。療覚醒は第1スキル本体だけに作用し、LV1=3.0倍、LV2=3.1倍、…、LV9=3.8倍、LV10=4.0倍として反映します。主将明鏡・副将明鏡・錬鏡は療覚醒前の第1スキル効果をコピーします。</p>
     <div class="selection-tools">
       <button id="selectAllBtn" class="secondary" type="button">すべて選択</button>
       <button id="selectNoneBtn" class="secondary" type="button">すべて解除</button>
@@ -277,7 +277,12 @@ const CT_FAMILIES = {
   '勇姫督励':   {prefix:'sd018', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990], selfExcluded:true},
   '酔吟吐息':   {prefix:'sd026', ct:[2880,2820,2760,2700,2640,2580,2520,2400,2280,2160], repeat:true, toki:true},
   '娘々聖水':   {prefix:'sd033', ct:[2880,2808,2712,2640,2544,2448,2328,2184,2016,1800], repeat:true, holy:true},
-  '龍肝の湯薬': {prefix:'sd063', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990], selfExcluded:true}
+  '龍肝の湯薬': {prefix:'sd063', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990], selfExcluded:true},
+  // V8.3.11: 霊丹3種。カードNoではなくスキル族として認識する。療覚醒は第1スキル本体だけに作用し、鏡コピー元は覚醒前。
+  // いずれも「デッキ内で待機中の全武将」対象なので自己除外型。
+  '霊丹の帝聖薬': {prefix:'sd072', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990], selfExcluded:true, reitan:true},
+  '霊丹の天聖薬': {prefix:'sd073', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990], selfExcluded:true, reitan:true},
+  '霊丹の神聖薬': {prefix:'sd074', ct:[4320,4310,4300,4280,4260,4230,4190,4140,4080,3990], selfExcluded:true, reitan:true}
 };
 function normText(s){
   return String(s||'')
@@ -345,7 +350,7 @@ function buildCandidatesForCard(card){
       deckKey:card.deckKey,skillId,skillName:familyName+'LV'+e.level,skillSlot:e.slot,ctCost,scope,
       selfShorten,othersShorten,isSupport:isYuga,isYuga,strongYuga:isYuga&&(othersShorten*normFactor>=160),
       normSelf:selfShorten*normFactor,normOthers:othersShorten*normFactor,
-      // 自己除外型（優雅・勇姫・龍肝）は鏡コピー分も本人のCTには戻らない。
+      // 自己除外型（優雅・勇姫・龍肝・霊丹3種）は鏡コピー分も本人のCTには戻らない。
       rNeed:Math.max(0,ctCost-((fd.selfExcluded||scope==='wait')?0:(mm+sm))),isToki,allowMultiUse,isHolyWater,
       mainMirrorShorten:mm,subMirrorShorten:sm,baseShorten,
       isStrong1800:(ctCost<=2400 && othersShorten*normFactor>=160)
@@ -369,8 +374,38 @@ const CARD_FILE_BASE_TABLE = {
   '勇姫督励':  [20,25,30,35,40,45,50,60,70,80],
   '酔吟吐息':  [7,8,9,10,11,12,14,16,17,20],
   '娘々聖水':  [20,25,30,35,40,45,50,60,70,80],
-  '龍肝の湯薬':[90,135,180,225,270,315,360,420,510,600]
+  '龍肝の湯薬':[90,135,180,225,270,315,360,420,510,600],
+  // スキル図鑑の基礎短縮量。療覚醒は下のRECOVERY_BOOST_MAPで別途反映する。
+  '霊丹の帝聖薬':[30,35,40,45,50,55,70,85,100,120],
+  '霊丹の天聖薬':[25,30,35,40,45,50,55,70,85,100],
+  '霊丹の神聖薬':[20,25,30,35,40,45,50,60,70,80]
 };
+// 「〇龍韜の療覚醒」は対応する第1スキルだけをLV別倍率で強化する。
+// LV1=3.0倍, LV2=3.1倍, ... LV9=3.8倍, LV10=4.0倍。
+// カードNoには依存せず、同じ覚醒スキルを持つ将来カードにも適用する。
+// 重要: 療覚醒倍率は第1スキル本体だけ。鏡系のコピー元には適用しない。
+const RECOVERY_BOOST_MAP = {
+  '帝龍韜の療覚醒': {family:'霊丹の帝聖薬'},
+  '天龍韜の療覚醒': {family:'霊丹の天聖薬'},
+  '神龍韜の療覚醒': {family:'霊丹の神聖薬'}
+};
+const RECOVERY_BOOST_LEVEL_MULTIPLIER = [3.0,3.1,3.2,3.3,3.4,3.5,3.6,3.7,3.8,4.0];
+function recoveryBoostMultiplierForLevel(level){
+  const lv=Math.max(1,Math.min(10,Math.floor(Number(level)||0)));
+  return RECOVERY_BOOST_LEVEL_MULTIPLIER[lv-1]||1;
+}
+function recoveryBoostMultiplierForFamily(entries,familyName){
+  let mult=1;
+  for(const e of (entries||[])){
+    const n=String(e&&e.rawName||'');
+    for(const [boostName,def] of Object.entries(RECOVERY_BOOST_MAP)){
+      if(def.family===familyName && n.includes(boostName)){
+        mult=Math.max(mult,recoveryBoostMultiplierForLevel(e&&e.level));
+      }
+    }
+  }
+  return mult;
+}
 // 通常の副将明鏡系。LV10時の副将スキル反映率。
 const DEPUTY_RARITY_RATE = {R:0.40,SR:0.50,UR:0.60,L:0.70,SL:0.80};
 // 錬鏡が勢力/性別等の固有条件を満たした場合のLV10時反映率。
@@ -388,7 +423,8 @@ function cardFileBaseForFamily(familyName,level){
 }
 function cardFileScopeForFamily(rawName){
   if(rawName.includes('龍肝の湯薬')) return 'file';
-  if(rawName.includes('優雅な調べ')||rawName.includes('勇姫督励')) return 'wait';
+  if(rawName.includes('優雅な調べ')||rawName.includes('勇姫督励')||
+     rawName.includes('霊丹の帝聖薬')||rawName.includes('霊丹の天聖薬')||rawName.includes('霊丹の神聖薬')) return 'wait';
   return 'deck';
 }
 function cardFileScopeText(scope){
@@ -475,13 +511,18 @@ function applyCardFileSkillEffects(entries,bonusPct,mirrorMode,cardName,warnings
   const raw=entries||[];
   const warn=warnings&&typeof warnings.push==='function'?warnings:null;
   const slot1=raw.find(e=>e.slot===1);
-  let primaryBase=0, primaryScope='deck', primaryFamily='';
+  let primaryBase=0, primaryBoosted=0, primaryScope='deck', primaryFamily='';
   if(slot1){
     const fam=familyFor(slot1.rawName);
     if(fam){
       const base=cardFileBaseForFamily(fam[0],slot1.level);
       if(base!=null){
-        primaryBase=Math.round(base*(1+(Number(bonusPct)||0)/100));
+        // 鏡・副将明鏡・錬鏡は「療覚醒が作用する前」の第1スキル効果をコピーする。
+        // 超覇補正はカード本体の基礎効果補正なので、コピー元にも従来どおり反映する。
+        const bonusFactor=1+(Number(bonusPct)||0)/100;
+        const boostMult=recoveryBoostMultiplierForFamily(raw,fam[0]);
+        primaryBase=Math.round(base*bonusFactor);              // 鏡コピー元（療覚醒前）
+        primaryBoosted=Math.round(base*boostMult*bonusFactor); // 第1スキル本体（療覚醒後）
         primaryScope=cardFileScopeForFamily(slot1.rawName);
         primaryFamily=fam[0];
       }
@@ -509,8 +550,11 @@ function applyCardFileSkillEffects(entries,bonusPct,mirrorMode,cardName,warnings
     if(fam){
       const base=cardFileBaseForFamily(fam[0],e.level);
       if(base!=null){
-        const v=Math.round(base*(1+(Number(bonusPct)||0)/100));
+        // 療覚醒は第1スキルだけに作用する。2枠目以降の同名霊丹には波及させない。
+        const boostMult=e.slot===1?recoveryBoostMultiplierForFamily(raw,fam[0]):1;
+        const v=Math.round(base*boostMult*(1+(Number(bonusPct)||0)/100));
         const scope=cardFileScopeForFamily(e.rawName);
+        e.recoveryBoostMultiplier=boostMult;
         e.effect=cardFileScopeText(scope)+'スキル回復時間を'+v+'分0秒短縮する';
       }else if(warn){
         warn.push('カードファイル形式でLV別回復量が未登録: '+cardName+' / '+e.label);
@@ -567,7 +611,7 @@ function applyCardFileSkillEffects(entries,bonusPct,mirrorMode,cardName,warnings
     }
   }
   return {
-    primaryBase,primaryScope,primaryFamily,dragonCopyBlocked,
+    primaryBase,primaryBoosted,primaryScope,primaryFamily,dragonCopyBlocked,
     hasRelevantDeputyMirror:relevantDeputyMirrorCount>0,
     relevantDeputyMirrorCount,
     requiredRarities:Array.from(requiredRarities),
@@ -578,8 +622,10 @@ function refreshCardFromMirrorMode(card,warnings){
   if(!card)return;
   if(!card.mirrorMode)card.mirrorMode=defaultMirrorModeForEntries(card.skillEntries||[]);
   const meta=applyCardFileSkillEffects(card.skillEntries||[],card.bonusPct||0,card.mirrorMode||'none',card.name||'',warnings||null);
-  card.primaryBaseShorten=meta.primaryBase||0;
+  card.primaryBaseShorten=meta.primaryBase||0; // 鏡コピー元（療覚醒前）
+  card.primaryBoostedShorten=meta.primaryBoosted||meta.primaryBase||0;
   card.primaryRecoveryFamily=meta.primaryFamily||'';
+  card.recoveryBoostMultiplier=meta.primaryFamily?recoveryBoostMultiplierForFamily(card.skillEntries||[],meta.primaryFamily):1;
   card.hasRelevantDeputyMirror=!!meta.hasRelevantDeputyMirror;
   card.requiredDeputyRarities=meta.requiredRarities||[];
   card.deputyMirrorKind=meta.deputyMirrorKind||'';
@@ -788,6 +834,7 @@ function mirrorModeStatusForCard(card){
 function skillSummaryForCard(card){
   const parts=[];
   if((card.bonusPct||0)>0)parts.push('超覇 +'+card.bonusPct+'%');
+  if((Number(card.recoveryBoostMultiplier)||1)>1)parts.push('療覚醒 ×'+card.recoveryBoostMultiplier);
   for(const s of (card.skills||[])){
     let t=s.label;
     const fam=familyFor(s.rawName);
@@ -5372,7 +5419,7 @@ function localOrderResourceMetrics(order,baseInfos,oldMetrics){
 }
 function localCandidateResult(base,newOrder,baseInfos,label){
   const metrics=localOrderResourceMetrics(newOrder,baseInfos,base&&base.metrics);
-  return Object.assign({},base,{ok:true,order:newOrder,metrics,searchModeLabel:label||'V8.3.8 LocalRefine'});
+  return Object.assign({},base,{ok:true,order:newOrder,metrics,searchModeLabel:label||'V8.3.11 ReitanMirrorPreBoost LocalRefine'});
 }
 function localMinCostAssignment(best,baseInfos){
   const bundles=localUsedBundles(best.order,baseInfos), owners=localOwnerCatalog(baseInfos);
@@ -5488,8 +5535,8 @@ async function solveV7(){
   const rsl=document.getElementById('resultStageLine');if(rsl){rsl.textContent='';rsl.className='result-stage small warn';}
   document.getElementById('progressPanel').classList.remove('hidden');
   const logs=[];
-  logs.push('V8.3.8 LocalRefine UI Fix MirrorMode CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
-  logs.push('V8.3.8 LocalRefine UI Fix MirrorMode: 成立解確保後は ①短手数を全候補Exact ②現在解の1対1低C置換 ③現在解の2～3枚→1枚統合。工程2・3は局所範囲の完走のみを確認済みとし、全体最適確定とは表示しない。');
+  logs.push('V8.3.11 ReitanMirrorPreBoost LocalRefine MirrorMode CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
+  logs.push('V8.3.11 ReitanMirrorPreBoost LocalRefine MirrorMode: 成立解確保後は ①短手数を全候補Exact ②現在解の1対1低C置換 ③現在解の2～3枚→1枚統合。工程2・3は局所範囲の完走のみを確認済みとし、全体最適確定とは表示しない。');
 
   let liveBest=null;
   const publishDiscovery=(cand,meta)=>{if(!cand||!cand.metrics)return;if(!liveBest||metricBetter(cand.metrics,liveBest.metrics))liveBest=cand;publishLiveResult(liveBest,baseInfos,liveProof(false,false,false,false),meta&&meta.stage||'成立解を発見。より良い解を探索中。','成立解あり・探索継続中','warn');};
