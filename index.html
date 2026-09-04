@@ -41,7 +41,8 @@ tr.card-excluded td{background:#f3f0e9;color:#8a8175}
 .search-state.cancelled{color:var(--bad)}
 
 /* V8.3.5: 探索中パネルは詳細ログの開閉で高さを変えない。暫定結果欄の位置を固定する。 */
-/* V8.3.6: 副将の明鏡/錬鏡はスキル名からレアリティを自動判別し、実際に適用する鏡モードを選択する。 */
+/* V8.3.13: 副将の明鏡/錬鏡は副将スロットごとに独立判定・独立選択する。
+   SLの2副将もそれぞれ個別のドロップダウンを持つ。 */
 #progressLabel{
   line-height:1.45;
   height:4.35em;
@@ -134,6 +135,7 @@ tr.card-excluded td{background:#f3f0e9;color:#8a8175}
 .rarity-col{min-width:285px}
 .mirror-mode-select{min-width:270px;max-width:100%;border:1px solid #9b8b70;border-radius:3px;padding:4px 5px;background:#fff;color:var(--text);font-family:inherit;font-size:11px}
 .mirror-mode-select.input-required{border:2px solid var(--bad);background:#fff1f0;box-shadow:0 0 0 2px rgba(183,23,23,.12)}
+.mirror-slot-control{margin:0 0 7px;padding:6px 7px;border:1px solid var(--line-soft);border-radius:4px;background:#fffdf8}.mirror-slot-control:last-child{margin-bottom:0}.mirror-slot-label{margin-bottom:3px;font-size:10px;font-weight:bold;color:var(--brown)}
 .rarity-status{display:block;margin-top:4px;font-size:10px;line-height:1.4;color:var(--muted)}
 .rarity-status.ok{color:var(--ok);font-weight:bold}.rarity-status.warn{color:var(--warn);font-weight:bold}.rarity-status.bad{color:var(--bad);font-weight:bold}
 tr.rarity-missing td{background:#fff1f0!important}
@@ -170,7 +172,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <h2>1. カードファイルからコピーした内容を貼り付け</h2>
     <div class="notice">
       <b>カードファイル画面で「小15枚表示」または「小60枚表示」にして、対象カードをまとめてコピーし、そのまま貼り付けてください。</b><br>
-      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡・療覚醒 を自動解析します。カード境界はNo行で判定するため「デッキコスト不足」のカードも個別に解析します。副将の明鏡/錬鏡はスキル名から対象レアリティを自動判別し、解析後に「効果なし / 明鏡効果 / 錬鏡効果（条件一致）」を選択できます。スキル回復以外のスキルも貼り付けたままで構いません。
+      カード名・No・コスト・スキル名・超覇補正・明鏡/明鑑/錬鏡・療覚醒 を自動解析します。カード境界はNo行で判定するため「デッキコスト不足」のカードも個別に解析します。副将の明鏡/錬鏡はスキル名から対象レアリティを自動判別し、解析後に副将スロットごとに「効果なし / 明鏡効果 / 錬鏡効果（条件一致）」を個別選択できます。SLの2副将もそれぞれ独立して設定できます。スキル回復以外のスキルも貼り付けたままで構いません。
     </div>
     <div style="margin-top:10px">
       <h3>カードファイル</h3>
@@ -185,7 +187,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 
   <section id="parsedPanel" class="panel hidden">
     <h2>2. 探索対象カードを選択</h2>
-    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。副将の明鏡/錬鏡はスキル名から R / SR / UR / L / SL を自動判別します。明鏡は「効果なし / 明鏡効果」、錬鏡は「効果なし / 明鏡相当効果 / 錬鏡効果（勢力等の条件一致）」から選択できます。初期値は明鏡なら明鏡効果、錬鏡なら条件一致の錬鏡効果です。表示する％と短縮分数にはスキルLVを反映します。龍肝の湯薬はゲーム仕様に合わせ、主将鏡・副将鏡・錬鏡によるコピー効果を一切加算しません。霊丹3種は待機中対象の自己除外型として扱います。療覚醒は第1スキル本体だけに作用し、LV1=3.0倍、LV2=3.1倍、…、LV9=3.8倍、LV10=4.0倍として反映します。主将明鏡・副将明鏡・錬鏡は療覚醒前の第1スキル効果をコピーします。</p>
+    <p class="small">解析したカードは初期状態ですべて探索対象です。施術ループに含めたくないカードは、左端のチェックを外してください。特に「龍肝の湯薬」を持つ左慈は、チェックされている場合は必須候補として探索します。副将の明鏡/錬鏡はスキル名から R / SR / UR / L / SL を自動判別します。明鏡は各副将スロットごとに「効果なし / 明鏡効果」、錬鏡は各副将スロットごとに「効果なし / 明鏡相当効果 / 錬鏡効果（勢力等の条件一致）」から選択できます。SLの2副将は副将1・副将2を独立して設定し、初期値はそれぞれ明鏡なら明鏡効果、錬鏡なら条件一致の錬鏡効果です。表示する％と短縮分数にはスキルLVを反映します。龍肝の湯薬はゲーム仕様に合わせ、主将鏡・副将鏡・錬鏡によるコピー効果を一切加算しません。霊丹3種は待機中対象の自己除外型として扱います。療覚醒は第1スキル本体だけに作用し、LV1=3.0倍、LV2=3.1倍、…、LV9=3.8倍、LV10=4.0倍として反映します。主将明鏡・副将明鏡・錬鏡は療覚醒前の第1スキル効果をコピーします。</p>
     <div class="selection-tools">
       <button id="selectAllBtn" class="secondary" type="button">すべて選択</button>
       <button id="selectNoneBtn" class="secondary" type="button">すべて解除</button>
@@ -489,10 +491,43 @@ function inferredDeputyMirrorMetaForEntries(entries){
     count:rel.length
   };
 }
+function mirrorEntryKey(e){
+  return String(e&&e.slot!=null?e.slot:'');
+}
+function deputySlotNumber(e){
+  const slot=Number(e&&e.slot);
+  return slot>=100?Math.max(1,slot-99):1;
+}
+function defaultMirrorModeForEntry(e){
+  if(!isDeputyMirrorEntry(e))return 'none';
+  return isRenkyoEntry(e)?'renkyo':'mirror';
+}
 function defaultMirrorModeForEntries(entries){
   const m=inferredDeputyMirrorMetaForEntries(entries);
   if(!m)return 'none';
-  return m.kind==='renkyo'?'renkyo':'mirror';
+  return defaultMirrorModeForEntry(m.entry);
+}
+function ensureCardMirrorModes(card){
+  if(!card)return;
+  const rel=(card.skillEntries||[]).filter(isDeputyMirrorEntry);
+  if(!card.mirrorModes || typeof card.mirrorModes!=='object')card.mirrorModes={};
+  if(!card.mirrorModeAutoBySlot || typeof card.mirrorModeAutoBySlot!=='object')card.mirrorModeAutoBySlot={};
+  for(const e of rel){
+    const key=mirrorEntryKey(e);
+    if(!Object.prototype.hasOwnProperty.call(card.mirrorModes,key))card.mirrorModes[key]=defaultMirrorModeForEntry(e);
+    if(!Object.prototype.hasOwnProperty.call(card.mirrorModeAutoBySlot,key))card.mirrorModeAutoBySlot[key]=true;
+  }
+  // 旧単一モード参照との互換用。実計算は mirrorModes を使う。
+  card.mirrorMode=rel.length?String(card.mirrorModes[mirrorEntryKey(rel[0])]||'none'):'none';
+  card.mirrorModeAuto=rel.every(e=>card.mirrorModeAutoBySlot[mirrorEntryKey(e)]!==false);
+}
+function selectedMirrorModeForEntry(e,mirrorModeConfig){
+  if(mirrorModeConfig && typeof mirrorModeConfig==='object'){
+    const key=mirrorEntryKey(e);
+    if(Object.prototype.hasOwnProperty.call(mirrorModeConfig,key))return String(mirrorModeConfig[key]||'none');
+    return defaultMirrorModeForEntry(e);
+  }
+  return String(mirrorModeConfig||defaultMirrorModeForEntry(e)||'none');
 }
 function cardNeedsMirrorMode(card){
   return !!(card && card.hasRelevantDeputyMirror && card.primaryRecoveryFamily!=='龍肝の湯薬');
@@ -507,7 +542,7 @@ function mirrorPercentText(rate){
   const v=Math.round((Number(rate)||0)*1000)/10;
   return (Math.abs(v-Math.round(v))<1e-9?String(Math.round(v)):v.toFixed(1))+'%';
 }
-function applyCardFileSkillEffects(entries,bonusPct,mirrorMode,cardName,warnings){
+function applyCardFileSkillEffects(entries,bonusPct,mirrorModeConfig,cardName,warnings){
   const raw=entries||[];
   const warn=warnings&&typeof warnings.push==='function'?warnings:null;
   const slot1=raw.find(e=>e.slot===1);
@@ -544,7 +579,7 @@ function applyCardFileSkillEffects(entries,bonusPct,mirrorMode,cardName,warnings
     e.mirrorShorten=0;
     e.mirrorBlockedReason='';
     e.mirrorKind='';
-    e.mirrorSelectedMode=mirrorMode||'none';
+    e.mirrorSelectedMode='none';
 
     const fam=familyFor(e.rawName);
     if(fam){
@@ -601,7 +636,9 @@ function applyCardFileSkillEffects(entries,bonusPct,mirrorMode,cardName,warnings
         if(!deputyMirrorRarity)deputyMirrorRarity=required;
       }
       if(primaryBase>0){
-        const ratio=mirrorEffectiveRate(required,e.level,kind,mirrorMode||'none');
+        const selectedMode=selectedMirrorModeForEntry(e,mirrorModeConfig);
+        e.mirrorSelectedMode=selectedMode;
+        const ratio=mirrorEffectiveRate(required,e.level,kind,selectedMode);
         const v=Math.round(primaryBase*ratio);
         e.mirrorAppliedRate=ratio;
         e.mirrorActive=v>0;
@@ -620,8 +657,8 @@ function applyCardFileSkillEffects(entries,bonusPct,mirrorMode,cardName,warnings
 }
 function refreshCardFromMirrorMode(card,warnings){
   if(!card)return;
-  if(!card.mirrorMode)card.mirrorMode=defaultMirrorModeForEntries(card.skillEntries||[]);
-  const meta=applyCardFileSkillEffects(card.skillEntries||[],card.bonusPct||0,card.mirrorMode||'none',card.name||'',warnings||null);
+  ensureCardMirrorModes(card);
+  const meta=applyCardFileSkillEffects(card.skillEntries||[],card.bonusPct||0,card.mirrorModes||{},card.name||'',warnings||null);
   card.primaryBaseShorten=meta.primaryBase||0; // 鏡コピー元（療覚醒前）
   card.primaryBoostedShorten=meta.primaryBoosted||meta.primaryBase||0;
   card.primaryRecoveryFamily=meta.primaryFamily||'';
@@ -630,6 +667,7 @@ function refreshCardFromMirrorMode(card,warnings){
   card.requiredDeputyRarities=meta.requiredRarities||[];
   card.deputyMirrorKind=meta.deputyMirrorKind||'';
   card.deputyMirrorRarity=meta.deputyMirrorRarity||'';
+  ensureCardMirrorModes(card);
   const ws=buildCandidatesForCard(card);
   if(warnings&&ws&&ws.length)warnings.push(...ws);
 }
@@ -723,7 +761,7 @@ function parseCardFile(text){
     const card={
       ownerKey,deckKey:'file',index:cards.length,name,cardNo:no,cost,
       frontRaw:block.join('\n'),backRaw:'',skills:[],candidates:[],
-      bonusPct,mirrorMode:'none',mirrorModeAuto:true,deputyMirrorRarity:'',deputyMirrorKind:''
+      bonusPct,mirrorMode:'none',mirrorModeAuto:true,mirrorModes:{},mirrorModeAutoBySlot:{},deputyMirrorRarity:'',deputyMirrorKind:''
     };
 
     card.skillEntries=parseCardFileSkillEntries(block);
@@ -735,9 +773,8 @@ function parseCardFile(text){
     if(inferredMirror){
       card.deputyMirrorRarity=inferredMirror.rarity||'';
       card.deputyMirrorKind=inferredMirror.kind||'';
-      card.mirrorMode=inferredMirror.kind==='renkyo'?'renkyo':'mirror';
-      card.mirrorModeAuto=true;
     }
+    ensureCardMirrorModes(card);
 
     refreshCardFromMirrorMode(card,warnings);
     cards.push(card);
@@ -791,25 +828,29 @@ function selectedCardsMissingDeputyRarity(){
   // V8.3.6: レアリティは鏡名から自動判別するため手入力不足は存在しない。
   return [];
 }
-function mirrorControlInfo(card){
-  if(!card || !cardNeedsMirrorMode(card))return null;
+function mirrorControlInfos(card){
+  if(!card || !cardNeedsMirrorMode(card))return [];
+  ensureCardMirrorModes(card);
   const entries=(card.skillEntries||[]).filter(e=>isDeputyMirrorEntry(e) && card.primaryBaseShorten>0);
-  if(!entries.length)return null;
-  const e=entries[0];
-  const rarity=e.mirrorRequiredRarity||deputyMirrorTargetRarity(e.rawName)||card.deputyMirrorRarity||'';
-  const kind=isRenkyoEntry(e)?'renkyo':'mirror';
-  const normalRate=mirrorEffectiveRate(rarity,e.level,kind,'mirror');
-  const renkyoRate=kind==='renkyo'?mirrorEffectiveRate(rarity,e.level,kind,'renkyo'):0;
   const base=Number(card.primaryBaseShorten)||0;
-  return {
-    entry:e,rarity,kind,
-    normalRate,normalShorten:Math.round(base*normalRate),
-    renkyoRate,renkyoShorten:Math.round(base*renkyoRate)
-  };
+  return entries.map(e=>{
+    const rarity=e.mirrorRequiredRarity||deputyMirrorTargetRarity(e.rawName)||card.deputyMirrorRarity||'';
+    const kind=isRenkyoEntry(e)?'renkyo':'mirror';
+    const normalRate=mirrorEffectiveRate(rarity,e.level,kind,'mirror');
+    const renkyoRate=kind==='renkyo'?mirrorEffectiveRate(rarity,e.level,kind,'renkyo'):0;
+    const key=mirrorEntryKey(e);
+    return {
+      entry:e,key,slotNo:deputySlotNumber(e),rarity,kind,
+      normalRate,normalShorten:Math.round(base*normalRate),
+      renkyoRate,renkyoShorten:Math.round(base*renkyoRate),
+      mode:String((card.mirrorModes||{})[key]||defaultMirrorModeForEntry(e)),
+      auto:!card.mirrorModeAutoBySlot || card.mirrorModeAutoBySlot[key]!==false
+    };
+  });
 }
-function mirrorModeOptionsHtml(card){
-  const info=mirrorControlInfo(card);if(!info)return '';
-  const cur=String(card.mirrorMode||'none');
+function mirrorModeOptionsHtml(card,info){
+  if(!info)return '';
+  const cur=String(info.mode||'none');
   const opts=[];
   function add(value,label){opts.push('<option value="'+value+'"'+(cur===value?' selected':'')+'>'+esc(label)+'</option>');}
   add('none','効果なし');
@@ -817,19 +858,31 @@ function mirrorModeOptionsHtml(card){
   if(info.kind==='renkyo')add('renkyo',info.rarity+'錬鏡効果（勢力一致） '+mirrorPercentText(info.renkyoRate)+' ・ +'+info.renkyoShorten+'分');
   return opts.join('');
 }
-function mirrorModeStatusForCard(card){
-  const blocked=(card.skillEntries||[]).filter(e=>e.mirrorBlockedReason);
-  if(blocked.length && card.primaryRecoveryFamily==='龍肝の湯薬'){
-    return {kind:'warn',text:'龍肝は鏡・副将コピー不可 → 効果0'};
-  }
-  const info=mirrorControlInfo(card);
+function mirrorModeStatusForInfo(card,info){
   if(!info)return {kind:'none',text:'—'};
-  const mode=String(card.mirrorMode||'none');
+  const mode=String(info.mode||'none');
   let modeText='効果なし';
   if(mode==='mirror')modeText=info.rarity+'明鏡';
   else if(mode==='renkyo')modeText=info.rarity+'錬鏡（勢力一致）';
-  const auto=card.mirrorModeAuto?' / 初期値自動':' / 手動選択';
-  return {kind:mode==='none'?'warn':'ok',text:'レアリティ '+info.rarity+' 自動判別 / '+modeText+auto};
+  const auto=info.auto?' / 初期値自動':' / 手動選択';
+  return {kind:mode==='none'?'warn':'ok',text:'副将'+info.slotNo+' / レアリティ '+info.rarity+' 自動判別 / '+modeText+auto};
+}
+function mirrorControlsHtml(card){
+  const blocked=(card.skillEntries||[]).filter(e=>e.mirrorBlockedReason);
+  if(blocked.length && card.primaryRecoveryFamily==='龍肝の湯薬'){
+    return '<span class="rarity-status warn">龍肝は鏡・副将コピー不可 → 効果0</span>';
+  }
+  const infos=mirrorControlInfos(card);
+  if(!infos.length)return '<span class="rarity-status">—</span>';
+  return infos.map(info=>{
+    const st=mirrorModeStatusForInfo(card,info);
+    const skill=String(info.entry&&info.entry.label||'');
+    return '<div class="mirror-slot-control" data-mirror-slot-wrap="'+esc(info.key)+'">'
+      +'<div class="mirror-slot-label">副将'+info.slotNo+'：'+esc(skill)+'</div>'
+      +'<select class="mirror-mode-select" data-owner-key="'+esc(card.ownerKey)+'" data-mirror-slot="'+esc(info.key)+'" aria-label="'+esc(card.name)+' No'+esc(card.cardNo)+' 副将'+info.slotNo+'の鏡効果">'+mirrorModeOptionsHtml(card,info)+'</select>'
+      +'<span class="rarity-status '+(st.kind==='none'?'':st.kind)+'" data-mirror-slot-status="'+esc(info.key)+'">'+esc(st.text)+'</span>'
+      +'</div>';
+  }).join('');
 }
 function skillSummaryForCard(card){
   const parts=[];
@@ -848,7 +901,7 @@ function skillSummaryForCard(card){
       if(s.mirrorBlockedReason)t+=' → '+s.mirrorBlockedReason+' / 効果0';
       else if(!s.mirrorActive)t+=' → '+req+' / 効果なし';
       else {
-        const k=isRenkyoEntry(s)&&card.mirrorMode==='renkyo'?'錬鏡（勢力一致）':'明鏡';
+        const k=isRenkyoEntry(s)&&String(s.mirrorSelectedMode||'none')==='renkyo'?'錬鏡（勢力一致）':'明鏡';
         t+=' → '+req+k+' '+mirrorPercentText(s.mirrorAppliedRate||0)+' / +'+(s.mirrorShorten||shortenFrom(s.effect))+'分';
       }
     }
@@ -861,19 +914,23 @@ function rowForOwnerKey(ownerKey){
 }
 function updateCardRarityRow(card){
   const tr=rowForOwnerKey(card.ownerKey);if(!tr)return;
-  const sel=tr.querySelector('.mirror-mode-select');
-  const st=mirrorModeStatusForCard(card);
-  if(sel){
-    const val=String(card.mirrorMode||'none');
-    sel.innerHTML=mirrorModeOptionsHtml(card);
-    sel.value=val;
-  }
+  ensureCardMirrorModes(card);
+  const infos=mirrorControlInfos(card);
+  const byKey=Object.create(null);infos.forEach(info=>{byKey[info.key]=info;});
+  tr.querySelectorAll('.mirror-mode-select').forEach(sel=>{
+    const info=byKey[String(sel.dataset.mirrorSlot||'')];
+    if(!info)return;
+    sel.innerHTML=mirrorModeOptionsHtml(card,info);
+    sel.value=String(info.mode||'none');
+  });
   tr.classList.remove('rarity-missing','rarity-mismatch');
-  const status=tr.querySelector('.rarity-status');
-  if(status){
+  tr.querySelectorAll('[data-mirror-slot-status]').forEach(status=>{
+    const info=byKey[String(status.dataset.mirrorSlotStatus||'')];
+    if(!info)return;
+    const st=mirrorModeStatusForInfo(card,info);
     status.className='rarity-status '+(st.kind==='none'?'':st.kind);
     status.textContent=st.text;
-  }
+  });
   const ss=tr.querySelector('.skill-summary');
   if(ss)ss.textContent=skillSummaryForCard(card);
 }
@@ -898,8 +955,9 @@ function updateSelectionSummary(){
   const cand=selectedCandidates().length;
   const el=document.getElementById('selectionSummary');
   if(el){
-    const mirrorCards=selectedCards().filter(cardNeedsMirrorMode).length;
-    el.textContent=`探索対象 ${selected}/${total}枚 / 回復候補 ${cand}件`+(mirrorCards?` / 鏡効果選択 ${mirrorCards}枚`:'');
+    const mirrorCards=selectedCards().filter(cardNeedsMirrorMode);
+    const mirrorSlots=mirrorCards.reduce((n,c)=>n+mirrorControlInfos(c).length,0);
+    el.textContent=`探索対象 ${selected}/${total}枚 / 回復候補 ${cand}件`+(mirrorSlots?` / 鏡効果選択 ${mirrorSlots}枠`:'');
     el.classList.remove('has-missing-rarity');
   }
   document.querySelectorAll('#parsedBody tr').forEach(tr=>{
@@ -920,7 +978,7 @@ function renderParsed(){
     const tr=document.createElement('tr');
     tr.dataset.ownerKey=c.ownerKey;
     const modeCell=cardNeedsMirrorMode(c)
-      ? `<select class="mirror-mode-select" data-owner-key="${esc(c.ownerKey)}" aria-label="${esc(c.name)} No${esc(c.cardNo)}の副将鏡・錬鏡効果">${mirrorModeOptionsHtml(c)}</select><span class="rarity-status"></span>`
+      ? mirrorControlsHtml(c)
       : '<span class="rarity-status">—</span>';
     tr.innerHTML=`<td class="select-col"><input type="checkbox" class="card-select" data-owner-key="${esc(c.ownerKey)}" checked aria-label="${esc(c.name)} No${esc(c.cardNo)}を探索対象にする"></td><td>${esc(c.name)}</td><td>${esc(c.cardNo)}</td><td class="num">${c.cost?c.cost.toFixed(1):'不明'}</td><td class="rarity-cell">${modeCell}</td><td class="skill-summary">${esc(skillSummaryForCard(c))}</td>`;
     body.appendChild(tr);
@@ -934,8 +992,11 @@ function renderParsed(){
     setSolveStatus('','');
     const card=app.cards.find(c=>c.ownerKey===sel.dataset.ownerKey);
     if(!card)return;
-    card.mirrorMode=String(sel.value||'none');
-    card.mirrorModeAuto=false;
+    ensureCardMirrorModes(card);
+    const key=String(sel.dataset.mirrorSlot||'');
+    card.mirrorModes[key]=String(sel.value||'none');
+    card.mirrorModeAutoBySlot[key]=false;
+    ensureCardMirrorModes(card);
     rebuildAllCandidatesAfterRarityChange();
     updateSelectionSummary();
     document.getElementById('resultPanel').classList.add('hidden');
