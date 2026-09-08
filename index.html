@@ -44,7 +44,8 @@ tr.card-excluded td{background:#f3f0e9;color:#8a8175}
 /* V8.3.13: 副将の明鏡/錬鏡は副将スロットごとに独立判定・独立選択する。
    SLの2副将もそれぞれ個別のドロップダウンを持つ。
    V8.3.14: 最小/採用手数Hを固定し、工程2は全候補から低コスト解、工程3は採用コスト以下で少カード解を探索する。
-   各工程の10分上限は従来どおり。局所置換だけでなく別H手構成へ移れる。 */
+   V8.3.15: Exact内部のIP/WASM節点上限へ先に到達した場合、軽い初期予算から段階的に拡張して同じ工程の残り時間を活用する。
+   各工程の10分上限は従来どおり。成立/不成立証明が出た時点で即終了し、未証明だけを再試行する。 */
 #progressLabel{
   line-height:1.45;
   height:4.35em;
@@ -204,7 +205,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <div class="actions" style="margin-top:12px">
       <button id="solveBtn">3. 施術ループを探索</button>
       <span id="solveStatus" class="solve-status" role="status" aria-live="polite"></span>
-      <span class="small">チェック済みカードだけを使って探索します。判定は「成立 / 不成立証明 / 未確定」の3状態です。exactに否定できた場合だけ「不成立証明」とし、未完走・近似・順序未証明は必ず「未確定」とします。成立解確保後は「1手少ない手数」を最大10分で全候補Exact検証します。工程2は採用手数を固定し、同じ手数の全候補から現在より低コストの別構成を最大10分探索します。工程3は同じ手数かつ工程2の採用コスト以下を維持し、全候補から現在より少ない物理カード枚数の別構成を最大10分探索します。副目的は「手数→コスト→カード枚数」の順です。各工程は個別にスキップできます。探索中は基準・主要進捗を常時表示し、詳細ログは初期状態で折り畳みます。詳細を開閉しても下の暫定結果欄の位置は変わりません。スキップ・時間切れは未証明のまま、その時点の最良成立解を採用して次工程へ進みます。</span>
+      <span class="small">チェック済みカードだけを使って探索します。判定は「成立 / 不成立証明 / 未確定」の3状態です。exactに否定できた場合だけ「不成立証明」とし、未完走・近似・順序未証明は必ず「未確定」とします。成立解確保後は「1手少ない手数」を最大10分で全候補Exact検証します。工程2は採用手数を固定し、同じ手数の全候補から現在より低コストの別構成を最大10分探索します。工程3は同じ手数かつ工程2の採用コスト以下を維持し、全候補から現在より少ない物理カード枚数の別構成を最大10分探索します。各Exact工程は軽い内部節点予算から開始し、内部上限で未確定になった場合だけ残り時間内で段階的に予算を増やします。副目的は「手数→コスト→カード枚数」の順です。各工程は個別にスキップできます。探索中は基準・主要進捗を常時表示し、詳細ログは初期状態で折り畳みます。詳細を開閉しても下の暫定結果欄の位置は変わりません。スキップ・時間切れは未証明のまま、その時点の最良成立解を採用して次工程へ進みます。</span>
     </div>
   </section>
 
@@ -267,7 +268,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
 </main>
 
 <script>
-// 施術ループ探索（仮） v8.3.7 MirrorMode Hybrid
+// 施術ループ探索（仮） v8.3.15 AdaptiveProofBudget SameHandsGlobalRefine Hybrid
 // 入力・解析・探索はブラウザ内で完結します。
 // fetch / XMLHttpRequest / sendBeacon / WebSocket 等の外部送信APIは使用していません。
 // navigator.clipboard は「実行順序をコピー」ボタンのためだけに使用します。
@@ -1141,6 +1142,9 @@ function minSearchWorkerMainV6236() {
                     v8IpNodes: state.v8IpNodes || 0,
                     v8StaticFeasible: state.v8StaticFeasible || 0,
                     v8WasmNodes: state.v8WasmNodes || 0,
+                    adaptiveBudgetRound: Number(cfg.adaptiveBudgetRound) || 1,
+                    ipNodeBudget: Number(cfg.ipNodeBudget) || 0,
+                    wasmNodeBudget: Number(cfg.wasmNodeBudget) || 0,
                     v8BundleOwners: state.v8BundleOwners || 0,
                     v8BundleClasses: state.v8BundleClasses || 0,
                     v8BundleCompressedOwners: state.v8BundleCompressedOwners || 0,
@@ -4444,9 +4448,9 @@ function minSearchWorkerMainV6236() {
                     'V8.3.8 LocalRefine UI Fix MirrorMode Topology圧縮: need・再使用相互寄与・single寄与が完全交換可能な再使用target群について、動的gap状態とslot所属履歴を含むlabel置換正準memo＋同一orbit action代表化を行う。入れ子/交差など非同値topologyは保持し、判定不能時は従来label付きTopologyへfallback',
                     'V8.3.8 LocalRefine UI Fix MirrorMode 段階leaf再開: ManyTopologyがleaf上限だけに到達した場合、同一問題・同一dead-state memoを保持したまま 12k→24k→48k→96k→192k と段階拡張。途中上限は未完走に数えず、最終上限でも未完走の問題だけ未証明として残す',
                     'V8.3.8 LocalRefine UI Fix MirrorMode メモリ保護: 長時間の全モードExactは1 Workerで順次実行。ManyTopology memoは1問題5万/全体9万/6問題、供給上界6000、deck-pack 3万、不成立problem 1000を上限に古い再利用cacheを破棄。cache破棄は再計算を増やすだけで証明条件は不変',
-                    'V8.3.14 SameHandsGlobalRefine 3工程UI: 成立解確保後、①短手数Exact ②H手固定で全候補低C再探索 ③H手+採用C以下で全候補少カード再探索。各工程10分上限、未完走を確定扱いしない',
-                    'V8.3.14 SameHandsGlobalRefine 副目的: 工程2・3も同じH手の全候補から別構成を再構築。工程2はコストをquantum単位で下げ、工程3は採用コスト以下でカード枚数を1枚ずつ下げる境界探索',
-                    'V8.3.14 SameHandsGlobalRefine フロー: Discovery後、短手数Exact。工程2/3は既存V8 exact workerへtargetHands/maxTotalCost/maxUniqueCardsを直接渡し、全候補H手構成を時間制限内で再探索',
+                    'V8.3.15 AdaptiveProofBudget 3工程UI: 成立解確保後、①短手数Exact ②H手固定で全候補低C再探索 ③H手+採用C以下で全候補少カード再探索。各工程10分上限。内部IP/WASM節点上限に先着したunknownは段階拡張して残り時間を活用し、未完走を確定扱いしない',
+                    'V8.3.15 AdaptiveProofBudget 副目的: 工程2・3も同じH手の全候補から別構成を再構築。軽いExact予算で高速開始し、節点上限unknown時だけIP/WASM予算を段階拡張する',
+                    'V8.3.15 AdaptiveProofBudget フロー: Discovery後の工程1～3でExact節点予算を1.8M/50Mから必要時のみ2倍拡張。成立・不成立証明なら即終了、構造上のunknownは再試行せず、工程10分で安全打切り',
                     'V8.3.8 LocalRefine UI Fix MirrorMode 副目的証明: コスト/カード境界scanにも強制伝播を適用し、scan未完走時も循環Exactへ継続。任意の8/30回反復上限は撤廃',
                     'V8.3.8 LocalRefine UI Fix MirrorMode H手強制伝播: 静的成立Witnessに含まれるイベントだけを不使用/1回以下で再検証し、緩和問題でも不成立なら1回必須/2回必須/カード必須としてdomain固定',
                     'V8.3.8 LocalRefine UI Fix MirrorMode endpoint B&B: 再使用5〜18種を未登場/開区間/閉区間で構築し、閉区間single subset上界・完全同値target対称性で枝刈り',
@@ -4821,7 +4825,7 @@ function spawnV7Worker(baseInfos,config,onProgress){
   worker.onmessage=e=>{
     const m=e.data||{};
     if(m.type==='progress'){lastProgress=m;onProgress&&onProgress(m);return;}
-    if(m.type==='result'){finish(m);return;}
+    if(m.type==='result'){finish(Object.assign({},m,{lastProgress:lastProgress||m.lastProgress||null}));return;}
     if(m.type==='cancelled'){finish({cancelled:true});return;}
   };
   worker.postMessage({type:'start',baseInfos,config});
@@ -4975,6 +4979,87 @@ function standardCfg(phase='minHands'){
     v8IpSearch:true,ipNodeBudget:1800000,wasmExact:true,wasmNodeBudget:50000000,ipStopOnFirst:true,directObjectiveBound:false
   };
 }
+
+// V8.3.15 AdaptiveProofBudget:
+// IP/WASMの内部節点上限は「1回のWorkerを暴走させない安全弁」。
+// 最初はV8.3.14と同じ軽い予算で高速に試し、節点上限によるunknownだけを工程残り時間内で段階拡張する。
+// 成立・安全な不成立証明・構造上のunknown（WASM非対応/循環順序未証明など）は無駄に再試行しない。
+const ADAPTIVE_IP_BASE=1800000;
+const ADAPTIVE_WASM_BASE=50000000;
+const ADAPTIVE_IP_MAX=115200000;
+const ADAPTIVE_WASM_MAX=3200000000;
+function adaptiveBudgetPair(level){
+  level=Math.max(0,Math.floor(Number(level)||0));
+  const mul=Math.pow(2,Math.min(level,6));
+  return {
+    ip:Math.min(ADAPTIVE_IP_MAX,Math.max(ADAPTIVE_IP_BASE,Math.floor(ADAPTIVE_IP_BASE*mul))),
+    wasm:Math.min(ADAPTIVE_WASM_MAX,Math.max(ADAPTIVE_WASM_BASE,Math.floor(ADAPTIVE_WASM_BASE*mul)))
+  };
+}
+function adaptiveUnknownBudgetEvidence(r,cfg){
+  if(!r||r.ok||isSafeInfeasibleProof(r)||r.interrupted||r.cancelled)return {retry:false,ipHit:false,wasmHit:false,reason:''};
+  if(!(r.proofStatus==='unknown'||r.complete===false||r.approximate===true))return {retry:false,ipHit:false,wasmHit:false,reason:''};
+  const ipLim=Math.max(1,Number(cfg&&cfg.ipNodeBudget)||ADAPTIVE_IP_BASE);
+  const wasmLim=Math.max(1,Number(cfg&&cfg.wasmNodeBudget)||ADAPTIVE_WASM_BASE);
+  let ipHit=false,wasmHit=false;
+  const p=r.lastProgress||{};
+  if(Number(p.v8IpNodes)>=ipLim*0.98)ipHit=true;
+  if(Number(p.v8WasmNodes)>=wasmLim*0.98)wasmHit=true;
+  const lines=Array.isArray(r.logs)?r.logs:[];
+  for(const line0 of lines){
+    const line=String(line0||'');
+    if(!/探索継続対象|未確定/.test(line))continue;
+    const m=line.match(/IP=([0-9,]+),\s*WASM=([0-9,]+)/);
+    if(m){
+      const ip=Number(String(m[1]).replace(/,/g,''))||0;
+      const wa=Number(String(m[2]).replace(/,/g,''))||0;
+      if(ip>=ipLim*0.98)ipHit=true;
+      if(wa>=wasmLim*0.98)wasmHit=true;
+    }
+    if(/未確定\(JS整数制約上限\)/.test(line))ipHit=true;
+    // 「利用不可」だけでは拡張しても改善しない。WASM節点が実際に上限へ達した時だけwasmHitにする。
+    if(/未確定\(WASM上限\/利用不可\)/.test(line)&&m){
+      const wa=Number(String(m[2]).replace(/,/g,''))||0;
+      if(wa>=wasmLim*0.98)wasmHit=true;
+    }
+  }
+  return {retry:ipHit||wasmHit,ipHit,wasmHit,reason:ipHit&&wasmHit?'IP+WASM節点上限':ipHit?'IP節点上限':wasmHit?'WASM節点上限':''};
+}
+async function runAdaptiveExactWorker(baseInfos,baseCfg,onProgress,logs,contextLabel){
+  let level=0,last=null;
+  while(true){
+    const abort=currentPhaseAbortOutcome();
+    if(abort)return {interrupted:true,interruptKind:abort==='skipped'?'phase-skip':'phase-timeout',adaptiveAttempts:level};
+    const pair=adaptiveBudgetPair(level);
+    const cfg=Object.assign({},baseCfg,{ipNodeBudget:pair.ip,wasmNodeBudget:pair.wasm,adaptiveBudgetRound:level+1});
+    const rem=phaseRemainingMs();
+    if(level>0){
+      const msg=`V8.3.15 AdaptiveProofBudget ${contextLabel||'Exact'}: ${level+1}段階目へ拡張 / IP ${pair.ip.toLocaleString()}節点 / WASM ${pair.wasm.toLocaleString()}節点 / 工程残り約${fmtElapsedSeconds(Math.ceil(rem/1000))}`;
+      logs&&logs.push(msg);
+      searchControl.updatePhase(searchControl.phase&&searchControl.phase.title||'',`内部節点上限に達したためExact予算を段階拡張中（${level+1}段階目 / IP ${pair.ip.toLocaleString()} / WASM ${pair.wasm.toLocaleString()}）`);
+    }
+    const r=await runV7Worker(baseInfos,cfg,onProgress);
+    last=r;
+    if(r&&Array.isArray(r.logs)&&logs)logs.push(...r.logs);
+    if(isPhaseInterrupt(r)||currentPhaseAbortOutcome())return r;
+    if(r&&r.ok)return Object.assign({},r,{adaptiveAttempts:level+1,adaptiveFinalIpBudget:pair.ip,adaptiveFinalWasmBudget:pair.wasm});
+    if(isSafeInfeasibleProof(r))return Object.assign({},r,{adaptiveAttempts:level+1,adaptiveFinalIpBudget:pair.ip,adaptiveFinalWasmBudget:pair.wasm});
+    const ev=adaptiveUnknownBudgetEvidence(r,cfg);
+    if(!ev.retry){
+      if(logs)logs.push(`V8.3.15 AdaptiveProofBudget ${contextLabel||'Exact'}: 節点上限以外の未確定要因のため再試行せず安全側に未証明。`);
+      return Object.assign({},r||{},{adaptiveAttempts:level+1,adaptiveFinalIpBudget:pair.ip,adaptiveFinalWasmBudget:pair.wasm,adaptiveStopReason:ev.reason||'non-budget-unknown'});
+    }
+    const next=adaptiveBudgetPair(level+1);
+    if(next.ip===pair.ip&&next.wasm===pair.wasm){
+      if(logs)logs.push(`V8.3.15 AdaptiveProofBudget ${contextLabel||'Exact'}: 段階拡張上限へ到達。工程残り時間に関係なくメモリ安全上ここで未証明とする。`);
+      return Object.assign({},r||{},{adaptiveAttempts:level+1,adaptiveFinalIpBudget:pair.ip,adaptiveFinalWasmBudget:pair.wasm,adaptiveStopReason:'adaptive-cap'});
+    }
+    // タイマーは工程単位で継続している。残時間が少なくても次Workerを開始し、10分到達時に外側から安全に停止する。
+    if(logs)logs.push(`V8.3.15 AdaptiveProofBudget ${contextLabel||'Exact'}: ${ev.reason}。成立/不存在を確定できていないため同一境界を大きい予算で再検証。`);
+    level++;
+  }
+}
+
 function fmtElapsedSeconds(sec){
   sec=Math.max(0,Math.floor(Number(sec)||0));
   const m=Math.floor(sec/60),ss=sec%60;
@@ -5051,6 +5136,7 @@ function buildProgressDetail(p){
     (p.manyTopologyBudgetHits?` / Topology未完走=${(p.manyTopologyBudgetHits||0).toLocaleString()}件（node上限${(p.manyTopologyNodeBudgetHits||0).toLocaleString()}・leaf上限${(p.manyTopologyLeafBudgetHits||0).toLocaleString()}・外側中断${(p.manyTopologyOuterIncompleteHits||0).toLocaleString()}）${p.manyTopologyGapIncomplete?'・Gap未完走'+(p.manyTopologyGapIncomplete||0).toLocaleString():''}`:(p.manyTopologyGapIncomplete?` / Gap未完走=${(p.manyTopologyGapIncomplete||0).toLocaleString()}件`:''))+
     (p.forcedPropagationTests?` / 固定手数強制伝播=${(p.forcedPropagationTests||0).toLocaleString()}検査・1回必須${(p.forcedPropagationForcedOne||0).toLocaleString()}・2回必須${(p.forcedPropagationForcedTwo||0).toLocaleString()}・カード必須${(p.forcedPropagationForcedOwners||0).toLocaleString()}・不明${(p.forcedPropagationUnknown||0).toLocaleString()}・${(p.forcedPropagationNodes||0).toLocaleString()}節点${p.forcedPropagationPatternsBefore?`・pattern${(p.forcedPropagationPatternsBefore||0).toLocaleString()}→${(p.forcedPropagationPatternsAfter||0).toLocaleString()}`:''}`:'')+
     (p.forcedPropagationCurrentLimit?` / 現在強制検査=${(p.forcedPropagationCurrentNodes||0).toLocaleString()}/${(p.forcedPropagationCurrentLimit||0).toLocaleString()}`:'')+
+    (p.adaptiveBudgetRound>1?` / Exact段階予算=${Number(p.adaptiveBudgetRound)||1}段階目・IP上限${Number(p.ipNodeBudget||0).toLocaleString()}・WASM上限${Number(p.wasmNodeBudget||0).toLocaleString()}`:'')+
     (p.v8IpNodes?` / V8整数制約=${(p.v8IpNodes||0).toLocaleString()}節点`:'')+
     (p.v8BundleCompressedOwners?` / Bundle圧縮=${(p.v8BundleOwners||0).toLocaleString()}owner→同値${(p.v8BundleClassMembers||0).toLocaleString()}owner/${(p.v8BundleClasses||0).toLocaleString()}class・削減次元${(p.v8BundleCompressedOwners||0).toLocaleString()}・対称枝${(p.v8BundleSymmetryPruned||0).toLocaleString()}`:'')+
     (p.v8BundleFallbacks?` / Bundle fallback=${(p.v8BundleFallbacks||0).toLocaleString()}回（従来V8継続）`:'')+
@@ -5372,8 +5458,7 @@ async function hybridProveOrImproveBelow(baseInfos,incumbent,onProgress,logs,onU
     logs.push('V8.3.8 LocalRefine UI Fix MirrorMode: 短手数証明は工程全体で最大10分。長時間ExactはOut of Memory回避のため1 Worker内で全モード順次検証。');
     let pcfg=standardCfg('minHands');
     Object.assign(pcfg,{objectiveLabel:'V8.3.8 LocalRefine UI Fix MirrorMode: '+(h-1)+'手以下の成立/不存在証明（工程最大10分）',maxHands:h-1,parallelModes:false,v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,cardPatternSearch:true,normalEffectDP:true});
-    const r=await runV7Worker(baseInfos,pcfg,onProgress);
-    if(r&&Array.isArray(r.logs))logs.push(...r.logs);
+    const r=await runAdaptiveExactWorker(baseInfos,pcfg,onProgress,logs,`工程1 ${h-1}手以下`);
     if(isPhaseInterrupt(r)||currentPhaseAbortOutcome()){
       const out=currentPhaseAbortOutcome()||(r.interruptKind==='phase-skip'?'skipped':'timeout');
       logs.push('V8.3.8 LocalRefine UI Fix MirrorMode 短手数工程: '+(out==='skipped'?'ユーザーがスキップ':'10分上限に到達')+'。'+h+'手を採用値として次工程へ。');
@@ -5395,7 +5480,7 @@ async function hybridProveOrImproveBelow(baseInfos,incumbent,onProgress,logs,onU
 }
 
 
-// V8.3.14 SameHandsGlobalRefine:
+// V8.3.15 AdaptiveProofBudget + SameHandsGlobalRefine:
 // 最小/採用手数Hを固定し、全候補から別のH手構成を再構築して副目的を改善する。
 // 工程2: costQuantum単位で現在コスト未満の存在判定を繰り返す。
 // 工程3: 工程2の採用コスト以下を維持し、現在カード枚数-1以下の存在判定を繰り返す。
@@ -5405,7 +5490,7 @@ async function sameHandsGlobalCostRefine(baseInfos,initial,onProgress,logs,onUpd
   const h=Number(best&&best.metrics&&best.metrics.hands)||0;
   if(!h)return {best,proved:false,outcome:'unproven',attempts,reason:'no-hands'};
   if(Number(best.metrics&&best.metrics.unknownCostCards)||0){
-    logs.push('V8.3.14 SameHandsGlobalRefine 工程2: コスト不明カードを含むため全体コスト境界探索を実施できません。');
+    logs.push('V8.3.15 AdaptiveProofBudget 工程2: コスト不明カードを含むため全体コスト境界探索を実施できません。');
     return {best,proved:false,outcome:'unproven',attempts,reason:'unknown-cost'};
   }
   const q=costQuantum(baseInfos);
@@ -5416,7 +5501,7 @@ async function sameHandsGlobalCostRefine(baseInfos,initial,onProgress,logs,onUpd
     // 総コストはcostQuantumの整数倍。現在値から1 quantum下を否定できれば最低コスト確定。
     const bound10=Math.round((cur-q)*10);
     if(bound10<0){
-      logs.push('V8.3.14 SameHandsGlobalRefine 工程2: 0C未満は存在しないため現在値を最低コスト確定。');
+      logs.push('V8.3.15 AdaptiveProofBudget 工程2: 0C未満は存在しないため現在値を最低コスト確定。');
       return {best,proved:true,outcome:'proved',attempts,reason:'zero-bound'};
     }
     const bound=bound10/10;
@@ -5425,31 +5510,30 @@ async function sameHandsGlobalCostRefine(baseInfos,initial,onProgress,logs,onUpd
     onUpdate&&onUpdate(best,{stage:`工程2/3：${h}手を固定し、${bound.toFixed(1)}C以下で成立する別構成を全候補から探索中。見つかれば即採用し、さらに低い境界を検証します。`});
     let cfg=standardCfg('minCostGlobal');
     Object.assign(cfg,{
-      objectiveLabel:`V8.3.14 SameHandsGlobalRefine: ${h}手固定 / ${bound.toFixed(1)}C以下の成立・不存在検証`,
+      objectiveLabel:`V8.3.15 AdaptiveProofBudget: ${h}手固定 / ${bound.toFixed(1)}C以下の成立・不存在検証`,
       targetHands:h,maxHands:h,maxTotalCost:bound,maxUniqueCards:0,
       parallelModes:false,quickSeed:false,optimizeSameHands:false,
       v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,directObjectiveBound:false,
       incumbentMetrics:Object.assign({},best.metrics||{})
     });
-    const r=await runV7Worker(baseInfos,cfg,onProgress);
-    if(r&&Array.isArray(r.logs))logs.push(...r.logs);
+    const r=await runAdaptiveExactWorker(baseInfos,cfg,onProgress,logs,`工程2 ${h}手・${bound.toFixed(1)}C以下`);
     if(isPhaseInterrupt(r)||currentPhaseAbortOutcome()){
       const out=currentPhaseAbortOutcome()||(r&&r.interruptKind==='phase-skip'?'skipped':'timeout');
-      logs.push(`V8.3.14 SameHandsGlobalRefine 工程2: ${out==='skipped'?'ユーザーがスキップ':'10分上限に到達'}。現在最良 ${Number(best.metrics.totalCost||0).toFixed(1)}C を保持。`);
+      logs.push(`V8.3.15 AdaptiveProofBudget 工程2: ${out==='skipped'?'ユーザーがスキップ':'10分上限に到達'}。現在最良 ${Number(best.metrics.totalCost||0).toFixed(1)}C を保持。`);
       return {best,proved:false,outcome:out,attempts,reason:out};
     }
     if(r&&r.ok&&r.metrics&&Number(r.metrics.hands)===h&&Number(r.metrics.unknownCostCards||0)===0&&Number(r.metrics.totalCost)<=bound+1e-9){
       const prev=cur;
       best=r;
-      logs.push(`V8.3.14 SameHandsGlobalRefine 工程2: 全候補H手再構築で ${prev.toFixed(1)}C → ${Number(best.metrics.totalCost).toFixed(1)}C / ${Number(best.metrics.uniqueCards)||0}枚へ改善。`);
+      logs.push(`V8.3.15 AdaptiveProofBudget 工程2: 全候補H手再構築で ${prev.toFixed(1)}C → ${Number(best.metrics.totalCost).toFixed(1)}C / ${Number(best.metrics.uniqueCards)||0}枚へ改善。`);
       onUpdate&&onUpdate(best,{stage:`工程2/3：全候補から別${h}手構成を発見し、${prev.toFixed(1)}C → ${Number(best.metrics.totalCost).toFixed(1)}Cへ改善。残り時間でさらに低いコストを探索します。`});
       continue;
     }
     if(isSafeInfeasibleProof(r)){
-      logs.push(`V8.3.14 SameHandsGlobalRefine 工程2: ${h}手・${bound.toFixed(1)}C以下を全モード不成立証明。現在 ${cur.toFixed(1)}C を最低コスト確定。`);
+      logs.push(`V8.3.15 AdaptiveProofBudget 工程2: ${h}手・${bound.toFixed(1)}C以下を全モード不成立証明。現在 ${cur.toFixed(1)}C を最低コスト確定。`);
       return {best,proved:true,outcome:'proved',attempts,reason:'infeasible-below'};
     }
-    logs.push(`V8.3.14 SameHandsGlobalRefine 工程2: ${h}手・${bound.toFixed(1)}C以下は未確定。現在最良 ${cur.toFixed(1)}C を採用。`);
+    logs.push(`V8.3.15 AdaptiveProofBudget 工程2: ${h}手・${bound.toFixed(1)}C以下は未確定。現在最良 ${cur.toFixed(1)}C を採用。`);
     return {best,proved:false,outcome:'unproven',attempts,reason:'unknown'};
   }
 }
@@ -5459,7 +5543,7 @@ async function sameHandsGlobalCardRefine(baseInfos,initial,costCeiling,costIsPro
   const h=Number(best&&best.metrics&&best.metrics.hands)||0;
   if(!h)return {best,proved:false,boundProof:false,outcome:'unproven',attempts,reason:'no-hands'};
   if(Number(best.metrics&&best.metrics.unknownCostCards)||0){
-    logs.push('V8.3.14 SameHandsGlobalRefine 工程3: コスト不明カードを含むため採用コスト以下のカード枚数全体探索を実施できません。');
+    logs.push('V8.3.15 AdaptiveProofBudget 工程3: コスト不明カードを含むため採用コスト以下のカード枚数全体探索を実施できません。');
     return {best,proved:false,boundProof:false,outcome:'unproven',attempts,reason:'unknown-cost'};
   }
   let ceiling=Number.isFinite(Number(costCeiling))?Number(costCeiling):Number(best.metrics.totalCost||0);
@@ -5479,33 +5563,32 @@ async function sameHandsGlobalCardRefine(baseInfos,initial,costCeiling,costIsPro
     onUpdate&&onUpdate(best,{stage:`工程3/3：${h}手・${ceiling.toFixed(1)}C以下を固定し、${cardBound}枚以下で成立する別構成を全候補から探索中。`});
     let cfg=standardCfg('minCardsGlobal');
     Object.assign(cfg,{
-      objectiveLabel:`V8.3.14 SameHandsGlobalRefine: ${h}手 / ${ceiling.toFixed(1)}C以下 / ${cardBound}枚以下の成立・不存在検証`,
+      objectiveLabel:`V8.3.15 AdaptiveProofBudget: ${h}手 / ${ceiling.toFixed(1)}C以下 / ${cardBound}枚以下の成立・不存在検証`,
       targetHands:h,maxHands:h,maxTotalCost:ceiling,maxUniqueCards:cardBound,
       parallelModes:false,quickSeed:false,optimizeSameHands:false,
       v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,directObjectiveBound:false,
       incumbentMetrics:Object.assign({},best.metrics||{})
     });
-    const r=await runV7Worker(baseInfos,cfg,onProgress);
-    if(r&&Array.isArray(r.logs))logs.push(...r.logs);
+    const r=await runAdaptiveExactWorker(baseInfos,cfg,onProgress,logs,`工程3 ${h}手・${ceiling.toFixed(1)}C以下・${cardBound}枚以下`);
     if(isPhaseInterrupt(r)||currentPhaseAbortOutcome()){
       const out=currentPhaseAbortOutcome()||(r&&r.interruptKind==='phase-skip'?'skipped':'timeout');
-      logs.push(`V8.3.14 SameHandsGlobalRefine 工程3: ${out==='skipped'?'ユーザーがスキップ':'10分上限に到達'}。現在最良 ${Number(best.metrics.uniqueCards)||0}枚 / ${Number(best.metrics.totalCost||0).toFixed(1)}C を保持。`);
+      logs.push(`V8.3.15 AdaptiveProofBudget 工程3: ${out==='skipped'?'ユーザーがスキップ':'10分上限に到達'}。現在最良 ${Number(best.metrics.uniqueCards)||0}枚 / ${Number(best.metrics.totalCost||0).toFixed(1)}C を保持。`);
       return {best,proved:false,boundProof,outcome:out,attempts,reason:out};
     }
     if(r&&r.ok&&r.metrics&&Number(r.metrics.hands)===h&&Number(r.metrics.uniqueCards)<=cardBound&&Number(r.metrics.totalCost)<=ceiling+1e-9){
       const prevCards=curCards,prevCost=Number(best.metrics.totalCost||0);
       best=r;
       ceiling=Math.min(ceiling,Number(best.metrics.totalCost||ceiling));
-      logs.push(`V8.3.14 SameHandsGlobalRefine 工程3: 全候補H手再構築で ${prevCards}枚 → ${Number(best.metrics.uniqueCards)||0}枚 / ${prevCost.toFixed(1)}C → ${Number(best.metrics.totalCost||0).toFixed(1)}C。`);
+      logs.push(`V8.3.15 AdaptiveProofBudget 工程3: 全候補H手再構築で ${prevCards}枚 → ${Number(best.metrics.uniqueCards)||0}枚 / ${prevCost.toFixed(1)}C → ${Number(best.metrics.totalCost||0).toFixed(1)}C。`);
       onUpdate&&onUpdate(best,{stage:`工程3/3：全候補から別${h}手構成を発見し、${prevCards}枚 → ${Number(best.metrics.uniqueCards)||0}枚へ改善。残り時間でさらに少ないカード枚数を探索します。`});
       continue;
     }
     if(isSafeInfeasibleProof(r)){
       boundProof=true;
-      logs.push(`V8.3.14 SameHandsGlobalRefine 工程3: ${h}手・${ceiling.toFixed(1)}C以下・${cardBound}枚以下を全モード不成立証明。現在 ${curCards}枚がこのコスト条件内の最少カード枚数。`);
+      logs.push(`V8.3.15 AdaptiveProofBudget 工程3: ${h}手・${ceiling.toFixed(1)}C以下・${cardBound}枚以下を全モード不成立証明。現在 ${curCards}枚がこのコスト条件内の最少カード枚数。`);
       return {best,proved:!!costIsProved,boundProof:true,outcome:costIsProved?'proved':'unproven',attempts,reason:'infeasible-fewer'};
     }
-    logs.push(`V8.3.14 SameHandsGlobalRefine 工程3: ${h}手・${ceiling.toFixed(1)}C以下・${cardBound}枚以下は未確定。現在最良 ${curCards}枚を採用。`);
+    logs.push(`V8.3.15 AdaptiveProofBudget 工程3: ${h}手・${ceiling.toFixed(1)}C以下・${cardBound}枚以下は未確定。現在最良 ${curCards}枚を採用。`);
     return {best,proved:false,boundProof,outcome:'unproven',attempts,reason:'unknown'};
   }
 }
@@ -5714,8 +5797,8 @@ async function solveV7(){
   const rsl=document.getElementById('resultStageLine');if(rsl){rsl.textContent='';rsl.className='result-stage small warn';}
   document.getElementById('progressPanel').classList.remove('hidden');
   const logs=[];
-  logs.push('V8.3.14 SameHandsGlobalRefine MirrorMode CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
-  logs.push('V8.3.14 SameHandsGlobalRefine MirrorMode: 成立解確保後は ①短手数を全候補Exact ②同じH手の全候補から低C構成を再探索 ③H手+採用C以下の全候補から少カード構成を再探索。工程2・3も各10分上限。');
+  logs.push('V8.3.15 AdaptiveProofBudget MirrorMode CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
+  logs.push('V8.3.15 AdaptiveProofBudget MirrorMode: 成立解確保後は ①短手数を全候補Exact ②同じH手の全候補から低C構成を再探索 ③H手+採用C以下の全候補から少カード構成を再探索。工程1～3は各10分上限。IP/WASM節点上限unknown時のみ予算を段階拡張。');
 
   let liveBest=null;
   const publishDiscovery=(cand,meta)=>{if(!cand||!cand.metrics)return;if(!liveBest||metricBetter(cand.metrics,liveBest.metrics))liveBest=cand;publishLiveResult(liveBest,baseInfos,liveProof(false,false,false,false),meta&&meta.stage||'成立解を発見。より良い解を探索中。','成立解あり・探索継続中','warn');};
@@ -5761,7 +5844,7 @@ async function solveV7(){
   let costOutcome='unproven',sameHandsCostSearched=false;
   const sat=res.saturationV7;
   if(handsProof&&sat&&sat.complete&&sat.costKnown&&sat.coversAllModes===true&&Number(sat.hands)===Number(best.metrics&&best.metrics.hands)&&best.metrics&&Math.abs((sat.minCost||0)-(best.metrics.totalCost||0))<1e-9){
-    costProof=true;costOutcome='proved';sameHandsCostSearched=true;logs.push('V8.3.14 SameHandsGlobalRefine 全モードSaturation証明を固定手数コストへ適用。');
+    costProof=true;costOutcome='proved';sameHandsCostSearched=true;logs.push('V8.3.15 AdaptiveProofBudget 全モードSaturation証明を固定手数コストへ適用。');
   }
   if(!costProof&&!currentPhaseAbortOutcome()&&best.metrics&&!(best.metrics.unknownCostCards||0)){
     // まず安価な1対1割当を上界改善のwarm startとして1回だけ利用。その後は必ず全候補H手再探索へ進む。
@@ -5769,7 +5852,7 @@ async function solveV7(){
     const warm=localMinCostAssignment(best,baseInfos);
     if(warm.ok&&Number(warm.result.metrics.totalCost)<beforeWarm-1e-9){
       best=warm.result;
-      logs.push(`V8.3.14 SameHandsGlobalRefine 工程2 warm start: 1対1割当で ${beforeWarm.toFixed(1)}C → ${Number(best.metrics.totalCost).toFixed(1)}C。ここから全候補H手再探索。`);
+      logs.push(`V8.3.15 AdaptiveProofBudget 工程2 warm start: 1対1割当で ${beforeWarm.toFixed(1)}C → ${Number(best.metrics.totalCost).toFixed(1)}C。ここから全候補H手再探索。`);
       publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),`工程2/3 warm start：${beforeWarm.toFixed(1)}C → ${Number(best.metrics.totalCost).toFixed(1)}C。続いて同じ${best.metrics.hands}手の全候補から別構成を探索します。`,'成立（工程2/3・全候補低コスト探索）','warn');
     }
     sameHandsCostSearched=true;
