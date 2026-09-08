@@ -42,7 +42,9 @@ tr.card-excluded td{background:#f3f0e9;color:#8a8175}
 
 /* V8.3.5: 探索中パネルは詳細ログの開閉で高さを変えない。暫定結果欄の位置を固定する。 */
 /* V8.3.13: 副将の明鏡/錬鏡は副将スロットごとに独立判定・独立選択する。
-   SLの2副将もそれぞれ個別のドロップダウンを持つ。 */
+   SLの2副将もそれぞれ個別のドロップダウンを持つ。
+   V8.3.14: 最小/採用手数Hを固定し、工程2は全候補から低コスト解、工程3は採用コスト以下で少カード解を探索する。
+   各工程の10分上限は従来どおり。局所置換だけでなく別H手構成へ移れる。 */
 #progressLabel{
   line-height:1.45;
   height:4.35em;
@@ -202,7 +204,7 @@ details{margin-top:10px;border:1px solid var(--line-soft);background:#fff;border
     <div class="actions" style="margin-top:12px">
       <button id="solveBtn">3. 施術ループを探索</button>
       <span id="solveStatus" class="solve-status" role="status" aria-live="polite"></span>
-      <span class="small">チェック済みカードだけを使って探索します。判定は「成立 / 不成立証明 / 未確定」の3状態です。exactに否定できた場合だけ「不成立証明」とし、未完走・近似・順序未証明は必ず「未確定」とします。成立解確保後は「1手少ない手数」を最大10分で全候補Exact検証します。工程2は現在の成立解を同等以上の機能を持つ低コストカードへ差し替え、工程3は現在解の2～3枚分の使用機能を1枚へ統合できないかを確認します。各工程は個別にスキップできます。探索中は基準・主要進捗を常時表示し、詳細ログは初期状態で折り畳みます。詳細を開閉しても下の暫定結果欄の位置は変わりません。スキップ・時間切れは未証明のまま現在値を採用して次工程へ進みます。</span>
+      <span class="small">チェック済みカードだけを使って探索します。判定は「成立 / 不成立証明 / 未確定」の3状態です。exactに否定できた場合だけ「不成立証明」とし、未完走・近似・順序未証明は必ず「未確定」とします。成立解確保後は「1手少ない手数」を最大10分で全候補Exact検証します。工程2は採用手数を固定し、同じ手数の全候補から現在より低コストの別構成を最大10分探索します。工程3は同じ手数かつ工程2の採用コスト以下を維持し、全候補から現在より少ない物理カード枚数の別構成を最大10分探索します。副目的は「手数→コスト→カード枚数」の順です。各工程は個別にスキップできます。探索中は基準・主要進捗を常時表示し、詳細ログは初期状態で折り畳みます。詳細を開閉しても下の暫定結果欄の位置は変わりません。スキップ・時間切れは未証明のまま、その時点の最良成立解を採用して次工程へ進みます。</span>
     </div>
   </section>
 
@@ -4442,9 +4444,9 @@ function minSearchWorkerMainV6236() {
                     'V8.3.8 LocalRefine UI Fix MirrorMode Topology圧縮: need・再使用相互寄与・single寄与が完全交換可能な再使用target群について、動的gap状態とslot所属履歴を含むlabel置換正準memo＋同一orbit action代表化を行う。入れ子/交差など非同値topologyは保持し、判定不能時は従来label付きTopologyへfallback',
                     'V8.3.8 LocalRefine UI Fix MirrorMode 段階leaf再開: ManyTopologyがleaf上限だけに到達した場合、同一問題・同一dead-state memoを保持したまま 12k→24k→48k→96k→192k と段階拡張。途中上限は未完走に数えず、最終上限でも未完走の問題だけ未証明として残す',
                     'V8.3.8 LocalRefine UI Fix MirrorMode メモリ保護: 長時間の全モードExactは1 Workerで順次実行。ManyTopology memoは1問題5万/全体9万/6問題、供給上界6000、deck-pack 3万、不成立problem 1000を上限に古い再利用cacheを破棄。cache破棄は再計算を増やすだけで証明条件は不変',
-                    'V8.3.8 LocalRefine UI Fix MirrorMode 3工程UI: 成立解確保後、①短手数Exact ②現在解の1対1低C置換 ③現在解の2～3枚→1枚統合を実行。現在工程/進捗/工程別スキップボタンを表示し、未完走を確認済み扱いしない',
-                    'V8.3.8 LocalRefine UI Fix MirrorMode 局所最適化: 工程2・3は全H手構成の証明ではなく、現在成立解からの同等機能置換/カード統合範囲を完走した場合だけ「確認済み」と表示',
-                    'V8.3.8 LocalRefine UI Fix MirrorMode フロー: Discovery後、短手数だけ全候補Exact。工程2は1owner→1owner最小費用割当、工程3は2/3owner→1owner統合列挙＋50周physicalSimで現在解を軽量改善',
+                    'V8.3.14 SameHandsGlobalRefine 3工程UI: 成立解確保後、①短手数Exact ②H手固定で全候補低C再探索 ③H手+採用C以下で全候補少カード再探索。各工程10分上限、未完走を確定扱いしない',
+                    'V8.3.14 SameHandsGlobalRefine 副目的: 工程2・3も同じH手の全候補から別構成を再構築。工程2はコストをquantum単位で下げ、工程3は採用コスト以下でカード枚数を1枚ずつ下げる境界探索',
+                    'V8.3.14 SameHandsGlobalRefine フロー: Discovery後、短手数Exact。工程2/3は既存V8 exact workerへtargetHands/maxTotalCost/maxUniqueCardsを直接渡し、全候補H手構成を時間制限内で再探索',
                     'V8.3.8 LocalRefine UI Fix MirrorMode 副目的証明: コスト/カード境界scanにも強制伝播を適用し、scan未完走時も循環Exactへ継続。任意の8/30回反復上限は撤廃',
                     'V8.3.8 LocalRefine UI Fix MirrorMode H手強制伝播: 静的成立Witnessに含まれるイベントだけを不使用/1回以下で再検証し、緩和問題でも不成立なら1回必須/2回必須/カード必須としてdomain固定',
                     'V8.3.8 LocalRefine UI Fix MirrorMode endpoint B&B: 再使用5〜18種を未登場/開区間/閉区間で構築し、閉区間single subset上界・完全同値target対称性で枝刈り',
@@ -4988,8 +4990,8 @@ function buildProgressSummary(p){
   const h=Number(inc.hands)||0,c=Number(inc.totalCost)||0,k=Number(inc.uniqueCards)||0;
   let basis='探索条件を確認中';
   if(ph.key==='hands'&&h>0)basis=`基準：暫定${h}手 → ${Math.max(1,h-1)}手以下の成立/不存在を検証`;
-  else if(ph.key==='cost'&&h>0)basis=`基準：現在の${h}手成立解 / ${c.toFixed(1)}C → 同等機能の低Cカードへ差し替え`;
-  else if(ph.key==='cards'&&h>0)basis=`基準：現在の${h}手成立解 / ${k}枚 → 2～3枚分の機能を1枚へ統合`;
+  else if(ph.key==='cost'&&h>0)basis=`基準：${h}手固定 / 現在${c.toFixed(1)}C → 全候補からより低Cの別構成を探索`;
+  else if(ph.key==='cards'&&h>0)basis=`基準：${h}手固定 / ${c.toFixed(1)}C以下 / 現在${k}枚 → 全候補から少カード構成を探索`;
   else if(h>0)basis=`基準：現在の成立上界 ${h}手 / ${c.toFixed(1)}C / ${k}枚`;
 
   const now=[];
@@ -5353,7 +5355,7 @@ function phaseOutcomeReason(ph){
   }
   if(ph.outcome==='skipped')return 'ユーザーがスキップ';
   if(ph.outcome==='timeout')return '10分上限で打切り';
-  if(ph.outcome==='unproven')return '全体最適性は未証明';
+  if(ph.outcome==='unproven')return '同手数全候補を探索したが全体最適性は未証明';
   if(ph.outcome==='trivial')return '境界なしで確定';
   return ph.outcome||'未証明';
 }
@@ -5384,11 +5386,127 @@ async function hybridProveOrImproveBelow(baseInfos,incumbent,onProgress,logs,onU
     }
     if(r.proofStatus==='infeasible-proof'){
       logs.push('V8.3.8 LocalRefine UI Fix MirrorMode exact: '+(h-1)+'手以下を不成立証明 → '+h+'手を最小確定');
-      onUpdate&&onUpdate(best,{handsProof:true,stage:(h-1)+'手以下を不成立証明。最小手数 '+h+'手を確定。続いて '+h+'手固定で最小コストを最大10分探索します。'});
+      onUpdate&&onUpdate(best,{handsProof:true,stage:(h-1)+'手以下を不成立証明。最小手数 '+h+'手を確定。続いて '+h+'手固定で全候補から最小コストを最大10分探索します。'});
       return {best,handsProof:true,phaseOutcome:'proved'};
     }
     logs.push('V8.3.8 LocalRefine UI Fix MirrorMode exact: '+(h-1)+'手以下は未確定。'+h+'手を採用値として次工程へ。');
     return {best,handsProof:false,phaseOutcome:'unproven'};
+  }
+}
+
+
+// V8.3.14 SameHandsGlobalRefine:
+// 最小/採用手数Hを固定し、全候補から別のH手構成を再構築して副目的を改善する。
+// 工程2: costQuantum単位で現在コスト未満の存在判定を繰り返す。
+// 工程3: 工程2の採用コスト以下を維持し、現在カード枚数-1以下の存在判定を繰り返す。
+// 各呼出しは既存V8 exact workerを使う。成立を見つけたら即incumbent更新、不存在を完全証明した時だけ副目的を確定する。
+async function sameHandsGlobalCostRefine(baseInfos,initial,onProgress,logs,onUpdate){
+  let best=initial,attempts=0;
+  const h=Number(best&&best.metrics&&best.metrics.hands)||0;
+  if(!h)return {best,proved:false,outcome:'unproven',attempts,reason:'no-hands'};
+  if(Number(best.metrics&&best.metrics.unknownCostCards)||0){
+    logs.push('V8.3.14 SameHandsGlobalRefine 工程2: コスト不明カードを含むため全体コスト境界探索を実施できません。');
+    return {best,proved:false,outcome:'unproven',attempts,reason:'unknown-cost'};
+  }
+  const q=costQuantum(baseInfos);
+  while(true){
+    const abort=currentPhaseAbortOutcome();
+    if(abort)return {best,proved:false,outcome:abort,attempts,reason:abort};
+    const cur=Number(best.metrics&&best.metrics.totalCost)||0;
+    // 総コストはcostQuantumの整数倍。現在値から1 quantum下を否定できれば最低コスト確定。
+    const bound10=Math.round((cur-q)*10);
+    if(bound10<0){
+      logs.push('V8.3.14 SameHandsGlobalRefine 工程2: 0C未満は存在しないため現在値を最低コスト確定。');
+      return {best,proved:true,outcome:'proved',attempts,reason:'zero-bound'};
+    }
+    const bound=bound10/10;
+    attempts++;
+    searchControl.updatePhase(`${h}手固定の全候補低コスト探索`,`現在 ${cur.toFixed(1)}C / ${bound.toFixed(1)}C以下の別${h}手構成を全候補から検証`);
+    onUpdate&&onUpdate(best,{stage:`工程2/3：${h}手を固定し、${bound.toFixed(1)}C以下で成立する別構成を全候補から探索中。見つかれば即採用し、さらに低い境界を検証します。`});
+    let cfg=standardCfg('minCostGlobal');
+    Object.assign(cfg,{
+      objectiveLabel:`V8.3.14 SameHandsGlobalRefine: ${h}手固定 / ${bound.toFixed(1)}C以下の成立・不存在検証`,
+      targetHands:h,maxHands:h,maxTotalCost:bound,maxUniqueCards:0,
+      parallelModes:false,quickSeed:false,optimizeSameHands:false,
+      v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,directObjectiveBound:false,
+      incumbentMetrics:Object.assign({},best.metrics||{})
+    });
+    const r=await runV7Worker(baseInfos,cfg,onProgress);
+    if(r&&Array.isArray(r.logs))logs.push(...r.logs);
+    if(isPhaseInterrupt(r)||currentPhaseAbortOutcome()){
+      const out=currentPhaseAbortOutcome()||(r&&r.interruptKind==='phase-skip'?'skipped':'timeout');
+      logs.push(`V8.3.14 SameHandsGlobalRefine 工程2: ${out==='skipped'?'ユーザーがスキップ':'10分上限に到達'}。現在最良 ${Number(best.metrics.totalCost||0).toFixed(1)}C を保持。`);
+      return {best,proved:false,outcome:out,attempts,reason:out};
+    }
+    if(r&&r.ok&&r.metrics&&Number(r.metrics.hands)===h&&Number(r.metrics.unknownCostCards||0)===0&&Number(r.metrics.totalCost)<=bound+1e-9){
+      const prev=cur;
+      best=r;
+      logs.push(`V8.3.14 SameHandsGlobalRefine 工程2: 全候補H手再構築で ${prev.toFixed(1)}C → ${Number(best.metrics.totalCost).toFixed(1)}C / ${Number(best.metrics.uniqueCards)||0}枚へ改善。`);
+      onUpdate&&onUpdate(best,{stage:`工程2/3：全候補から別${h}手構成を発見し、${prev.toFixed(1)}C → ${Number(best.metrics.totalCost).toFixed(1)}Cへ改善。残り時間でさらに低いコストを探索します。`});
+      continue;
+    }
+    if(isSafeInfeasibleProof(r)){
+      logs.push(`V8.3.14 SameHandsGlobalRefine 工程2: ${h}手・${bound.toFixed(1)}C以下を全モード不成立証明。現在 ${cur.toFixed(1)}C を最低コスト確定。`);
+      return {best,proved:true,outcome:'proved',attempts,reason:'infeasible-below'};
+    }
+    logs.push(`V8.3.14 SameHandsGlobalRefine 工程2: ${h}手・${bound.toFixed(1)}C以下は未確定。現在最良 ${cur.toFixed(1)}C を採用。`);
+    return {best,proved:false,outcome:'unproven',attempts,reason:'unknown'};
+  }
+}
+
+async function sameHandsGlobalCardRefine(baseInfos,initial,costCeiling,costIsProved,onProgress,logs,onUpdate){
+  let best=initial,attempts=0,boundProof=false;
+  const h=Number(best&&best.metrics&&best.metrics.hands)||0;
+  if(!h)return {best,proved:false,boundProof:false,outcome:'unproven',attempts,reason:'no-hands'};
+  if(Number(best.metrics&&best.metrics.unknownCostCards)||0){
+    logs.push('V8.3.14 SameHandsGlobalRefine 工程3: コスト不明カードを含むため採用コスト以下のカード枚数全体探索を実施できません。');
+    return {best,proved:false,boundProof:false,outcome:'unproven',attempts,reason:'unknown-cost'};
+  }
+  let ceiling=Number.isFinite(Number(costCeiling))?Number(costCeiling):Number(best.metrics.totalCost||0);
+  while(true){
+    const abort=currentPhaseAbortOutcome();
+    if(abort)return {best,proved:false,boundProof,outcome:abort,attempts,reason:abort};
+    const curCards=Number(best.metrics&&best.metrics.uniqueCards)||0;
+    if(curCards<=1){
+      boundProof=true;
+      return {best,proved:!!costIsProved,boundProof:true,outcome:costIsProved?'proved':'unproven',attempts,reason:'one-card'};
+    }
+    const cardBound=curCards-1;
+    // 工程3でより低コストの解も見つけた場合は、その新コストを以後のceilingに採用する。
+    ceiling=Math.min(ceiling,Number(best.metrics.totalCost||ceiling));
+    attempts++;
+    searchControl.updatePhase(`${h}手・${ceiling.toFixed(1)}C以下の全候補少カード探索`,`現在 ${curCards}枚 / ${cardBound}枚以下の別${h}手構成を全候補から検証`);
+    onUpdate&&onUpdate(best,{stage:`工程3/3：${h}手・${ceiling.toFixed(1)}C以下を固定し、${cardBound}枚以下で成立する別構成を全候補から探索中。`});
+    let cfg=standardCfg('minCardsGlobal');
+    Object.assign(cfg,{
+      objectiveLabel:`V8.3.14 SameHandsGlobalRefine: ${h}手 / ${ceiling.toFixed(1)}C以下 / ${cardBound}枚以下の成立・不存在検証`,
+      targetHands:h,maxHands:h,maxTotalCost:ceiling,maxUniqueCards:cardBound,
+      parallelModes:false,quickSeed:false,optimizeSameHands:false,
+      v8IpSearch:true,wasmExact:true,ipStopOnFirst:true,directObjectiveBound:false,
+      incumbentMetrics:Object.assign({},best.metrics||{})
+    });
+    const r=await runV7Worker(baseInfos,cfg,onProgress);
+    if(r&&Array.isArray(r.logs))logs.push(...r.logs);
+    if(isPhaseInterrupt(r)||currentPhaseAbortOutcome()){
+      const out=currentPhaseAbortOutcome()||(r&&r.interruptKind==='phase-skip'?'skipped':'timeout');
+      logs.push(`V8.3.14 SameHandsGlobalRefine 工程3: ${out==='skipped'?'ユーザーがスキップ':'10分上限に到達'}。現在最良 ${Number(best.metrics.uniqueCards)||0}枚 / ${Number(best.metrics.totalCost||0).toFixed(1)}C を保持。`);
+      return {best,proved:false,boundProof,outcome:out,attempts,reason:out};
+    }
+    if(r&&r.ok&&r.metrics&&Number(r.metrics.hands)===h&&Number(r.metrics.uniqueCards)<=cardBound&&Number(r.metrics.totalCost)<=ceiling+1e-9){
+      const prevCards=curCards,prevCost=Number(best.metrics.totalCost||0);
+      best=r;
+      ceiling=Math.min(ceiling,Number(best.metrics.totalCost||ceiling));
+      logs.push(`V8.3.14 SameHandsGlobalRefine 工程3: 全候補H手再構築で ${prevCards}枚 → ${Number(best.metrics.uniqueCards)||0}枚 / ${prevCost.toFixed(1)}C → ${Number(best.metrics.totalCost||0).toFixed(1)}C。`);
+      onUpdate&&onUpdate(best,{stage:`工程3/3：全候補から別${h}手構成を発見し、${prevCards}枚 → ${Number(best.metrics.uniqueCards)||0}枚へ改善。残り時間でさらに少ないカード枚数を探索します。`});
+      continue;
+    }
+    if(isSafeInfeasibleProof(r)){
+      boundProof=true;
+      logs.push(`V8.3.14 SameHandsGlobalRefine 工程3: ${h}手・${ceiling.toFixed(1)}C以下・${cardBound}枚以下を全モード不成立証明。現在 ${curCards}枚がこのコスト条件内の最少カード枚数。`);
+      return {best,proved:!!costIsProved,boundProof:true,outcome:costIsProved?'proved':'unproven',attempts,reason:'infeasible-fewer'};
+    }
+    logs.push(`V8.3.14 SameHandsGlobalRefine 工程3: ${h}手・${ceiling.toFixed(1)}C以下・${cardBound}枚以下は未確定。現在最良 ${curCards}枚を採用。`);
+    return {best,proved:false,boundProof,outcome:'unproven',attempts,reason:'unknown'};
   }
 }
 
@@ -5552,7 +5670,7 @@ async function localCompressCards(best,baseInfos,costCeiling,onProgress){
         for(const target of owners){
           totalChecked++;iterationChecked++;
           if((iterationChecked&511)===0){
-            onProgress&&onProgress({objectiveLabel:'工程3/3 現在解のカード統合確認',workStage:'local-card-compress',candidateVisited:iterationChecked,candidateTotal:iterationTotal,candidatePct:iterationChecked*100/iterationTotal,hands:cur.metrics.hands,label:`${size}枚→1枚候補 / 今回${iterationChecked.toLocaleString()}/${iterationTotal.toLocaleString()}・累計${totalChecked.toLocaleString()}検査`});
+            onProgress&&onProgress({objectiveLabel:'工程3/3 同手数全候補の少カード探索',workStage:'local-card-compress',candidateVisited:iterationChecked,candidateTotal:iterationTotal,candidatePct:iterationChecked*100/iterationTotal,hands:cur.metrics.hands,label:`${size}枚→1枚候補 / 今回${iterationChecked.toLocaleString()}/${iterationTotal.toLocaleString()}・累計${totalChecked.toLocaleString()}検査`});
             await new Promise(r=>setTimeout(r,0));
             const ab=currentPhaseAbortOutcome();if(ab)return {best:cur,checked:totalChecked,improvements,aborted:ab,complete:false};
           }
@@ -5574,11 +5692,11 @@ async function localCompressCards(best,baseInfos,costCeiling,onProgress){
     }
     if(!bestHit){
       // 完走を明示。512件単位の最終途中表示が残らないよう100%へ更新する。
-      onProgress&&onProgress({objectiveLabel:'工程3/3 現在解のカード統合確認',workStage:'local-card-compress-done',candidateVisited:iterationChecked,candidateTotal:iterationChecked,candidatePct:100,hands:cur.metrics.hands,label:`統合候補確認完了 / 今回${iterationChecked.toLocaleString()}・累計${totalChecked.toLocaleString()}検査 / 改善${improvements}回`});
+      onProgress&&onProgress({objectiveLabel:'工程3/3 同手数全候補の少カード探索',workStage:'local-card-compress-done',candidateVisited:iterationChecked,candidateTotal:iterationChecked,candidatePct:100,hands:cur.metrics.hands,label:`統合候補確認完了 / 今回${iterationChecked.toLocaleString()}・累計${totalChecked.toLocaleString()}検査 / 改善${improvements}回`});
       return {best:cur,checked:totalChecked,improvements,complete:true};
     }
     cur=bestHit.result;improvements++;
-    onProgress&&onProgress({objectiveLabel:'工程3/3 現在解のカード統合確認',workStage:'local-card-compress',candidateVisited:iterationChecked,candidateTotal:Math.max(1,iterationChecked),candidatePct:100,hands:cur.metrics.hands,label:`${bestHit.size}枚→1枚を採用 / ${cur.metrics.uniqueCards}枚 / 累計${totalChecked.toLocaleString()}検査`});
+    onProgress&&onProgress({objectiveLabel:'工程3/3 同手数全候補の少カード探索',workStage:'local-card-compress',candidateVisited:iterationChecked,candidateTotal:Math.max(1,iterationChecked),candidatePct:100,hands:cur.metrics.hands,label:`${bestHit.size}枚→1枚を採用 / ${cur.metrics.uniqueCards}枚 / 累計${totalChecked.toLocaleString()}検査`});
     await new Promise(r=>setTimeout(r,0));
   }
 }
@@ -5596,8 +5714,8 @@ async function solveV7(){
   const rsl=document.getElementById('resultStageLine');if(rsl){rsl.textContent='';rsl.className='result-stage small warn';}
   document.getElementById('progressPanel').classList.remove('hidden');
   const logs=[];
-  logs.push('V8.3.11 ReitanMirrorPreBoost LocalRefine MirrorMode CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
-  logs.push('V8.3.11 ReitanMirrorPreBoost LocalRefine MirrorMode: 成立解確保後は ①短手数を全候補Exact ②現在解の1対1低C置換 ③現在解の2～3枚→1枚統合。工程2・3は局所範囲の完走のみを確認済みとし、全体最適確定とは表示しない。');
+  logs.push('V8.3.14 SameHandsGlobalRefine MirrorMode CardNo正規化: '+norm.rawOwners+'物理候補/'+norm.rawCandidates+'スキル → '+norm.keptOwners+'variant/'+norm.keptCandidates+'スキル（同値削除 '+norm.equivalentRemoved+' / 支配削除 '+norm.dominatedRemoved+'）');
+  logs.push('V8.3.14 SameHandsGlobalRefine MirrorMode: 成立解確保後は ①短手数を全候補Exact ②同じH手の全候補から低C構成を再探索 ③H手+採用C以下の全候補から少カード構成を再探索。工程2・3も各10分上限。');
 
   let liveBest=null;
   const publishDiscovery=(cand,meta)=>{if(!cand||!cand.metrics)return;if(!liveBest||metricBetter(cand.metrics,liveBest.metrics))liveBest=cand;publishLiveResult(liveBest,baseInfos,liveProof(false,false,false,false),meta&&meta.stage||'成立解を発見。より良い解を探索中。','成立解あり・探索継続中','warn');};
@@ -5628,7 +5746,7 @@ async function solveV7(){
   if(handsProof){
     searchControl.beginPhase('hands','1手少ない手数の探索（既に最小手数確定）','1手少ない手数の探索をスキップ',1,3);
     phaseOutcomes.hands=searchControl.finishPhase('proved');
-    publishLiveResult(best,baseInfos,liveProof(true,false,false,false),'Discovery/数学的下限により最小手数 '+best.metrics.hands+'手は既に確定しています。工程1を完了し、最小コスト探索へ進みます。','成立（最小手数確定・コスト探索へ）','ok');
+    publishLiveResult(best,baseInfos,liveProof(true,false,false,false),'Discovery/数学的下限により最小手数 '+best.metrics.hands+'手は既に確定しています。工程1を完了し、同手数全候補の低コスト探索へ進みます。','成立（最小手数確定・コスト探索へ）','ok');
   }else{
     searchControl.beginPhase('hands','1手少ない手数の探索（'+Math.max(0,Number(best.metrics.hands)-1)+'手以下をExact検証）','1手少ない手数の探索をスキップ',1,3,PHASE_LIMIT_MS,'採用中 '+best.metrics.hands+'手');
     publishLiveResult(best,baseInfos,liveProof(false,false,false,false),'工程1/3：最大10分で '+Math.max(0,best.metrics.hands-1)+'手以下を検証中。スキップした場合は '+best.metrics.hands+'手を採用してコスト探索へ進みます。','成立解あり・工程1/3','warn');
@@ -5637,77 +5755,81 @@ async function solveV7(){
   }
   res=best;
 
-  // 工程2/3: 現在成立解を基準に、同等以上の機能を持つownerへ1対1で差し替えて低C化する。
-  // 全候補からH手構成を再構築するManyTopology Exactは行わない。
-  searchControl.beginPhase('cost','現在解の低コスト差し替え（'+best.metrics.hands+'手を維持）','低コスト差し替え確認をスキップ',2,3,PHASE_LIMIT_MS,handsProof?'最小手数確定済み':'手数最小性は未証明');
-  let costOutcome='local-proved',localCostChecked=false;
+  // 工程2/3: 最小/採用手数Hを固定し、全候補からより低コストの別H手構成を再探索する。
+  // 従来の「現在解1owner→1owner置換」だけでは別トポロジーへ移れなかったため、V8 exact workerへ直接H固定のコスト境界を渡す。
+  searchControl.beginPhase('cost',`${best.metrics.hands}手固定の全候補低コスト探索`,`低コスト全候補探索をスキップ`,2,3,PHASE_LIMIT_MS,handsProof?'最小手数確定済み':'採用手数の最小性は未証明');
+  let costOutcome='unproven',sameHandsCostSearched=false;
   const sat=res.saturationV7;
   if(handsProof&&sat&&sat.complete&&sat.costKnown&&sat.coversAllModes===true&&Number(sat.hands)===Number(best.metrics&&best.metrics.hands)&&best.metrics&&Math.abs((sat.minCost||0)-(best.metrics.totalCost||0))<1e-9){
-    costProof=true;costOutcome='proved';logs.push('V8.3.8 LocalRefine 全モードSaturation証明を固定手数コストへ適用。');
+    costProof=true;costOutcome='proved';sameHandsCostSearched=true;logs.push('V8.3.14 SameHandsGlobalRefine 全モードSaturation証明を固定手数コストへ適用。');
   }
-  if(!currentPhaseAbortOutcome()&&best.metrics&&!(best.metrics.unknownCostCards||0)){
-    const beforeCost=Number(best.metrics.totalCost||0);
-    searchControl.updatePhase('現在解の低コスト差し替え（'+best.metrics.hands+'手を維持）','同じ使用機能を1owner→1ownerで置換 / CardNo排他込み最小費用割当');
-    publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程2/3：現在の成立順序を固定し、各使用カードの機能を同等以上に保てる低コストカードへの置換だけを全候補から確認しています。57手構成そのものの作り直しは行いません。','成立（工程2/3・低コスト差し替え）','warn');
-    updateProgress({objectiveLabel:'工程2/3 現在解の低コスト差し替え',workStage:'local-cost-assignment',candidateVisited:0,candidateTotal:1,hands:best.metrics.hands,label:'CardNo容量1の最小費用割当'});
-    await new Promise(r=>setTimeout(r,0));
-    if(!currentPhaseAbortOutcome()){
-      const lc=localMinCostAssignment(best,baseInfos);localCostChecked=true;
-      if(lc.ok&&Number(lc.result.metrics.totalCost)<beforeCost-1e-9){
-        best=lc.result;cardsProof=false;
-        logs.push('V8.3.8 LocalRefine 工程2: 同等機能owner割当で '+beforeCost.toFixed(1)+'C → '+Number(best.metrics.totalCost).toFixed(1)+'C / compatibility '+lc.compat);
-        publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程2/3：現在解と同等以上の機能を維持したまま '+beforeCost.toFixed(1)+'C → '+Number(best.metrics.totalCost).toFixed(1)+'C へ低コスト化しました。','成立（工程2/3・差し替え改善）','warn');
-      }else{
-        logs.push('V8.3.8 LocalRefine 工程2: 現在解の1owner→1owner同等機能置換範囲ではこれ以上の低C化なし'+(lc.ok?'':'（最小費用割当の最終sim不成立）')+'。');
-      }
-      updateProgress({objectiveLabel:'工程2/3 現在解の低コスト差し替え',workStage:'local-cost-done',candidateVisited:1,candidateTotal:1,hands:best.metrics.hands,label:`置換範囲確認完了 / ${Number(best.metrics.totalCost||0).toFixed(1)}C`});
+  if(!costProof&&!currentPhaseAbortOutcome()&&best.metrics&&!(best.metrics.unknownCostCards||0)){
+    // まず安価な1対1割当を上界改善のwarm startとして1回だけ利用。その後は必ず全候補H手再探索へ進む。
+    const beforeWarm=Number(best.metrics.totalCost||0);
+    const warm=localMinCostAssignment(best,baseInfos);
+    if(warm.ok&&Number(warm.result.metrics.totalCost)<beforeWarm-1e-9){
+      best=warm.result;
+      logs.push(`V8.3.14 SameHandsGlobalRefine 工程2 warm start: 1対1割当で ${beforeWarm.toFixed(1)}C → ${Number(best.metrics.totalCost).toFixed(1)}C。ここから全候補H手再探索。`);
+      publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),`工程2/3 warm start：${beforeWarm.toFixed(1)}C → ${Number(best.metrics.totalCost).toFixed(1)}C。続いて同じ${best.metrics.hands}手の全候補から別構成を探索します。`,'成立（工程2/3・全候補低コスト探索）','warn');
     }
+    sameHandsCostSearched=true;
+    publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),`工程2/3：${best.metrics.hands}手を固定し、現在 ${Number(best.metrics.totalCost||0).toFixed(1)}C 未満で成立する別構成を全候補から最大10分探索します。`,'成立（工程2/3・全候補低コスト探索）','warn');
+    const cg=await sameHandsGlobalCostRefine(baseInfos,best,updateProgress,logs,(cand,st)=>{
+      best=cand;
+      publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),st.stage,'成立（工程2/3・全候補低コスト探索）','warn');
+    });
+    best=cg.best;costProof=!!cg.proved;costOutcome=cg.outcome||'unproven';
   }
   if(currentPhaseAbortOutcome())costOutcome=currentPhaseAbortOutcome();
-  phaseOutcomes.cost=searchControl.finishPhase(costProof?'proved':(localCostChecked?'local-proved':costOutcome));
-  if(costProof)publishLiveResult(best,baseInfos,liveProof(handsProof,true,false,false),best.metrics.hands+'手全体で最低使用コスト '+Number(best.metrics.totalCost||0).toFixed(1)+'C を既存証明から確定。続いて現在解のカード統合確認へ進みます。','成立（工程2/3完了・カード統合へ）','ok');
-  else publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),'工程2/3完了。現在解の同等機能1対1置換範囲では '+Number(best.metrics.totalCost||0).toFixed(1)+'C が最良です。別構成を含む '+best.metrics.hands+'手全体の最低コストは証明していません。','成立（工程2/3・置換範囲確認済み）','warn');
+  phaseOutcomes.cost=searchControl.finishPhase(costProof?'proved':costOutcome);
+  if(costProof){
+    publishLiveResult(best,baseInfos,liveProof(handsProof,true,false,false),`${best.metrics.hands}手の全候補について、${(Number(best.metrics.totalCost)-costQuantum(baseInfos)).toFixed(1)}C以下が存在しないことを証明。最低使用コスト ${Number(best.metrics.totalCost||0).toFixed(1)}C を確定しました。`,'成立（工程2/3・最低コスト確定）','ok');
+  }else{
+    publishLiveResult(best,baseInfos,liveProof(handsProof,false,false,false),`工程2/3終了。${best.metrics.hands}手の全候補を対象に低コスト構成を探索し、現在最良 ${Number(best.metrics.totalCost||0).toFixed(1)}C を採用します。時間/探索上限のため最低コスト自体は未証明です。`,'成立（工程2/3・現在最良コスト）','warn');
+  }
 
-  // 工程3/3: 現在解の2～3owner分の使用機能を1ownerへ統合できる候補だけを列挙する。
-  // 各候補は50周physicalSimで成立確認。全H手構成のカード枚数Exactではない。
-  const cardCostCeiling=Number(best.metrics.totalCost||0);
-  searchControl.beginPhase('cards','現在解のカード枚数圧縮（2～3枚→1枚）','カード統合確認をスキップ',3,3,PHASE_LIMIT_MS,costProof?'全体最低コスト確定済み':'現在解の採用コスト '+cardCostCeiling.toFixed(1)+'C');
-  let cardsOutcome='local-proved',localCardsChecked=false;
+  // 工程3/3: H手固定 + 工程2の採用コスト以下を条件に、全候補からより少ない物理カード枚数の別構成を再探索する。
+  // 辞書式目的は「手数 → コスト → カード枚数」。したがってカード枚数のために採用コストを悪化させない。
+  let cardCostCeiling=Number(best.metrics.totalCost||0);
+  searchControl.beginPhase('cards',`${best.metrics.hands}手・${cardCostCeiling.toFixed(1)}C以下の全候補少カード探索`,`少カード全候補探索をスキップ`,3,3,PHASE_LIMIT_MS,costProof?'最低コスト確定済み':'現在最良コストを上限として維持');
+  let cardsOutcome='unproven',sameHandsCardsSearched=false,cardsWithinCeilingProof=false;
   if(!currentPhaseAbortOutcome()){
-    const beforeCards=Number(best.metrics.uniqueCards)||0,beforeCost=Number(best.metrics.totalCost)||0;
-    searchControl.updatePhase('現在解のカード枚数圧縮（2～3枚→1枚）','未採用候補も含め、現在解の複数owner機能を1枚に統合できるか確認');
-    publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程3/3：現在の成立解を基準に、2枚または3枚で担当している使用スキルを1枚で代替できる候補がないか全列挙しています。候補は50周CTシミュレータで成立確認します。','成立（工程3/3・カード統合確認）','warn');
-    const cc=await localCompressCards(best,baseInfos,cardCostCeiling,updateProgress);best=cc.best;
-    localCardsChecked=cc.complete===true&&!cc.aborted;
-    if(cc.aborted)cardsOutcome=cc.aborted;
-    logs.push('V8.3.8 LocalRefine 工程3: 2/3owner→1owner候補 '+Number(cc.checked||0).toLocaleString()+'検査 / 改善 '+Number(cc.improvements||0)+'回 / '+beforeCards+'枚→'+Number(best.metrics.uniqueCards||0)+'枚 / '+beforeCost.toFixed(1)+'C→'+Number(best.metrics.totalCost||0).toFixed(1)+'C'+(localCardsChecked?' / 統合範囲完走':' / 未完走'));
-    if(Number(best.metrics.uniqueCards)<beforeCards){
-      publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),'工程3/3：現在解基準の統合で '+beforeCards+'枚 → '+best.metrics.uniqueCards+'枚へ圧縮しました。採用コストは '+Number(best.metrics.totalCost||0).toFixed(1)+'C です。','成立（工程3/3・カード圧縮）','warn');
-    }
+    sameHandsCardsSearched=true;
+    publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),`工程3/3：${best.metrics.hands}手・${cardCostCeiling.toFixed(1)}C以下を維持し、現在 ${Number(best.metrics.uniqueCards)||0}枚未満で成立する別構成を全候補から最大10分探索します。`,'成立（工程3/3・全候補少カード探索）','warn');
+    const kg=await sameHandsGlobalCardRefine(baseInfos,best,cardCostCeiling,costProof,updateProgress,logs,(cand,st)=>{
+      best=cand;cardCostCeiling=Math.min(cardCostCeiling,Number(best.metrics.totalCost||cardCostCeiling));
+      publishLiveResult(best,baseInfos,liveProof(handsProof,costProof,false,false),st.stage,'成立（工程3/3・全候補少カード探索）','warn');
+    });
+    best=kg.best;cardsWithinCeilingProof=!!kg.boundProof;cardsProof=!!kg.proved;cardsOutcome=kg.outcome||'unproven';
   }
   if(currentPhaseAbortOutcome())cardsOutcome=currentPhaseAbortOutcome();
-  phaseOutcomes.cards=searchControl.finishPhase(cardsProof?'proved':(localCardsChecked&&!currentPhaseAbortOutcome()?'local-proved':cardsOutcome));
+  phaseOutcomes.cards=searchControl.finishPhase(cardsProof?'proved':cardsOutcome);
   if(handsProof&&costProof&&cardsProof&&best.metrics&&sat&&sat.complete&&sat.costKnown&&sat.coversAllModes===true&&Number(sat.hands)===Number(best.metrics.hands)&&Number(sat.maxMargin)===Number(best.metrics.minSupplyMargin))marginProof=true;
   searchControl.finalPhaseSummary={line:'現在の工程：完了（3/3）',time:`手数: ${phaseOutcomeReason(phaseOutcomes.hands)} ｜ コスト: ${phaseOutcomeReason(phaseOutcomes.cost)} ｜ カード: ${phaseOutcomeReason(phaseOutcomes.cards)}`};
   searchControl.clearPhase();
 
-  const final={...best,proof:{hands:handsProof,cost:costProof,cards:cardsProof,margin:marginProof,cardCostCeiling,phaseOutcomes,localCostChecked:!!localCostChecked,localCardsChecked:!!localCardsChecked,localCostScope:'現在解の1owner→1owner同等機能置換',localCardsScope:'現在解の2～3owner→1owner統合'},logs};
+  const final={...best,proof:{hands:handsProof,cost:costProof,cards:cardsProof,margin:marginProof,cardCostCeiling,phaseOutcomes,
+    sameHandsCostSearched:!!sameHandsCostSearched,sameHandsCardsSearched:!!sameHandsCardsSearched,cardsWithinCeilingProof:!!cardsWithinCeilingProof,
+    lexicographicObjective:'手数→コスト→カード枚数',
+    costSearchScope:`${best.metrics.hands}手固定・全候補`,
+    cardsSearchScope:`${best.metrics.hands}手固定・${Number(cardCostCeiling).toFixed(1)}C以下・全候補`,
+    localCostChecked:false,localCardsChecked:false},logs};
   const sim=physicalSim(final.order,baseInfos,50);final.physicalSim=sim;if(!sim.ok)throw new Error(`V8候補を独立CTシミュレータで検証したところ、${sim.round}周目 ${sim.step}手目で ${sim.skillName} のCTが ${sim.remaining}分残っていました。出力は採用しません。`);
   app.lastResult=final;
 
   const hText=handsProof?'最小手数確定':('採用手数 '+best.metrics.hands+'手・最小性未証明');
-  const cText=costProof?(best.metrics.hands+'手全体の最低コスト確定'):(localCostChecked?'現在解の同等機能置換範囲で低コスト化確認済み':'コスト確認未完了');
-  const kText=cardsProof?'全体の最少カード枚数確定':(localCardsChecked?'現在解の2～3枚→1枚統合範囲を確認済み':'カード圧縮確認未完了');
+  const cText=costProof?(best.metrics.hands+'手全体の最低コスト確定'):(sameHandsCostSearched?`${best.metrics.hands}手の全候補から現在最良 ${Number(best.metrics.totalCost||0).toFixed(1)}C`:'コスト探索未実施');
+  const kText=cardsProof?(`最低コスト条件内の最少カード枚数 ${best.metrics.uniqueCards}枚確定`):(sameHandsCardsSearched?`${best.metrics.hands}手・${Number(cardCostCeiling).toFixed(1)}C以下の全候補から現在最良 ${best.metrics.uniqueCards}枚`:'カード枚数探索未実施');
   const allGlobal=handsProof&&costProof&&cardsProof;
-  const localDone=!!localCostChecked&&!!localCardsChecked;
-  const finalStatus=allGlobal?'成立（手数・コスト・カード確定）':(handsProof&&localDone?'成立（最小手数確定・現在解最適化完了）':localDone?'成立（現在解最適化完了・手数未証明）':'成立（時間制限付き探索終了）');
-  const finalStage=`探索完了。${hText}。${cText}。${kText}。工程結果: 手数=${phaseOutcomeReason(phaseOutcomes.hands)} / コスト=${phaseOutcomeReason(phaseOutcomes.cost)} / カード=${phaseOutcomeReason(phaseOutcomes.cards)}。工程2・3の「確認済み」は現在成立解からの局所置換範囲を意味し、別の${best.metrics.hands}手構成すべてに対する全体最適性は表しません。`;
+  const searchedGlobal=!!sameHandsCostSearched&&!!sameHandsCardsSearched;
+  const finalStatus=allGlobal?'成立（手数・コスト・カード確定）':(handsProof&&searchedGlobal?'成立（最小手数確定・同手数候補を全体探索）':searchedGlobal?'成立（同手数候補を全体探索・手数未証明）':'成立（時間制限付き探索終了）');
+  const finalStage=`探索完了。${hText}。${cText}。${kText}。辞書式目的=手数→コスト→カード枚数。工程結果: 手数=${phaseOutcomeReason(phaseOutcomes.hands)} / コスト=${phaseOutcomeReason(phaseOutcomes.cost)} / カード=${phaseOutcomeReason(phaseOutcomes.cards)}。工程2・3は現在解だけの局所置換ではなく、同じ${best.metrics.hands}手の全候補から別構成を再構築して探索しています。時間切れ/未完走時はその時点の最良成立解を採用し、未証明を確定扱いしません。`;
   final.liveStage=finalStage;final.liveStageType=allGlobal?'ok':'warn';setSolveStatus(finalStatus,allGlobal?'ok':'warn');renderResult(final);
   document.getElementById('progressBar').style.width='100%';document.getElementById('progressLabel').textContent='完了：3工程終了';
   updateCurrentPhaseUi();
   if(searchControl.lastProgress){
     const fp=Object.assign({},searchControl.lastProgress,{workStage:'完了',label:'',generalGapCurrentStates:0,generalGapCurrentLimit:0,gapFixedPointCurrentStates:0,gapFixedPointCurrentLimit:0,forcedPropagationCurrentNodes:0,forcedPropagationCurrentLimit:0,manyTopologyCurrentLeaf:0,manyTopologyCurrentRepeated:0,manyTopologyCurrentLeafLimit:0,manyTopologyCurrentLeafPass:0,manyTopologyTargetClassCurrentCanonical:0,manyTopologyTargetClassCurrentOrbitPruned:0,manyTopologyTargetClassCurrentClasses:0,manyTopologyTargetClassCurrentMembers:0,manyTopologyTargetClassCurrentCompressed:0});
-    if((Number(fp.candidateTotal)||0)>0&&localCardsChecked){fp.candidateVisited=fp.candidateTotal;fp.candidatePct=100;}
+    if((Number(fp.candidateTotal)||0)>0&&sameHandsCardsSearched&&phaseOutcomes.cards&&phaseOutcomes.cards.outcome==='proved'){fp.candidateVisited=fp.candidateTotal;fp.candidatePct=100;}
     searchControl.lastProgress=fp;
     const sm=document.getElementById('progressSummary');if(sm)sm.textContent=buildProgressSummary(fp);
     const de=document.getElementById('progressDetail');if(de)de.textContent=buildProgressDetail(fp);
@@ -5765,16 +5887,16 @@ function renderResult(r){
   const nLabel=document.getElementById('cardsOut')?.parentElement?.querySelector('.k');
   const h=Number(m.hands||r.order?.length||0),ceiling=Number(p.cardCostCeiling!=null?p.cardCostCeiling:m.totalCost||0);
   if(hLabel)hLabel.textContent=p.hands?'最小手数':'採用手数（最小性未証明）';
-  if(cLabel)cLabel.textContent=p.cost?`${h}手全体の最低使用コスト`:(p.localCostChecked?'現在解の置換後コスト':`${h}手内現在最良コスト`);
-  if(nLabel)nLabel.textContent=p.cards?`全体の最少使用カード枚数`:(p.localCardsChecked?'現在解の局所圧縮後カード枚数':`${h}手・${ceiling.toFixed(1)}C以下で現在カード枚数`);
+  if(cLabel)cLabel.textContent=p.cost?`${h}手全体の最低使用コスト`:(p.sameHandsCostSearched?`${h}手全候補探索の現在最良コスト`:`${h}手内現在最良コスト`);
+  if(nLabel)nLabel.textContent=p.cards?`最低コスト条件内の最少使用カード枚数`:(p.sameHandsCardsSearched?`${h}手・${ceiling.toFixed(1)}C以下の全候補探索で現在最良カード枚数`:`${h}手・${ceiling.toFixed(1)}C以下で現在カード枚数`);
   const po=p.phaseOutcomes||{};
   const hs=p.hands?'確定':('未証明'+(po.hands?'（'+phaseOutcomeReason(po.hands)+'）':''));
-  const cs=p.cost?`${h}手全体で確定`:(p.localCostChecked?'現在解の同等機能置換範囲を確認済み':`${h}手全体では未証明${po.cost?'（'+phaseOutcomeReason(po.cost)+'）':''}`);
-  const ks=p.cards?'全体で確定':(p.localCardsChecked?'現在解の2～3枚→1枚統合範囲を確認済み':`全体では未証明${po.cards?'（'+phaseOutcomeReason(po.cards)+'）':''}`);
+  const cs=p.cost?`${h}手全体で確定`:(p.sameHandsCostSearched?`${h}手全候補を探索・未証明${po.cost?'（'+phaseOutcomeReason(po.cost)+'）':''}`:`未証明${po.cost?'（'+phaseOutcomeReason(po.cost)+'）':''}`);
+  const ks=p.cards?'最低コスト条件内で確定':(p.sameHandsCardsSearched?`${h}手・${ceiling.toFixed(1)}C以下の全候補を探索・未証明${po.cards?'（'+phaseOutcomeReason(po.cards)+'）':''}`:`未証明${po.cards?'（'+phaseOutcomeReason(po.cards)+'）':''}`);
   const badges=[
     `<span class="badge ${p.hands?'ok':'warn'}">手数=${hs}</span>`,
-    `<span class="badge ${(p.cost||p.localCostChecked)?'ok':'warn'}">コスト=${cs}</span>`,
-    `<span class="badge ${(p.cards||p.localCardsChecked)?'ok':'warn'}">カード=${ks}</span>`
+    `<span class="badge ${p.cost?'ok':'warn'}">コスト=${cs}</span>`,
+    `<span class="badge ${p.cards?'ok':'warn'}">カード=${ks}</span>`
   ];
   document.getElementById('proofLine').innerHTML=badges.join(' ');
   const stageEl=document.getElementById('resultStageLine');
